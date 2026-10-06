@@ -223,6 +223,31 @@ class VRTests(BaseFinanceTest):
         self.assertEqual(CreditCardExpense.objects.get().vr_amount, Decimal('50.00'))
         self.assertEqual(VRMovement.objects.get().amount, Decimal('50.00'))
 
+    def test_quick_expense_paid_entirely_with_vr_creates_visible_linked_entry(self):
+        response = self.client.post(reverse('finance:quick_expense'), {
+            'date': self.today.isoformat(),
+            'description': 'Compra integral VR',
+            'category': self.food.pk,
+            'payment_method': Transaction.PaymentMethod.VR,
+            'amount': '50.00',
+            'vr_amount': '50.00',
+            'responsible': 'SELF',
+            'paid': 'on',
+            'installment_total': '1',
+            'notes': '',
+        })
+        self.assertRedirects(response, reverse('finance:dashboard'))
+        tx = Transaction.objects.get(description='Compra integral VR')
+        self.assertEqual(tx.payment_method, Transaction.PaymentMethod.VR)
+        self.assertEqual(tx.amount, Decimal('50.00'))
+        self.assertTrue(tx.paid)
+        movement = VRMovement.objects.get(transaction=tx)
+        self.assertEqual(movement.amount, Decimal('50.00'))
+        self.assertEqual(monthly_summary(2026, 9)['vr_spent'], Decimal('50.00'))
+        self.assertEqual(monthly_summary(2026, 9)['expenses'], Decimal('0.00'))
+        dashboard = self.client.get(reverse('finance:dashboard'), {'year': 2026, 'month': 9})
+        self.assertContains(dashboard, 'Compra integral VR')
+
     def test_vr_purchase_is_marked_in_dashboard_without_changing_financial_value(self):
         create_card_installments({
             'date': self.today,

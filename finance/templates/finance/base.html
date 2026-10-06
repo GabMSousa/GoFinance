@@ -15,7 +15,7 @@
 <body>
   <div class="app-shell">
     <aside class="sidebar">
-      <a class="brand" href="{% url 'finance:dashboard' %}"><span class="brand-mark">GF</span><span>GoFinance</span></a>
+      <a class="brand" href="{% url 'finance:dashboard' %}"><img class="brand-mark" src="{% static 'finance/img/gofinance-mark.svg' %}" alt="" aria-hidden="true"><span>GoFinance</span></a>
       <nav class="main-nav">
         <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'finance:dashboard' %}">Início</a>
         <a class="nav-link {% if request.resolver_match.url_name == 'fixed_list' %}active{% endif %}" href="{% url 'finance:fixed_list' %}">Contas fixas</a>
@@ -31,7 +31,7 @@
     </aside>
     <main class="main-content">
       <div class="mobile-topbar">
-        <a class="brand" href="{% url 'finance:dashboard' %}"><span class="brand-mark">GF</span><span>GoFinance</span></a>
+        <a class="brand" href="{% url 'finance:dashboard' %}"><img class="brand-mark" src="{% static 'finance/img/gofinance-mark.svg' %}" alt="" aria-hidden="true"><span>GoFinance</span></a>
         <div><button class="menu-button" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileMenu">Menu</button><a class="btn btn-accent btn-sm" href="#addModal" data-bs-toggle="modal">+ Adicionar</a></div>
       </div>
       <div class="offcanvas offcanvas-start mobile-menu" tabindex="-1" id="mobileMenu">

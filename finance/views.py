@@ -604,6 +604,24 @@ def quick_expense(request):
                 installment_total=1,
                 notes=f'Compra total R$ {total}. VR R$ {vr_amount}. {notes}'.strip(),
             )
+        elif vr_amount > 0:
+            # Keep a visible ledger entry for purchases made entirely with VR.
+            # The linked VR movement remains the source of the debit; this
+            # transaction is excluded from bank expenses by monthly_summary.
+            tx = Transaction.objects.create(
+                date=d['date'],
+                description=d['description'],
+                category=d['category'],
+                type=Transaction.Type.EXPENSE,
+                payment_method=Transaction.PaymentMethod.VR,
+                amount=vr_amount,
+                paid=d['paid'],
+                person=person,
+                reimbursable=d['reimbursable'],
+                received=d['received'],
+                installment_total=1,
+                notes=f'Compra paga integralmente com VR. {notes}'.strip(),
+            )
         if vr_amount > 0:
             VRMovement.objects.create(
                 date=d['date'],

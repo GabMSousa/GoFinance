@@ -14,7 +14,7 @@
   <a class="btn btn-outline-danger btn-sm" href="{% url 'finance:vr_create' %}">Registrar gasto</a>
   <a class="btn btn-outline-warning btn-sm" href="{% url 'finance:vr_create' %}">Registrar ajuste</a>
 </p>
-<div class="table-responsive">
+<section class="data-panel vr-table-panel"><div class="table-responsive">
   <table class="table">
     <thead><tr><th>Data</th><th>Descrição</th><th>Tipo</th><th>Valor</th></tr></thead>
     <tbody>
@@ -30,6 +30,6 @@
       {% endfor %}
     </tbody>
   </table>
-</div>
+</div></section>
 <section class="data-panel mt-3"><div class="panel-heading"><div><h2>Correções</h2><p>Edite qualquer movimento de VR já lançado.</p></div></div><div class="settings-list">{% for x in items %}<div class="settings-row"><div><strong>{{ x.description }}</strong><span>R$ {{ x.amount|floatformat:2 }}</span></div><a href="{% url 'finance:vr_edit' x.id %}">Editar</a></div>{% endfor %}</div></section>
 {% endblock %}
