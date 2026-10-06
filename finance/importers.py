@@ -6,13 +6,16 @@ import unicodedata
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 
-from .models import Category, CreditCardExpense, Person
+from .models import Category, CreditCardExpense, Person, VRMovement
+
+csv.field_size_limit(1024 * 1024)
 
 
 ALIASES = {
     'date': {'date', 'data', 'transactiondate', 'purchasedate'},
     'description': {'description', 'descricao', 'descrição', 'title', 'titulo', 'merchant', 'name'},
     'amount': {'amount', 'valor', 'value', 'total'},
+    'vr_amount': {'vr', 'vramount', 'valerefeicao', 'voucher'},
     'installment': {'installment', 'parcela', 'parcelas'},
 }
 
@@ -89,7 +92,9 @@ def preview_csv(content, invoice_month):
     if missing:
         raise ValueError(f'Colunas obrigatórias ausentes: {", ".join(missing)}')
     rows = []
-    for raw in reader:
+    for row_number, raw in enumerate(reader, start=2):
+        if row_number > 10000:
+            raise ValueError('O arquivo CSV excede o limite de 10.000 linhas.')
         description = (raw.get(fields['description']) or '').strip()
         if not description:
             continue
@@ -99,6 +104,9 @@ def preview_csv(content, invoice_month):
         try:
             purchase_date = parse_date(raw.get(fields['date']))
             amount = parse_amount(raw.get(fields['amount']))
+            vr_amount = parse_amount(raw.get(fields['vr_amount'])) if fields.get('vr_amount') else Decimal('0.00')
+            if vr_amount > amount:
+                raise ValueError('O valor de VR não pode ser maior que o total da compra.')
         except (ValueError, InvalidOperation) as exc:
             raise ValueError(f'Linha inválida para {description}: {exc}') from exc
         current, total = installment_for(description, raw.get(fields.get('installment', ''), ''))
@@ -111,7 +119,7 @@ def preview_csv(content, invoice_month):
         duplicate = bool(CreditCardExpense.objects.filter(import_hash=fingerprint).exists() or legacy_duplicate)
         rows.append({
             'purchase_date': purchase_date.isoformat(), 'description': description,
-            'amount': str(amount), 'current_installment': current, 'total_installments': total,
+            'amount': str(amount), 'vr_amount': str(vr_amount), 'current_installment': current, 'total_installments': total,
             'category': category_for(description), 'duplicate': duplicate, 'import_hash': fingerprint,
         })
     return rows
@@ -129,14 +137,23 @@ def import_preview_rows(rows, invoice_month, source_name='CSV'):
             continue
         purchase_date = date.fromisoformat(row['purchase_date'])
         current, total = int(row['current_installment']), int(row['total_installments'])
-        CreditCardExpense.objects.create(
+        expense = CreditCardExpense.objects.create(
             date=invoice_month, purchase_date=purchase_date, invoice_month=invoice_month,
             description=row['description'], amount=Decimal(row['amount']),
             category=category_map.get(row['category']) or category_map.get('Outros'), person=person,
             current_installment=current, total_installments=total,
             total_amount=(Decimal(row['amount']) * total).quantize(Decimal('0.01')),
             reimbursable=False, notes=f'{source_name}; importado via prévia CSV.',
+            vr_amount=Decimal(row.get('vr_amount') or '0.00'),
             import_hash=row['import_hash'],
         )
+        if expense.vr_amount > 0:
+            VRMovement.objects.create(
+                date=expense.date,
+                description=expense.description,
+                movement_type=VRMovement.Type.DEBIT,
+                amount=expense.vr_amount,
+                notes=f'{source_name}; VR importado via CSV.',
+            )
         created += 1
     return created, skipped

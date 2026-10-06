@@ -113,6 +113,7 @@ def monthly_summary(year, month):
     explicit_salary = explicit_revenues.filter(revenue_type=Transaction.RevenueType.SALARY).exists()
     profile = financial_profile_for_month(year, month)
     salary_net = to_decimal(profile.salary_net if profile else 0)
+    opening_balance = to_decimal(getattr(profile, 'opening_balance', 0))
     automatic_salary = ZERO if explicit_salary else salary_net
     revenues = money_sum(explicit_revenues, 'amount') + automatic_salary
     reimbursements_tx = money_sum(
@@ -169,7 +170,7 @@ def monthly_summary(year, month):
     expenses_total = fixed_non_card + variable_non_card + card_invoice
     bank_outflow = expenses_total + investment_month
     inflow = revenues + reimbursements_tx + third_party_received
-    final_balance = inflow - bank_outflow
+    final_balance = opening_balance + inflow - bank_outflow
 
     category_rows = list(
         tx.filter(type=Transaction.Type.EXPENSE)
@@ -189,6 +190,7 @@ def monthly_summary(year, month):
     return {
         'revenues': revenues,
         'salary_net': salary_net,
+        'opening_balance': opening_balance,
         'automatic_salary': automatic_salary,
         'expenses': expenses_total,
         'reimbursements': reimbursements_tx + third_party_received,

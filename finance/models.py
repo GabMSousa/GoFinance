@@ -226,6 +226,7 @@ class SalarySnapshot(models.Model):
     salary_gross = models.DecimalField('Salário bruto', max_digits=12, decimal_places=2, default=3000)
     salary_net = models.DecimalField('Salário líquido', max_digits=12, decimal_places=2, default=2751.20)
     vr_monthly_credit = models.DecimalField('VR mensal', max_digits=12, decimal_places=2, default=500)
+    opening_balance = models.DecimalField('Saldo inicial', max_digits=12, decimal_places=2, default=0)
     created_at = models.DateTimeField('Criado em', auto_now_add=True)
 
     class Meta:
@@ -339,6 +340,11 @@ class CreditCardExpense(models.Model):
 
 
 class Investment(models.Model):
+    class Recurrence(models.TextChoices):
+        ONE_TIME = 'ONE_TIME', 'Único'
+        MONTHLY = 'MONTHLY', 'Mensal'
+        YEARLY = 'YEARLY', 'Anual'
+
     class Type(models.TextChoices):
         CDB = 'CDB', 'CDB'
         TREASURY = 'TREASURY', 'Tesouro'
@@ -351,6 +357,14 @@ class Investment(models.Model):
 
     date = models.DateField('Data')
     description = models.CharField('Descrição', max_length=180)
+    category = models.ForeignKey(
+        Category,
+        on_delete=models.PROTECT,
+        related_name='investments',
+        verbose_name='Categoria',
+        null=True,
+        blank=True,
+    )
     type = models.CharField('Tipo', max_length=20, choices=Type.choices)
     amount = models.DecimalField(
         'Valor aplicado',
@@ -359,6 +373,15 @@ class Investment(models.Model):
         validators=[MinValueValidator(Decimal('0.01'))],
     )
     current_balance = models.DecimalField('Saldo atual', max_digits=12, decimal_places=2, default=0)
+    payment_method = models.CharField(
+        'Conta utilizada',
+        max_length=20,
+        choices=Transaction.PaymentMethod.choices,
+        default=Transaction.PaymentMethod.PIX,
+    )
+    recurrence = models.CharField('Periodicidade', max_length=10, choices=Recurrence.choices, default=Recurrence.ONE_TIME)
+    due_day = models.PositiveSmallIntegerField('Dia', null=True, blank=True)
+    active = models.BooleanField('Ativo?', default=True)
     notes = models.TextField('Observações', blank=True)
     created_at = models.DateTimeField('Criado em', auto_now_add=True)
     updated_at = models.DateTimeField('Atualizado em', auto_now=True)
@@ -374,6 +397,8 @@ class Investment(models.Model):
     def clean(self):
         if self.amount is not None and self.amount <= 0:
             raise ValidationError({'amount': 'Informe um valor maior que zero.'})
+        if self.due_day is not None and not 1 <= self.due_day <= 31:
+            raise ValidationError({'due_day': 'Dia deve estar entre 1 e 31.'})
 
 
 class VRMovement(models.Model):

@@ -1,6 +1,6 @@
-# SaaS Finance
+# GoFinance
 
-Sistema web pessoal de controle financeiro, feito com Django + SQLite + Bootstrap 5 + Chart.js.
+Sistema web pessoal de controle financeiro, feito com Django + MySQL/SQLite + Bootstrap 5 + Chart.js.
 
 Uso previsto: uma única pessoa, em servidor Linux interno. Não há cadastro de múltiplos usuários.
 
@@ -27,7 +27,37 @@ Acesse `http://IP_DO_SERVIDOR:8000`.
 
 Admin: `http://IP_DO_SERVIDOR:8000/admin/`.
 
-Copie `.env.example` para `.env` e altere `DJANGO_SECRET_KEY`, `DJANGO_DEBUG` e `DJANGO_ALLOWED_HOSTS`.
+Copie `.env.example` para `.env` e altere `DJANGO_SECRET_KEY`, `DJANGO_DEBUG`, `DJANGO_ALLOWED_HOSTS` e as credenciais do banco.
+
+## MySQL no Raspberry Pi
+
+Em Debian/Raspberry Pi OS, instale o servidor e as dependências do driver:
+
+```bash
+sudo apt update
+sudo apt install -y mariadb-server default-libmysqlclient-dev build-essential pkg-config
+sudo mysql_secure_installation
+```
+
+Crie o banco e o usuário dedicado, alterando a senha antes de executar:
+
+```bash
+sudo mysql < deploy/mysql-init.sql
+```
+
+No `.env`, use `DJANGO_DB_ENGINE=mysql`, uma senha forte em `MYSQL_PASSWORD` e `DJANGO_DEBUG=0`. Para uma instalação atrás de HTTPS, ative também `DJANGO_SECURE_SSL_REDIRECT=1`, `DJANGO_SESSION_COOKIE_SECURE=1`, `DJANGO_CSRF_COOKIE_SECURE=1` e defina `DJANGO_SECURE_HSTS_SECONDS=31536000`.
+
+Para migrar os dados existentes do SQLite sem apagar o arquivo original:
+
+```bash
+cp db.sqlite3 backup_before_mysql_$(date +%Y-%m-%d).sqlite3
+DJANGO_DB_ENGINE=sqlite python manage.py dumpdata --natural-foreign --natural-primary --exclude contenttypes --exclude auth.permission --indent 2 > /tmp/gofinance.json
+# altere o .env para MySQL
+python manage.py migrate
+python manage.py loaddata /tmp/gofinance.json
+```
+
+Valide a importação com `python manage.py test` e mantenha o backup até conferir os lançamentos, faturas, contas fixas e relatórios.
 
 ## Login inicial
 
@@ -103,6 +133,18 @@ sudo systemctl enable --now saas-finance
 sudo nginx -t
 sudo systemctl reload nginx
 ```
+
+O Nginx inclui headers de hardening e limitação básica de tentativas em `/login/`. Em produção, exponha apenas o Nginx, mantenha Gunicorn ligado em `127.0.0.1`, não publique a porta 3306 e prefira HTTPS com certificado válido.
+
+## Controles de segurança aplicados
+
+- ORM do Django para acesso parametrizado ao banco; não há consultas SQL concatenadas no código da aplicação.
+- MySQL/MariaDB com `utf8mb4`, modo estrito e timeout de conexão configurados.
+- CSRF, cookies `HttpOnly`, `SameSite=Lax`, `X-Frame-Options`, `nosniff`, `Referrer-Policy` e `Permissions-Policy`.
+- CSP configurável, inicialmente em modo `Report-Only` para não quebrar os scripts existentes; após validar a interface, use `DJANGO_CSP_REPORT_ONLY=0`.
+- Validadores de senha com mínimo de 12 caracteres.
+- Upload CSV limitado a 5 MB, extensão/tipo validados e máximo de 10.000 linhas.
+- Rate limit de login no Nginx; para exposição externa, complemente com WAF/fail2ban e HTTPS.
 
 ## Testes
 

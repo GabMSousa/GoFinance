@@ -1,5 +1,5 @@
 [Unit]
-Description=SaaS Finance Django
+Description=GoFinance Django
 After=network.target
 
 [Service]
@@ -10,6 +10,12 @@ EnvironmentFile=/opt/saas_finance/.env
 Environment="DJANGO_DEBUG=0"
 ExecStart=/opt/saas_finance/.venv/bin/gunicorn --workers 2 --bind 127.0.0.1:8000 config.wsgi:application
 Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+UMask=027
 
 [Install]
 WantedBy=multi-user.target

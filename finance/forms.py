@@ -145,6 +145,13 @@ class GoalForm(BootstrapModelForm):
 
 
 class FinancialProfileForm(BootstrapModelForm):
+    opening_balance = forms.DecimalField(
+        label='Saldo inicial do mês',
+        min_value=Decimal('0.00'),
+        decimal_places=2,
+        required=False,
+    )
+
     class Meta:
         model = FinancialProfile
         fields = ['salary_gross', 'salary_net', 'previous_net_salary', 'vr_monthly_credit']
@@ -158,6 +165,17 @@ class CardBillPaymentForm(BootstrapMixin, forms.Form):
 class CsvImportForm(BootstrapMixin, forms.Form):
     csv_file = forms.FileField(label='Arquivo CSV')
     invoice_month = forms.DateField(label='Mês da fatura', widget=forms.DateInput(attrs={'type': 'date'}))
+
+    def clean_csv_file(self):
+        uploaded = self.cleaned_data['csv_file']
+        if uploaded.size > 5 * 1024 * 1024:
+            raise forms.ValidationError('O arquivo CSV deve ter no máximo 5 MB.')
+        if not uploaded.name.lower().endswith('.csv'):
+            raise forms.ValidationError('Envie um arquivo com extensão .csv.')
+        allowed_types = {'text/csv', 'application/csv', 'text/plain', ''}
+        if uploaded.content_type not in allowed_types:
+            raise forms.ValidationError('O arquivo enviado não foi reconhecido como CSV.')
+        return uploaded
 
 
 class CreditCardExpenseForm(BootstrapModelForm):
@@ -229,11 +247,18 @@ class CreditCardExpenseForm(BootstrapModelForm):
 class InvestmentForm(BootstrapModelForm):
     class Meta:
         model = Investment
-        fields = ['date', 'description', 'type', 'amount', 'current_balance', 'notes']
+        fields = [
+            'date', 'description', 'category', 'type', 'amount', 'current_balance',
+            'payment_method', 'recurrence', 'due_day', 'active', 'notes',
+        ]
         widgets = {
             'date': forms.DateInput(attrs={'type': 'date'}),
             'notes': forms.Textarea(attrs={'rows': 3}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['category'].queryset = Category.objects.filter(active=True)
 
 
 class VRMovementForm(BootstrapModelForm):
