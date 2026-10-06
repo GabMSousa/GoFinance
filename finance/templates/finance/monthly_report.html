@@ -3,6 +3,7 @@
 {% block content %}
 <h2>Resumo Mensal</h2>
 {% include 'finance/_period.html' %}
+<div class="d-flex gap-2 mb-3"><a class="btn btn-primary" href="{% url 'finance:report_csv' %}?year={{ year }}&month={{ month }}">Exportar CSV</a><a class="btn btn-outline-secondary" href="{% url 'finance:report_pdf' %}?year={{ year }}&month={{ month }}">Exportar PDF</a></div>
 <div class="card">
   <div class="card-body">
     <table class="table mb-0">
