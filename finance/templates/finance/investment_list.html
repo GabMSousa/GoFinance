@@ -5,7 +5,7 @@
 {% include 'finance/_period.html' %}
 <div class="summary-strip"><div><span>Total no mês</span><strong>R$ {{ month_total|floatformat:2 }}</strong></div><div><span>Recorrentes ativos</span><strong>{{ recurring_items|length }}</strong></div><div><span>Saldo aplicado</span><strong>R$ {{ balance_total|floatformat:2 }}</strong></div></div>
 {% if next_investment %}<p class="form-help">Próximo investimento: <strong>{{ next_investment.description }}</strong> em {{ next_investment.date|date:'d/m/Y' }} — R$ {{ next_investment.amount|floatformat:2 }}.</p>{% endif %}
-<div class="table-responsive">
+<section class="data-panel investment-table-panel"><div class="table-responsive">
   <table class="table">
     <thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Tipo</th><th>Valor</th><th>Periodicidade</th><th>Status</th><th>Ações</th></tr></thead>
     <tbody>
@@ -25,5 +25,5 @@
       {% endfor %}
     </tbody>
   </table>
-</div>
+</div></section>
 {% endblock %}
