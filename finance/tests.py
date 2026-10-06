@@ -429,6 +429,27 @@ class SeedAndPagesTests(BaseFinanceTest):
 
 
 class FinalRefinementTests(BaseFinanceTest):
+    def test_existing_revenue_and_person_can_be_edited(self):
+        revenue = Transaction.objects.create(date=self.today, description='Renda antiga', type=Transaction.Type.REVENUE, payment_method=Transaction.PaymentMethod.PIX, amount=Decimal('100.00'), paid=True, person=self.me, revenue_type=Transaction.RevenueType.EXTRA)
+        response = self.client.post(reverse('finance:revenue_edit', args=[revenue.pk]), {'date': self.today.isoformat(), 'description': 'Renda corrigida', 'amount': '150.00', 'revenue_type': Transaction.RevenueType.EXTRA, 'payment_method': Transaction.PaymentMethod.PIX, 'paid': 'on', 'notes': 'ajustada'})
+        self.assertRedirects(response, reverse('finance:revenue_list'))
+        revenue.refresh_from_db()
+        self.assertEqual(revenue.description, 'Renda corrigida')
+        response = self.client.post(reverse('finance:person_edit', args=[self.vitoria.pk]), {'name': 'Vitória corrigida', 'active': 'on'})
+        self.assertRedirects(response, reverse('finance:settings'))
+        self.vitoria.refresh_from_db()
+        self.assertEqual(self.vitoria.name, 'Vitória corrigida')
+
+    def test_editing_card_vr_updates_vr_movement_and_keeps_invoice_month(self):
+        item = create_card_installments({'date': self.today, 'description': 'Almoço', 'category': self.food, 'person': self.me, 'amount': Decimal('30.00'), 'vr_amount': Decimal('50.00'), 'total_installments': 1})[0]
+        response = self.client.post(reverse('finance:card_edit', args=[item.pk]), {'date': self.today.isoformat(), 'description': 'Almoço corrigido', 'category': self.food.pk, 'amount': '40.00', 'responsible': 'SELF', 'person_name': '', 'current_installment': '1', 'total_installments': '1', 'received': '', 'reimbursed_amount': '0.00', 'reimbursed_at': '', 'vr_amount': '40.00', 'notes': ''})
+        self.assertRedirects(response, reverse('finance:card_list'))
+        item.refresh_from_db()
+        self.assertEqual(item.vr_amount, Decimal('40.00'))
+        self.assertEqual(item.invoice_month, date(2026, 9, 1))
+        vr = VRMovement.objects.get(description='Almoço corrigido')
+        self.assertEqual(vr.amount, Decimal('40.00'))
+
     def test_salary_is_automatic_and_is_preserved_by_snapshot(self):
         FinancialProfile.objects.create(pk=1, salary_gross=Decimal('3000'), salary_net=Decimal('2751.20'), previous_net_salary=Decimal('2299'), vr_monthly_credit=Decimal('500'))
         SalarySnapshot.objects.create(month=date(2026, 9, 1), salary_gross=Decimal('3000'), salary_net=Decimal('2751.20'), vr_monthly_credit=Decimal('500'))
