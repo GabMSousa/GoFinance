@@ -31,4 +31,5 @@
     </tbody>
   </table>
 </div>
+<section class="data-panel mt-3"><div class="panel-heading"><div><h2>Correções</h2><p>Edite qualquer movimento de VR já lançado.</p></div></div><div class="settings-list">{% for x in items %}<div class="settings-row"><div><strong>{{ x.description }}</strong><span>R$ {{ x.amount|floatformat:2 }}</span></div><a href="{% url 'finance:vr_edit' x.id %}">Editar</a></div>{% endfor %}</div></section>
 {% endblock %}

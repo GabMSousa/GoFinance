@@ -31,6 +31,12 @@ class CategoryForm(BootstrapModelForm):
         fields = ['name', 'active']
 
 
+class PersonForm(BootstrapModelForm):
+    class Meta:
+        model = Person
+        fields = ['name', 'active']
+
+
 class TransactionForm(BootstrapModelForm):
     class Meta:
         model = Transaction
