@@ -433,6 +433,16 @@ class FinalRefinementTests(BaseFinanceTest):
         self.assertEqual(CreditCardExpense.objects.count(), 3)
         self.assertEqual(monthly_summary(2026, 9)['expenses'], Decimal('200.00'))
 
+    def test_bill_payment_can_be_undone_and_months_are_independent(self):
+        self.client.post(reverse('finance:pay_bill') + '?year=2026&month=9', {'amount': '100.00', 'paid_at': '2026-10-05'})
+        self.assertEqual(CreditCardBill.objects.get(invoice_month=date(2026, 9, 1)).status, CreditCardBill.Status.PAID)
+        self.assertFalse(CreditCardBill.objects.filter(invoice_month=date(2026, 10, 1)).exists())
+        response = self.client.post(reverse('finance:undo_bill_payment') + '?year=2026&month=9')
+        self.assertEqual(response.status_code, 302)
+        bill = CreditCardBill.objects.get(invoice_month=date(2026, 9, 1))
+        self.assertEqual(bill.status, CreditCardBill.Status.PENDING)
+        self.assertIsNone(bill.paid_at)
+
     def test_csv_preview_and_reimport_are_idempotent(self):
         content = 'DATE,DESCRIPTION,AMOUNT,INSTALLMENT\n05/10/2026,MERCADO CONDOR,"-80,00",\n06/10/2026,UBER,25.90,2/6\n'
         rows = preview_csv(content, date(2026, 10, 1))

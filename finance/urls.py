@@ -9,6 +9,7 @@ urlpatterns = [
     path('', login_required(views.dashboard), name='dashboard'),
     path('configuracoes/', login_required(views.settings_page), name='settings'),
     path('fatura/pagar/', login_required(views.pay_bill), name='pay_bill'),
+    path('fatura/desfazer-pagamento/', login_required(views.undo_bill_payment), name='undo_bill_payment'),
     path('fatura/importar/preview/', login_required(views.csv_import_preview), name='csv_import_preview'),
     path('fatura/importar/confirmar/', login_required(views.csv_import_confirm), name='csv_import_confirm'),
     path('lancamentos/', login_required(views.transaction_list), name='transaction_list'),
