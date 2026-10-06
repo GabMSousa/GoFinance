@@ -93,6 +93,7 @@ def create_card_installments(data, amount_key='amount'):
             reimbursable=data.get('reimbursable', False),
             received=data.get('received', False),
             paid=data.get('paid', False),
+            vr_amount=to_decimal(data.get('vr_amount') or 0) if number == 1 else Decimal('0.00'),
             notes=data.get('notes', ''),
             series_id=series,
         ))
@@ -133,6 +134,7 @@ def dashboard(request):
             'category': item.category, 'payment': item.get_payment_method_display(),
             'person': item.person, 'kind': 'transaction', 'type': item.get_type_display(),
             'paid': item.paid, 'pk': item.pk,
+            'uses_vr': item.vr_movements.exists(),
         })
     for item in card_qs.distinct():
         movements.append({
@@ -141,8 +143,10 @@ def dashboard(request):
             'kind': 'card', 'type': 'Compra', 'paid': item.paid, 'paid_at': item.paid_at,
             'pk': item.pk, 'installment': f'{item.current_installment}/{item.total_installments}',
             'reimbursable': item.reimbursable, 'reimbursement_pending': item.reimbursement_pending,
+            'uses_vr': item.vr_amount > 0,
         })
     movements.sort(key=lambda item: item['date'], reverse=True)
+    vr_movement_indexes = [index for index, item in enumerate(movements) if item.get('uses_vr')]
     balance = summary['revenues']
     balance_points = [{'label': '01/' + f'{month:02d}', 'value': float(balance)}]
     all_items = []
@@ -170,6 +174,7 @@ def dashboard(request):
         'category_id': category_id,
         'payment': payment,
         'person_filter': person_filter,
+        'vr_movement_indexes': json.dumps(vr_movement_indexes),
         'purchase_form': QuickExpenseForm(initial={'date': date.today(), 'installment_total': 1, 'vr_amount': 0}),
         'revenue_form': RevenueForm(initial={'date': date.today(), 'paid': True, 'payment_method': Transaction.PaymentMethod.PIX}),
         'investment_form': InvestmentForm(initial={'date': date.today()}),
@@ -391,7 +396,7 @@ def quick_expense(request):
             vr_amount += remaining
             remaining = Decimal('0.00')
         if remaining > 0 and d['payment_method'] == Transaction.PaymentMethod.CREDIT_CARD:
-            create_card_installments({**d, 'person': person, 'amount': remaining, 'total_installments': d.get('installment_total') or 1})
+            create_card_installments({**d, 'person': person, 'amount': remaining, 'vr_amount': vr_amount, 'total_installments': d.get('installment_total') or 1})
         elif remaining > 0:
             tx = Transaction.objects.create(
                 date=d['date'],
@@ -491,7 +496,9 @@ def card_list(request):
         'amount',
     )
     context = period_context(year, month)
-    context.update({'items': items.distinct(), 'summary': summary, 'next_commitment': next_commitment, 'person_filter': person_filter, 'search': search})
+    distinct_items = items.distinct()
+    item_list = list(distinct_items)
+    context.update({'items': distinct_items, 'vr_card_indexes': json.dumps([index for index, item in enumerate(item_list) if item.vr_amount > 0]), 'summary': summary, 'next_commitment': next_commitment, 'person_filter': person_filter, 'search': search})
     return render(request, 'finance/card_list.html', context)
 
 

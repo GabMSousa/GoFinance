@@ -174,6 +174,7 @@ class CreditCardExpenseForm(BootstrapModelForm):
             'paid_at',
             'reimbursed_amount',
             'reimbursed_at',
+            'vr_amount',
             'notes',
         ]
         widgets = {
