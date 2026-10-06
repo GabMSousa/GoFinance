@@ -289,6 +289,7 @@ class CreditCardExpense(models.Model):
         validators=[MinValueValidator(Decimal('0.00'))],
     )
     reimbursed_at = models.DateField('Data do reembolso', null=True, blank=True)
+    vr_amount = models.DecimalField('Valor pago com VR', max_digits=12, decimal_places=2, default=0, validators=[MinValueValidator(Decimal('0.00'))])
     notes = models.TextField('Observações', blank=True)
     total_amount = models.DecimalField(
         'Valor total da compra',
