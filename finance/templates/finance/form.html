@@ -1,0 +1,27 @@
+{% extends 'finance/base.html' %}
+{% block content %}
+<h2 class="mb-3">{{ title }}</h2>
+<div class="card">
+  <div class="card-body">
+    <form method="post">
+      {% csrf_token %}
+      <div class="row g-3">
+        {% for field in form %}
+          <div class="{% if field.field.widget.input_type == 'checkbox' %}col-6 col-md-3{% else %}col-12 col-md-6{% endif %}">
+            {% if field.field.widget.input_type == 'checkbox' %}
+              <div class="form-check mt-4">{{ field }} {{ field.label_tag }}</div>
+            {% else %}
+              {{ field.label_tag }}{{ field }}
+            {% endif %}
+            {% if field.errors %}<div class="text-danger small">{{ field.errors|striptags }}</div>{% endif %}
+          </div>
+        {% endfor %}
+      </div>
+      <div class="mt-4">
+        <button class="btn btn-primary">Salvar</button>
+        <a href="javascript:history.back()" class="btn btn-outline-secondary">Cancelar</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
