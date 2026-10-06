@@ -219,7 +219,23 @@ class VRTests(BaseFinanceTest):
         })
         self.assertRedirects(response, reverse('finance:dashboard'))
         self.assertEqual(CreditCardExpense.objects.get().amount, Decimal('30.00'))
+        self.assertEqual(CreditCardExpense.objects.get().vr_amount, Decimal('50.00'))
         self.assertEqual(VRMovement.objects.get().amount, Decimal('50.00'))
+
+    def test_vr_purchase_is_marked_in_dashboard_without_changing_financial_value(self):
+        create_card_installments({
+            'date': self.today,
+            'description': 'Compra com VR',
+            'category': self.food,
+            'person': self.me,
+            'amount': Decimal('30.00'),
+            'vr_amount': Decimal('50.00'),
+            'total_installments': 1,
+        })
+        response = self.client.get(reverse('finance:dashboard'), {'year': 2026, 'month': 9})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'vr-highlight')
+        self.assertEqual(monthly_summary(2026, 9)['card_invoice'], Decimal('30.00'))
 
 
 class InstallmentTests(BaseFinanceTest):
