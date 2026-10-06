@@ -1,0 +1,46 @@
+{% extends 'finance/base.html' %}
+{% block title %}Terceiros{% endblock %}
+{% block content %}
+<h2>Terceiros</h2>
+{% include 'finance/_period.html' %}
+<div class="row g-3 mb-3">
+  <div class="col-md-4"><div class="card"><div class="card-body"><small>Total gasto por terceiros</small><h5>R$ {{ summary.third_party_total|floatformat:2 }}</h5></div></div></div>
+  <div class="col-md-4"><div class="card"><div class="card-body"><small>Total recebido</small><h5 class="text-success">R$ {{ summary.third_party_received|floatformat:2 }}</h5></div></div></div>
+  <div class="col-md-4"><div class="card"><div class="card-body"><small>Total pendente</small><h5 class="text-danger">R$ {{ summary.third_party_pending|floatformat:2 }}</h5></div></div></div>
+</div>
+<div class="table-responsive mb-4">
+  <table class="table">
+    <thead><tr><th>Pessoa</th><th>Total gasto</th><th>Total recebido</th><th>Total pendente</th></tr></thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td>{{ row.person }}</td>
+        <td>R$ {{ row.spent|floatformat:2 }}</td>
+        <td class="text-success">R$ {{ row.received|floatformat:2 }}</td>
+        <td class="text-danger">R$ {{ row.pending|floatformat:2 }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="4">Nenhum terceiro cadastrado.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<div class="table-responsive">
+  <table class="table">
+    <thead><tr><th>Data</th><th>Responsável</th><th>Descrição</th><th>Valor</th><th>Status</th></tr></thead>
+    <tbody>
+      {% for x in items %}
+      <tr>
+        <td>{{ x.date|date:'d/m/Y' }}</td>
+        <td>{{ x.person }}</td>
+        <td>{{ x.description }}</td>
+        <td>R$ {{ x.amount|floatformat:2 }}</td>
+        <td>{% if x.received %}<span class="badge text-bg-success">Recebido</span>{% else %}<span class="badge text-bg-danger">Pendente</span>{% endif %}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5">Nenhum gasto de terceiro no período.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

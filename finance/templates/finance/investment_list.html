@@ -1,0 +1,26 @@
+{% extends 'finance/base.html' %}
+{% block title %}Investimentos{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between"><h2>Investimentos</h2><a class="btn btn-primary" href="{% url 'finance:investment_create' %}">Novo investimento</a></div>
+{% include 'finance/_period.html' %}
+<p>Total investido (saldo atual): <strong>R$ {{ balance_total|floatformat:2 }}</strong> | Aportes do mês: <strong>R$ {{ month_total|floatformat:2 }}</strong> | Aportes acumulados: <strong>R$ {{ applied_total|floatformat:2 }}</strong></p>
+<div class="table-responsive">
+  <table class="table">
+    <thead><tr><th>Data</th><th>Descrição</th><th>Tipo</th><th>Aporte</th><th>Saldo atual</th><th></th></tr></thead>
+    <tbody>
+      {% for x in items %}
+      <tr>
+        <td>{{ x.date|date:'d/m/Y' }}</td>
+        <td>{{ x.description }}</td>
+        <td>{{ x.get_type_display }}</td>
+        <td>R$ {{ x.amount|floatformat:2 }}</td>
+        <td>R$ {{ x.current_balance|floatformat:2 }}</td>
+        <td><a class="btn btn-sm btn-outline-primary" href="{% url 'finance:investment_edit' x.id %}">Editar</a> <a class="btn btn-sm btn-outline-danger" href="{% url 'finance:investment_delete' x.id %}">Excluir</a></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6">Nenhum investimento no período.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

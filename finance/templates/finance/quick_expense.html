@@ -1,0 +1,19 @@
+{% extends 'finance/base.html' %}
+{% block title %}Nova compra{% endblock %}
+{% block content %}
+<div class="page-heading"><div><p class="eyebrow">Lançamento rápido</p><h1>Nova compra</h1><p class="page-subtitle">Registre a compra uma vez. O sistema cuida da fatura, parcelas e reembolso.</p></div></div>
+<div class="data-panel form-panel"><form method="post">{% csrf_token %}<div class="row g-3">
+  <div class="col-md-4">{{ form.date.label_tag }}{{ form.date }}{% if form.date.errors %}<div class="text-danger small">{{ form.date.errors|striptags }}</div>{% endif %}</div>
+  <div class="col-md-8">{{ form.description.label_tag }}{{ form.description }}{% if form.description.errors %}<div class="text-danger small">{{ form.description.errors|striptags }}</div>{% endif %}</div>
+  <div class="col-md-4">{{ form.category.label_tag }}{{ form.category }}{% if form.category.errors %}<div class="text-danger small">{{ form.category.errors|striptags }}</div>{% endif %}</div>
+  <div class="col-md-4">{{ form.payment_method.label_tag }}{{ form.payment_method }}{% if form.payment_method.errors %}<div class="text-danger small">{{ form.payment_method.errors|striptags }}</div>{% endif %}</div>
+  <div class="col-md-4">{{ form.amount.label_tag }}{{ form.amount }}{% if form.amount.errors %}<div class="text-danger small">{{ form.amount.errors|striptags }}</div>{% endif %}</div>
+  <div class="col-md-4" id="vr-split-box">{{ form.vr_amount.label_tag }}{{ form.vr_amount }}<div class="form-text">Use para dividir VR + cartão/Pix.</div>{% if form.vr_amount.errors %}<div class="text-danger small">{{ form.vr_amount.errors|striptags }}</div>{% endif %}</div>
+  <div class="col-md-4">{{ form.responsible.label_tag }}{{ form.responsible }}{% if form.responsible.errors %}<div class="text-danger small">{{ form.responsible.errors|striptags }}</div>{% endif %}</div>
+  <div class="col-md-4 d-none" id="person-name-box">{{ form.person_name.label_tag }}{{ form.person_name }}{% if form.person_name.errors %}<div class="text-danger small">{{ form.person_name.errors|striptags }}</div>{% endif %}</div>
+  <div class="col-md-4 d-none" id="reimbursable-box"><div class="form-check mt-4">{{ form.reimbursable }} {{ form.reimbursable.label_tag }}</div></div>
+  <div class="col-md-4 d-none" id="installment-box">{{ form.installment_total.label_tag }}{{ form.installment_total }}{% if form.installment_total.errors %}<div class="text-danger small">{{ form.installment_total.errors|striptags }}</div>{% endif %}</div>
+  <div class="col-md-4"><div class="form-check mt-4">{{ form.paid }} {{ form.paid.label_tag }}</div></div>
+  <div class="col-12">{{ form.notes.label_tag }}{{ form.notes }}</div>
+</div><div class="mt-4"><button class="btn btn-primary" type="submit">Salvar compra</button><a href="{% url 'finance:dashboard' %}" class="btn btn-outline-secondary">Cancelar</a></div></form></div>
+{% endblock %}

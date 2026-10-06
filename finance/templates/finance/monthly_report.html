@@ -1,0 +1,23 @@
+{% extends 'finance/base.html' %}
+{% block title %}Resumo Mensal{% endblock %}
+{% block content %}
+<h2>Resumo Mensal</h2>
+{% include 'finance/_period.html' %}
+<div class="card">
+  <div class="card-body">
+    <table class="table mb-0">
+      <tbody>
+        <tr><th>Receitas</th><td class="text-end text-success">R$ {{ summary.revenues|floatformat:2 }}</td></tr>
+        <tr><th>Fixos</th><td class="text-end">R$ {{ summary.fixed_total|floatformat:2 }}</td></tr>
+        <tr><th>Variáveis</th><td class="text-end">R$ {{ summary.variable_total|floatformat:2 }}</td></tr>
+        <tr><th>Cartão</th><td class="text-end">R$ {{ summary.card_invoice|floatformat:2 }}</td></tr>
+        <tr><th>Terceiros</th><td class="text-end">R$ {{ summary.third_party_total|floatformat:2 }}</td></tr>
+        <tr><th>Reembolsos</th><td class="text-end text-success">R$ {{ summary.reimbursements|floatformat:2 }}</td></tr>
+        <tr><th>VR</th><td class="text-end">R$ {{ summary.vr_spent|floatformat:2 }} utilizado / R$ {{ summary.vr_balance|floatformat:2 }} saldo</td></tr>
+        <tr><th>Investimentos</th><td class="text-end">R$ {{ summary.investment_month|floatformat:2 }}</td></tr>
+        <tr class="table-light"><th>Saldo final</th><td class="text-end fw-bold {% if summary.final_balance >= 0 %}text-success{% else %}text-danger{% endif %}">R$ {{ summary.final_balance|floatformat:2 }}</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,51 @@
+from django.contrib.auth.decorators import login_required
+from django.urls import path
+
+from . import views
+
+app_name = 'finance'
+
+urlpatterns = [
+    path('', login_required(views.dashboard), name='dashboard'),
+    path('configuracoes/', login_required(views.settings_page), name='settings'),
+    path('fatura/pagar/', login_required(views.pay_bill), name='pay_bill'),
+    path('fatura/importar/preview/', login_required(views.csv_import_preview), name='csv_import_preview'),
+    path('fatura/importar/confirmar/', login_required(views.csv_import_confirm), name='csv_import_confirm'),
+    path('lancamentos/', login_required(views.transaction_list), name='transaction_list'),
+    path('lancamentos/novo/', login_required(views.transaction_create), name='transaction_create'),
+    path('lancamentos/<int:pk>/editar/', login_required(views.transaction_edit), name='transaction_edit'),
+    path('lancamentos/<int:pk>/excluir/', login_required(views.transaction_delete), name='transaction_delete'),
+    path('lancamentos/<int:pk>/pago/', login_required(views.transaction_toggle_paid), name='transaction_toggle_paid'),
+    path('novo-gasto/', login_required(views.quick_expense), name='quick_expense'),
+    path('fixos/', login_required(views.fixed_list), name='fixed_list'),
+    path('fixos/novo/', login_required(views.fixed_create), name='fixed_create'),
+    path('fixos/<int:pk>/editar/', login_required(views.fixed_edit), name='fixed_edit'),
+    path('fixos/<int:pk>/excluir/', login_required(views.fixed_delete), name='fixed_delete'),
+    path('fixos/<int:pk>/pago/', login_required(views.fixed_toggle_paid), name='fixed_toggle_paid'),
+    path('cartao/', login_required(views.card_list), name='card_list'),
+    path('cartao/novo/', login_required(views.card_create), name='card_create'),
+    path('cartao/<int:pk>/editar/', login_required(views.card_edit), name='card_edit'),
+    path('cartao/<int:pk>/excluir/', login_required(views.card_delete), name='card_delete'),
+    path('cartao/<int:pk>/pago/', login_required(views.card_mark_paid), name='card_mark_paid'),
+    path('cartao/<int:pk>/desfazer-pagamento/', login_required(views.card_unmark_paid), name='card_unmark_paid'),
+    path('cartao/<int:pk>/reembolso/', login_required(views.card_reimburse), name='card_reimburse'),
+    path('categorias/', login_required(views.category_list), name='category_list'),
+    path('categorias/novo/', login_required(views.category_create), name='category_create'),
+    path('categorias/<int:pk>/editar/', login_required(views.category_edit), name='category_edit'),
+    path('categorias/<int:pk>/excluir/', login_required(views.category_delete), name='category_delete'),
+    path('terceiros/', login_required(views.third_party), name='third_party'),
+    path('vr/', login_required(views.vr_list), name='vr_list'),
+    path('vr/novo/', login_required(views.vr_create), name='vr_create'),
+    path('investimentos/', login_required(views.investment_list), name='investment_list'),
+    path('investimentos/novo/', login_required(views.investment_create), name='investment_create'),
+    path('investimentos/<int:pk>/editar/', login_required(views.investment_edit), name='investment_edit'),
+    path('investimentos/<int:pk>/excluir/', login_required(views.investment_delete), name='investment_delete'),
+    path('receitas/', login_required(views.revenue_list), name='revenue_list'),
+    path('receitas/novo/', login_required(views.revenue_create), name='revenue_create'),
+    path('receitas/<int:pk>/excluir/', login_required(views.revenue_delete), name='revenue_delete'),
+    path('metas/', login_required(views.goal_list), name='goal_list'),
+    path('metas/novo/', login_required(views.goal_create), name='goal_create'),
+    path('metas/<int:pk>/editar/', login_required(views.goal_edit), name='goal_edit'),
+    path('metas/<int:pk>/excluir/', login_required(views.goal_delete), name='goal_delete'),
+    path('resumo/', login_required(views.monthly_report), name='monthly_report'),
+]

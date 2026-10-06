@@ -1,0 +1,22 @@
+{% extends 'finance/base.html' %}
+{% block title %}Categorias{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between mb-3">
+  <h2>Categorias</h2>
+  <a class="btn btn-primary" href="{% url 'finance:category_create' %}">Nova categoria</a>
+</div>
+<div class="table-responsive">
+  <table class="table">
+    <thead><tr><th>Nome</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+      {% for x in items %}
+      <tr>
+        <td>{{ x.name }}</td>
+        <td>{% if x.active %}<span class="badge text-bg-success">Ativa</span>{% else %}<span class="badge text-bg-secondary">Inativa</span>{% endif %}</td>
+        <td><a class="btn btn-sm btn-outline-primary" href="{% url 'finance:category_edit' x.id %}">Editar</a> <a class="btn btn-sm btn-outline-danger" href="{% url 'finance:category_delete' x.id %}">Excluir</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
