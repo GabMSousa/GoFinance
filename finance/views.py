@@ -22,6 +22,7 @@ from .forms import (
     GoalForm,
     InvestmentForm,
     PaymentDateForm,
+    PersonForm,
     QuickExpenseForm,
     ReimbursementForm,
     RevenueForm,
@@ -382,6 +383,16 @@ def revenue_delete(request, pk):
     return delete_object(request, item, 'finance:revenue_list', 'receita')
 
 
+def revenue_edit(request, pk):
+    obj = get_object_or_404(Transaction, pk=pk, type__in=[Transaction.Type.REVENUE, Transaction.Type.REIMBURSEMENT])
+    form = RevenueForm(request.POST or None, instance=obj)
+    if form.is_valid():
+        form.save()
+        messages.success(request, 'Receita atualizada.')
+        return redirect('finance:revenue_list')
+    return render(request, 'finance/form.html', {'form': form, 'title': 'Editar receita'})
+
+
 def quick_expense(request):
     form = QuickExpenseForm(request.POST or None, initial={'date': date.today(), 'installment_total': 1, 'vr_amount': 0})
     if form.is_valid():
@@ -513,9 +524,33 @@ def card_create(request):
 
 def card_edit(request, pk):
     obj = get_object_or_404(CreditCardExpense, pk=pk)
+    old_vr_date = obj.purchase_date or obj.date
+    old_vr_description = obj.description
     form = CreditCardExpenseForm(request.POST or None, instance=obj)
     if form.is_valid():
-        form.save()
+        updated = form.save()
+        vr = VRMovement.objects.filter(
+            date=old_vr_date,
+            description=old_vr_description,
+            movement_type=VRMovement.Type.DEBIT,
+            transaction__isnull=True,
+        ).order_by('-id').first()
+        if updated.vr_amount > 0:
+            if vr:
+                vr.amount = updated.vr_amount
+                vr.date = updated.purchase_date or updated.date
+                vr.description = updated.description
+                vr.save(update_fields=['amount', 'date', 'description'])
+            else:
+                VRMovement.objects.create(
+                    date=updated.purchase_date or updated.date,
+                    description=updated.description,
+                    movement_type=VRMovement.Type.DEBIT,
+                    amount=updated.vr_amount,
+                    notes='VR associado à compra do cartão.',
+                )
+        elif vr:
+            vr.delete()
         messages.success(request, 'Parcela atualizada.')
         return redirect('finance:card_list')
     return render(request, 'finance/form.html', {'form': form, 'title': 'Editar parcela do cartão'})
@@ -587,6 +622,14 @@ def vr_list(request):
 
 def vr_create(request):
     return model_form_create(request, VRMovementForm, 'Novo movimento de Vale Refeição', 'finance:vr_list', {'date': date.today()})
+
+
+def vr_edit(request, pk):
+    return model_form_edit(request, VRMovement, VRMovementForm, pk, 'Editar movimento de VR', 'finance:vr_list')
+
+
+def person_edit(request, pk):
+    return model_form_edit(request, Person, PersonForm, pk, 'Editar pessoa', 'finance:settings')
 
 
 def investment_list(request):
