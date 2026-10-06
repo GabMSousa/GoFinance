@@ -1,0 +1,16 @@
+[Unit]
+Description=Financeiro Pessoal Django
+After=network.target
+
+[Service]
+User=financeiro
+Group=www-data
+WorkingDirectory=/opt/financeiro_pessoal
+Environment="DJANGO_DEBUG=0"
+Environment="DJANGO_ALLOWED_HOSTS=192.168.0.10,financeiro.local"
+Environment="DJANGO_SECRET_KEY=ALTERE_PARA_UMA_CHAVE_FORTE"
+ExecStart=/opt/financeiro_pessoal/.venv/bin/gunicorn --workers 2 --bind 127.0.0.1:8000 finance_control.wsgi:application
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

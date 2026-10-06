@@ -1,0 +1,15 @@
+[Unit]
+Description=SaaS Finance Django
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/saas_finance
+EnvironmentFile=/opt/saas_finance/.env
+Environment="DJANGO_DEBUG=0"
+ExecStart=/opt/saas_finance/.venv/bin/gunicorn --workers 2 --bind 127.0.0.1:8000 config.wsgi:application
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

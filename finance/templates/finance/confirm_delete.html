@@ -1,0 +1,14 @@
+{% extends 'finance/base.html' %}
+{% block content %}
+<div class="card">
+  <div class="card-body">
+    <h4>Excluir {{ label }}</h4>
+    <p>Confirma a exclusão de <strong>{{ object }}</strong>?</p>
+    <form method="post">
+      {% csrf_token %}
+      <button class="btn btn-danger">Excluir</button>
+      <a class="btn btn-outline-secondary" href="javascript:history.back()">Cancelar</a>
+    </form>
+  </div>
+</div>
+{% endblock %}
