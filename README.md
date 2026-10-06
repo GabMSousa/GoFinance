@@ -37,21 +37,11 @@ Defina `DJANGO_ADMIN_PASSWORD` no `.env` e execute `python manage.py seed_initia
 
 O comando `seed_initial_data` cria, sem duplicar:
 
-- Categorias: Alimentação, Restaurante, Mercado, Moto, Combustível, Transporte, Internet, Faculdade, Academia, Assinaturas, Compras, Lazer, Saúde, Investimentos, Outros
-- Responsáveis: Eu, Vitória, Outro
-- Gastos fixos:
-  - Moto: R$ 660,06
-  - Seguro Connecta: R$ 159,74 (incluído no cartão)
-  - Internet: R$ 99,90
-  - Faculdade: R$ 216,89
-  - Spotify: R$ 23,90
-  - Academia: R$ 70,00
-- Crédito mensal de Vale Refeição: R$ 500,00
+
 
 Referências de salário (não calculam líquido novo):
 
-- Salário líquido anterior = R$ 2.299,00
-- Novo salário bruto = R$ 3.000,00
+
 
 ## Regras principais
 
