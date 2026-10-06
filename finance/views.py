@@ -3,7 +3,7 @@ import csv
 import io
 import json
 import uuid
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 
 from django.contrib import messages
@@ -37,15 +37,30 @@ from .services import add_months, month_bounds, monthly_summary, money_sum, spli
 
 
 def selected_period(request):
-    today = date.today()
+    default_year, default_month = default_open_period()
     try:
-        month = int(request.GET.get('month', today.month))
-        year = int(request.GET.get('year', today.year))
+        month = int(request.GET.get('month', default_month))
+        year = int(request.GET.get('year', default_year))
         if month not in range(1, 13):
             raise ValueError
     except (TypeError, ValueError):
-        month, year = today.month, today.year
+        month, year = default_month, default_year
     return year, month
+
+
+def default_open_period(today=None):
+    """Return the first period that is not closed by a paid invoice."""
+    reference = today or date.today()
+    candidate = reference.replace(day=1)
+    for _ in range(24):
+        closed = CreditCardBill.objects.filter(
+            invoice_month=candidate,
+            status=CreditCardBill.Status.PAID,
+        ).exists()
+        if not closed:
+            return candidate.year, candidate.month
+        candidate = add_months(candidate, 1)
+    return reference.year, reference.month
 
 
 def period_context(year, month):
@@ -182,6 +197,10 @@ def dashboard(request):
         'revenue_form': RevenueForm(initial={'date': date.today(), 'paid': True, 'payment_method': Transaction.PaymentMethod.PIX}),
         'investment_form': InvestmentForm(initial={'date': date.today()}),
         'bill': CreditCardBill.objects.filter(invoice_month=date(year, month, 1)).first(),
+        'bill_items': CreditCardExpense.objects.select_related('category', 'person').filter(
+            date__year=year, date__month=month
+        ),
+        'fixed_items': FixedExpense.objects.select_related('category').filter(active=True),
         'bill_payment_form': CardBillPaymentForm(initial={'amount': summary['card_invoice'], 'paid_at': date.today()}),
         'csv_form': CsvImportForm(initial={'invoice_month': date(year, month, 1)}),
         'chart_data': json.dumps({
@@ -292,7 +311,7 @@ def csv_import_confirm(request):
     return redirect(f"{reverse('finance:dashboard')}?year={invoice_month.year}&month={invoice_month.month}")
 
 
-def report_rows(year, month, category_id=''):
+def _legacy_report_rows(year, month, category_id=''):
     start, end = month_bounds(year, month)
     rows = []
     transactions = Transaction.objects.select_related('category', 'person').filter(date__range=(start, end))
@@ -308,27 +327,93 @@ def report_rows(year, month, category_id=''):
     return rows
 
 
-def report_filters(request):
+REPORT_TYPES = {
+    'financial': 'Relatório financeiro',
+    'bills': 'Relatório de faturas',
+    'categories': 'Relatório de categorias',
+    'income_expense': 'Receitas e despesas',
+    'investments': 'Relatório de investimentos',
+    'vr': 'Relatório de VR',
+    'third_party': 'Terceiros e reembolsos',
+    'visual': 'Relatório visual',
+}
+
+
+def report_period(request):
     year, month = selected_period(request)
+    start, end = month_bounds(year, month)
+    for field, fallback in (('start', start), ('end', end)):
+        value = request.GET.get(field)
+        if value:
+            try:
+                parsed = datetime.strptime(value, '%Y-%m-%d').date()
+            except ValueError:
+                parsed = fallback
+            if field == 'start':
+                start = parsed
+            else:
+                end = parsed
+    if start > end:
+        start, end = end, start
+    return year, month, start, end
+
+
+def report_rows(start, end, category_id='', report_type='financial'):
+    rows = []
+    transactions = Transaction.objects.select_related('category', 'person').filter(date__range=(start, end))
+    if category_id:
+        transactions = transactions.filter(category_id=category_id)
+    for item in transactions:
+        if report_type not in ('financial', 'categories', 'income_expense', 'third_party', 'visual'):
+            continue
+        if report_type == 'third_party' and not item.reimbursable:
+            continue
+        rows.append([item.date, item.description, item.category.name if item.category else '', item.get_type_display(), item.amount, item.get_payment_method_display(), '', '', '', item.person.name if item.person else '', 'Pago' if item.paid else 'Pendente', ''])
+    cards = CreditCardExpense.objects.select_related('category', 'person').filter(date__range=(start, end))
+    if category_id:
+        cards = cards.filter(category_id=category_id)
+    for item in cards:
+        if report_type not in ('financial', 'bills', 'categories', 'third_party', 'visual'):
+            continue
+        if report_type == 'third_party' and not item.reimbursable:
+            continue
+        rows.append([item.date, item.description, item.category.name, 'Despesa', item.amount, 'Cartão', item.invoice_month or item.date, item.vr_amount, item.amount, item.person.name, 'Pago' if item.paid else 'Pendente', f'{item.current_installment}/{item.total_installments}'])
+    if report_type in ('financial', 'investments', 'visual'):
+        for item in Investment.objects.filter(date__range=(start, end)):
+            rows.append([item.date, item.description, '', 'Investimento', item.amount, '', '', '', '', '', '', ''])
+    if report_type in ('financial', 'vr', 'visual'):
+        for item in VRMovement.objects.filter(date__range=(start, end)):
+            rows.append([item.date, item.description, '', item.get_movement_type_display(), item.amount, 'VR', '', item.amount, '', '', '', ''])
+    rows.sort(key=lambda row: row[0], reverse=True)
+    return rows
+
+
+def report_filters(request):
+    year, month, start, end = report_period(request)
     category_id = request.GET.get('category', '')
-    return year, month, category_id
+    report_type = request.GET.get('report_type', 'financial')
+    if report_type not in REPORT_TYPES:
+        report_type = 'financial'
+    return year, month, start, end, category_id, report_type
 
 
 def report_csv(request):
-    year, month, category_id = report_filters(request)
+    year, month, start, end, category_id, report_type = report_filters(request)
     response = HttpResponse(content_type='text/csv; charset=utf-8')
-    response['Content-Disposition'] = f'attachment; filename="saas-finance-{year}-{month:02d}.csv"'
+    response['Content-Disposition'] = f'attachment; filename="saas-finance-{start.isoformat()}-{end.isoformat()}.csv"'
     response.write('\ufeff')
     writer = csv.writer(response)
     writer.writerow(['Data', 'Descrição', 'Categoria', 'Tipo', 'Valor', 'Forma de pagamento', 'Fatura', 'Valor VR', 'Valor cartão', 'Responsável', 'Status', 'Parcelamento'])
-    writer.writerows(report_rows(year, month, category_id))
+    writer.writerows(report_rows(start, end, category_id, report_type))
     return response
 
 
 def report_pdf(request):
-    year, month, category_id = report_filters(request)
+    year, month, start, end, category_id, report_type = report_filters(request)
     summary = monthly_summary(year, month)
     lines = [
+        f'SaaS Finance - {REPORT_TYPES[report_type]}',
+        f'Periodo: {start.strftime("%d/%m/%Y")} a {end.strftime("%d/%m/%Y")}',
         f'SaaS Finance - Relatório {month:02d}/{year}',
         f'Receitas: R$ {summary["revenues"]:.2f}',
         f'Despesas: R$ {summary["expenses"]:.2f}',
@@ -339,6 +424,7 @@ def report_pdf(request):
         f'Saldo: R$ {summary["final_balance"]:.2f}',
         'Categorias:',
         *[f'- {label}: R$ {value:.2f}' for label, value in zip(summary['category_labels'], summary['category_values'])],
+        f'Registros: {len(report_rows(start, end, category_id, report_type))}',
     ]
     text = '\n'.join(lines)
     objects = [b'<< /Type /Catalog /Pages 2 0 R >>', b'<< /Type /Pages /Kids [3 0 R] /Count 1 >>', b'<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>', None, b'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>']
@@ -350,7 +436,7 @@ def report_pdf(request):
         offsets.append(len(pdf)); pdf.extend(f'{number} 0 obj\n'.encode()); pdf.extend(obj); pdf.extend(b'\nendobj\n')
     xref = len(pdf); pdf.extend(f'xref\n0 {len(objects)+1}\n0000000000 65535 f \n'.encode()); pdf.extend(''.join(f'{offset:010d} 00000 n \n' for offset in offsets[1:]).encode()); pdf.extend(f'trailer\n<< /Size {len(objects)+1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF'.encode())
     response = HttpResponse(bytes(pdf), content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename="saas-finance-{year}-{month:02d}.pdf"'
+    response['Content-Disposition'] = f'attachment; filename="saas-finance-{start.isoformat()}-{end.isoformat()}.pdf"'
     return response
 
 
@@ -734,9 +820,24 @@ def investment_delete(request, pk):
 
 
 def monthly_report(request):
-    year, month = selected_period(request)
+    year, month, start, end, category_id, report_type = report_filters(request)
     context = period_context(year, month)
     context['summary'] = monthly_summary(year, month)
+    context.update({
+        'report_types': REPORT_TYPES.items(),
+        'report_type': report_type,
+        'report_type_label': REPORT_TYPES[report_type],
+        'report_start': start,
+        'report_end': end,
+        'report_category': category_id,
+        'report_categories': Category.objects.filter(active=True),
+        'report_chart_data': json.dumps({
+            'labels': context['summary']['category_labels'],
+            'values': context['summary']['category_values'],
+            'revenues': float(context['summary']['revenues']),
+            'expenses': float(context['summary']['expenses']),
+        }),
+    })
     return render(request, 'finance/monthly_report.html', context)
 
 

@@ -1,9 +1,18 @@
 {% extends 'finance/base.html' %}
 {% block title %}Resumo Mensal{% endblock %}
 {% block content %}
-<h2>Resumo Mensal</h2>
-{% include 'finance/_period.html' %}
-<div class="d-flex gap-2 mb-3"><a class="btn btn-primary" href="{% url 'finance:report_csv' %}?year={{ year }}&month={{ month }}">Exportar CSV</a><a class="btn btn-outline-secondary" href="{% url 'finance:report_pdf' %}?year={{ year }}&month={{ month }}">Exportar PDF</a></div>
+<div class="page-heading"><div><p class="eyebrow">Dados para decisão</p><h1>Relatórios</h1><p class="page-subtitle">Exporte os mesmos lançamentos usados no dashboard, sem alterar nenhum dado financeiro.</p></div></div>
+<section class="report-toolbar data-panel">
+  <form method="get" class="row g-3 align-items-end">
+    <div class="col-12 col-md-4"><label class="form-label" for="report_type">Tipo de relatório</label><select class="form-select" id="report_type" name="report_type">{% for value,label in report_types %}<option value="{{ value }}" {% if report_type == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+    <div class="col-6 col-md-2"><label class="form-label" for="report_start">Período inicial</label><input class="form-control" id="report_start" type="date" name="start" value="{{ report_start|date:'Y-m-d' }}"></div>
+    <div class="col-6 col-md-2"><label class="form-label" for="report_end">Período final</label><input class="form-control" id="report_end" type="date" name="end" value="{{ report_end|date:'Y-m-d' }}"></div>
+    <div class="col-12 col-md-3"><label class="form-label" for="report_category">Categoria</label><select class="form-select" id="report_category" name="category"><option value="">Todas as categorias</option>{% for category in report_categories %}<option value="{{ category.pk }}" {% if report_category == category.pk|stringformat:'s' %}selected{% endif %}>{{ category.name }}</option>{% endfor %}</select></div>
+    <div class="col-12 col-md-1"><button class="btn btn-primary w-100" type="submit">Aplicar</button></div>
+  </form>
+  <div class="report-actions"><a class="btn btn-accent" href="{% url 'finance:report_csv' %}?report_type={{ report_type }}&start={{ report_start|date:'Y-m-d' }}&end={{ report_end|date:'Y-m-d' }}&category={{ report_category }}">Exportar CSV</a><a class="btn btn-outline-secondary" href="{% url 'finance:report_pdf' %}?report_type={{ report_type }}&start={{ report_start|date:'Y-m-d' }}&end={{ report_end|date:'Y-m-d' }}&category={{ report_category }}">Exportar PDF</a></div>
+</section>
+{% if report_type == 'visual' %}<section class="report-chart-grid"><div class="data-panel chart-panel"><div class="panel-heading"><div><h2>Receitas x despesas</h2><p>Resumo do mês selecionado</p></div></div><div class="chart-frame"><canvas id="report-income-expense"></canvas></div></div><div class="data-panel chart-panel"><div class="panel-heading"><div><h2>Gastos por categoria</h2><p>Distribuição das saídas</p></div></div><div class="chart-frame chart-donut"><canvas id="report-categories"></canvas></div></div></section>{% endif %}
 <div class="card">
   <div class="card-body">
     <table class="table mb-0">
@@ -22,3 +31,4 @@
   </div>
 </div>
 {% endblock %}
+{% block scripts %}<script id="report-chart-data" type="application/json">{{ report_chart_data|safe }}</script>{% endblock %}
