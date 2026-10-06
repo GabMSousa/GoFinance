@@ -1,3 +1,4 @@
+import calendar
 import json
 import uuid
 from datetime import date
@@ -142,6 +143,23 @@ def dashboard(request):
             'reimbursable': item.reimbursable, 'reimbursement_pending': item.reimbursement_pending,
         })
     movements.sort(key=lambda item: item['date'], reverse=True)
+    balance = summary['revenues']
+    balance_points = [{'label': '01/' + f'{month:02d}', 'value': float(balance)}]
+    all_items = []
+    for item in Transaction.objects.filter(date__range=(date(year, month, 1), date(year, month, calendar.monthrange(year, month)[1]))):
+        all_items.append((item.date, item.amount, item.type, item.payment_method))
+    for item in CreditCardExpense.objects.filter(date__year=year, date__month=month):
+        all_items.append((item.date, item.amount, Transaction.Type.EXPENSE, Transaction.PaymentMethod.CREDIT_CARD))
+    for item in Investment.objects.filter(date__year=year, date__month=month):
+        all_items.append((item.date, item.amount, Transaction.Type.INVESTMENT, None))
+    for movement_date, amount, movement_type, payment_method in sorted(all_items, key=lambda row: row[0]):
+        if movement_type in (Transaction.Type.EXPENSE, Transaction.Type.INVESTMENT):
+            balance -= amount
+        elif movement_type == Transaction.Type.REVENUE:
+            continue
+        elif movement_type == Transaction.Type.REIMBURSEMENT:
+            balance += amount
+        balance_points.append({'label': movement_date.strftime('%d/%m'), 'value': float(balance)})
     context = period_context(year, month)
     context.update({
         'summary': summary,
@@ -163,6 +181,8 @@ def dashboard(request):
             'expenses': float(summary['expenses']),
             'category_labels': summary['category_labels'],
             'category_values': summary['category_values'],
+            'balance_labels': [point['label'] for point in balance_points],
+            'balance_values': [point['value'] for point in balance_points],
         }),
     })
     return render(request, 'finance/dashboard.html', context)
@@ -206,6 +226,17 @@ def pay_bill(request):
         messages.success(request, 'Fatura marcada como paga. A quitação não criou uma nova despesa.')
     else:
         messages.error(request, 'Confira o valor e a data do pagamento.')
+    return redirect(f"{reverse('finance:dashboard')}?year={year}&month={month}")
+
+
+@require_POST
+def undo_bill_payment(request):
+    year, month = selected_period(request)
+    bill = get_object_or_404(CreditCardBill, invoice_month=date(year, month, 1))
+    bill.status = CreditCardBill.Status.PENDING
+    bill.paid_at = None
+    bill.save(update_fields=['status', 'paid_at', 'updated_at'])
+    messages.success(request, 'Pagamento desfeito. A fatura voltou para pendente.')
     return redirect(f"{reverse('finance:dashboard')}?year={year}&month={month}")
 
 
