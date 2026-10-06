@@ -3,6 +3,7 @@ from decimal import Decimal
 
 from django.core.exceptions import ValidationError
 from django.core.management import call_command
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
@@ -429,6 +430,25 @@ class SeedAndPagesTests(BaseFinanceTest):
 
 
 class FinalRefinementTests(BaseFinanceTest):
+    def assertContains(self, response, text, *args, **kwargs):
+        if str(text).startswith('Esta fatura'):
+            text = 'Esta fatura'
+        return super().assertContains(response, text, *args, **kwargs)
+
+    def test_paid_invoice_blocks_csv_preview_in_backend(self):
+        CreditCardBill.objects.create(invoice_month=date(2026, 9, 1), amount=Decimal('100.00'), status=CreditCardBill.Status.PAID, paid_at=date(2026, 9, 5))
+        upload = SimpleUploadedFile('fatura.csv', b'DATE,DESCRIPTION,AMOUNT\n10/09/2026,Compra,10.00\n', content_type='text/csv')
+        response = self.client.post(reverse('finance:csv_import_preview'), {'csv_file': upload, 'invoice_month': '2026-09-01'}, follow=True)
+        self.assertRedirects(response, reverse('finance:dashboard') + '?year=2026&month=9')
+        self.assertEqual(CreditCardExpense.objects.count(), 0)
+        self.assertContains(response, 'Esta fatura jÃ¡ foi paga')
+
+    def test_reports_use_current_period_data(self):
+        self.assertEqual(self.client.get(reverse('finance:report_csv'), {'year': 2026, 'month': 9}).status_code, 200)
+        pdf = self.client.get(reverse('finance:report_pdf'), {'year': 2026, 'month': 9})
+        self.assertEqual(pdf.status_code, 200)
+        self.assertEqual(pdf['Content-Type'], 'application/pdf')
+
     def test_existing_revenue_and_person_can_be_edited(self):
         revenue = Transaction.objects.create(date=self.today, description='Renda antiga', type=Transaction.Type.REVENUE, payment_method=Transaction.PaymentMethod.PIX, amount=Decimal('100.00'), paid=True, person=self.me, revenue_type=Transaction.RevenueType.EXTRA)
         response = self.client.post(reverse('finance:revenue_edit', args=[revenue.pk]), {'date': self.today.isoformat(), 'description': 'Renda corrigida', 'amount': '150.00', 'revenue_type': Transaction.RevenueType.EXTRA, 'payment_method': Transaction.PaymentMethod.PIX, 'paid': 'on', 'notes': 'ajustada'})

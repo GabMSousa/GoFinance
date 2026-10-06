@@ -1,4 +1,6 @@
 import calendar
+import csv
+import io
 import json
 import uuid
 from datetime import date
@@ -6,7 +8,7 @@ from decimal import Decimal
 
 from django.contrib import messages
 from django.db.models import Sum
-from django.http import HttpResponseRedirect
+from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
@@ -31,7 +33,7 @@ from .forms import (
 )
 from .models import Category, CreditCardBill, CreditCardExpense, FinancialProfile, FixedExpense, Goal, Investment, Person, SalarySnapshot, Transaction, VRMovement
 from .importers import import_preview_rows, preview_csv
-from .services import add_months, monthly_summary, money_sum, split_installment_values, third_party_by_person, to_decimal
+from .services import add_months, month_bounds, monthly_summary, money_sum, split_installment_values, third_party_by_person, to_decimal
 
 
 def selected_period(request):
@@ -252,8 +254,13 @@ def csv_import_preview(request):
     if not form.is_valid():
         messages.error(request, 'Selecione um CSV e informe o mês da fatura.')
         return redirect('finance:dashboard')
+    invoice_month = form.cleaned_data['invoice_month'].replace(day=1)
+    bill = CreditCardBill.objects.filter(invoice_month=invoice_month).first()
+    if bill and bill.is_paid:
+        messages.error(request, 'Esta fatura já foi paga. Para importar novos lançamentos, desfaça o pagamento da fatura primeiro.')
+        return redirect(f"{reverse('finance:dashboard')}?year={invoice_month.year}&month={invoice_month.month}")
     try:
-        rows = preview_csv(form.cleaned_data['csv_file'], form.cleaned_data['invoice_month'])
+        rows = preview_csv(form.cleaned_data['csv_file'], invoice_month)
     except ValueError as exc:
         messages.error(request, str(exc))
         return redirect('finance:dashboard')
@@ -271,11 +278,80 @@ def csv_import_confirm(request):
     if not rows or not month_value:
         messages.error(request, 'A prévia expirou. Selecione o CSV novamente.')
         return redirect('finance:dashboard')
-    created, skipped = import_preview_rows(rows, date.fromisoformat(month_value))
+    invoice_month = date.fromisoformat(month_value)
+    bill = CreditCardBill.objects.filter(invoice_month=invoice_month).first()
+    if bill and bill.is_paid:
+        request.session.pop('csv_preview_rows', None)
+        request.session.pop('csv_preview_month', None)
+        messages.error(request, 'Esta fatura já foi paga. Para importar novos lançamentos, desfaça o pagamento da fatura primeiro.')
+        return redirect(f"{reverse('finance:dashboard')}?year={invoice_month.year}&month={invoice_month.month}")
+    created, skipped = import_preview_rows(rows, invoice_month)
     request.session.pop('csv_preview_rows', None)
     request.session.pop('csv_preview_month', None)
     messages.success(request, f'CSV importado: {created} novos registros, {skipped} duplicados ignorados.')
-    return redirect(f"{reverse('finance:dashboard')}?year={date.fromisoformat(month_value).year}&month={date.fromisoformat(month_value).month}")
+    return redirect(f"{reverse('finance:dashboard')}?year={invoice_month.year}&month={invoice_month.month}")
+
+
+def report_rows(year, month, category_id=''):
+    start, end = month_bounds(year, month)
+    rows = []
+    transactions = Transaction.objects.select_related('category', 'person').filter(date__range=(start, end))
+    if category_id:
+        transactions = transactions.filter(category_id=category_id)
+    for item in transactions:
+        rows.append([item.date, item.description, item.category.name if item.category else '', item.get_type_display(), item.amount, item.get_payment_method_display(), '', '', '', item.person.name if item.person else '', 'Pago' if item.paid else 'Pendente', ''])
+    cards = CreditCardExpense.objects.select_related('category', 'person').filter(date__range=(start, end))
+    if category_id:
+        cards = cards.filter(category_id=category_id)
+    for item in cards:
+        rows.append([item.date, item.description, item.category.name, 'Despesa', item.amount, 'Cartão', item.invoice_month or item.date, item.vr_amount, item.amount, item.person.name, 'Pago' if item.paid else 'Pendente', f'{item.current_installment}/{item.total_installments}'])
+    return rows
+
+
+def report_filters(request):
+    year, month = selected_period(request)
+    category_id = request.GET.get('category', '')
+    return year, month, category_id
+
+
+def report_csv(request):
+    year, month, category_id = report_filters(request)
+    response = HttpResponse(content_type='text/csv; charset=utf-8')
+    response['Content-Disposition'] = f'attachment; filename="saas-finance-{year}-{month:02d}.csv"'
+    response.write('\ufeff')
+    writer = csv.writer(response)
+    writer.writerow(['Data', 'Descrição', 'Categoria', 'Tipo', 'Valor', 'Forma de pagamento', 'Fatura', 'Valor VR', 'Valor cartão', 'Responsável', 'Status', 'Parcelamento'])
+    writer.writerows(report_rows(year, month, category_id))
+    return response
+
+
+def report_pdf(request):
+    year, month, category_id = report_filters(request)
+    summary = monthly_summary(year, month)
+    lines = [
+        f'SaaS Finance - Relatório {month:02d}/{year}',
+        f'Receitas: R$ {summary["revenues"]:.2f}',
+        f'Despesas: R$ {summary["expenses"]:.2f}',
+        f'Fatura: R$ {summary["card_invoice"]:.2f}',
+        f'Investimentos: R$ {summary["investment_month"]:.2f}',
+        f'VR utilizado: R$ {summary["vr_spent"]:.2f}',
+        f'Terceiros pendentes: R$ {summary["third_party_pending"]:.2f}',
+        f'Saldo: R$ {summary["final_balance"]:.2f}',
+        'Categorias:',
+        *[f'- {label}: R$ {value:.2f}' for label, value in zip(summary['category_labels'], summary['category_values'])],
+    ]
+    text = '\n'.join(lines)
+    objects = [b'<< /Type /Catalog /Pages 2 0 R >>', b'<< /Type /Pages /Kids [3 0 R] /Count 1 >>', b'<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>', None, b'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>']
+    stream = 'BT /F1 12 Tf 50 790 Td ' + ' '.join(f'({line.replace("(", "\\(").replace(")", "\\)")}) Tj 0 -20 Td' for line in lines) + ' ET'
+    objects[3] = f'<< /Length {len(stream.encode())} >>\nstream\n{stream}\nendstream'.encode()
+    pdf = bytearray(b'%PDF-1.4\n')
+    offsets = [0]
+    for number, obj in enumerate(objects, 1):
+        offsets.append(len(pdf)); pdf.extend(f'{number} 0 obj\n'.encode()); pdf.extend(obj); pdf.extend(b'\nendobj\n')
+    xref = len(pdf); pdf.extend(f'xref\n0 {len(objects)+1}\n0000000000 65535 f \n'.encode()); pdf.extend(''.join(f'{offset:010d} 00000 n \n' for offset in offsets[1:]).encode()); pdf.extend(f'trailer\n<< /Size {len(objects)+1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF'.encode())
+    response = HttpResponse(bytes(pdf), content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="saas-finance-{year}-{month:02d}.pdf"'
+    return response
 
 
 def transaction_list(request):

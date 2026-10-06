@@ -52,4 +52,6 @@ urlpatterns = [
     path('metas/<int:pk>/editar/', login_required(views.goal_edit), name='goal_edit'),
     path('metas/<int:pk>/excluir/', login_required(views.goal_delete), name='goal_delete'),
     path('resumo/', login_required(views.monthly_report), name='monthly_report'),
+    path('resumo/exportar.csv', login_required(views.report_csv), name='report_csv'),
+    path('resumo/exportar.pdf', login_required(views.report_pdf), name='report_pdf'),
 ]
