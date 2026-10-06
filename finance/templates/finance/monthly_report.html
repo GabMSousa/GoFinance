@@ -17,6 +17,7 @@
   <div class="card-body">
     <table class="table mb-0">
       <tbody>
+        <tr><th>Saldo inicial</th><td class="text-end">R$ {{ summary.opening_balance|floatformat:2 }}</td></tr>
         <tr><th>Receitas</th><td class="text-end text-success">R$ {{ summary.revenues|floatformat:2 }}</td></tr>
         <tr><th>Fixos</th><td class="text-end">R$ {{ summary.fixed_total|floatformat:2 }}</td></tr>
         <tr><th>Variáveis</th><td class="text-end">R$ {{ summary.variable_total|floatformat:2 }}</td></tr>
@@ -31,4 +32,4 @@
   </div>
 </div>
 {% endblock %}
-{% block scripts %}<script id="report-chart-data" type="application/json">{{ report_chart_data|safe }}</script>{% endblock %}
+{% block scripts %}{{ report_chart_data|json_script:"report-chart-data" }}{% endblock %}

@@ -1,0 +1,11 @@
+CREATE DATABASE IF NOT EXISTS saas_finance
+  CHARACTER SET utf8mb4
+  COLLATE utf8mb4_unicode_ci;
+
+CREATE USER IF NOT EXISTS 'saas_finance'@'localhost'
+  IDENTIFIED BY 'ALTERE_ESTA_SENHA';
+
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, REFERENCES
+  ON saas_finance.* TO 'saas_finance'@'localhost';
+
+FLUSH PRIVILEGES;

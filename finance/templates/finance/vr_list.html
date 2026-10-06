@@ -19,9 +19,9 @@
     <thead><tr><th>Data</th><th>Descrição</th><th>Tipo</th><th>Valor</th></tr></thead>
     <tbody>
       {% for x in items %}
-      <tr>
+      <tr class="vr-highlight">
         <td>{{ x.date|date:'d/m/Y' }}</td>
-        <td>{{ x.description }}</td>
+        <td>{{ x.description }}<span class="vr-badge">VR</span></td>
         <td>{{ x.get_movement_type_display }}</td>
         <td>R$ {{ x.amount|floatformat:2 }}</td>
       </tr>
