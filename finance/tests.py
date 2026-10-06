@@ -11,7 +11,7 @@ from django.urls import reverse
 from .models import Category, CreditCardBill, CreditCardExpense, FinancialProfile, FixedExpense, Investment, Person, SalarySnapshot, Transaction, VRMovement
 from .importers import preview_csv
 from .services import monthly_summary, split_installment_values
-from .views import create_card_installments
+from .views import create_card_installments, default_open_period
 
 
 class BaseFinanceTest(TestCase):
@@ -520,3 +520,75 @@ class AuthenticationTests(TestCase):
     def test_login_page_is_available(self):
         response = self.client.get(reverse('login'))
         self.assertEqual(response.status_code, 200)
+
+
+class ReportingTests(BaseFinanceTest):
+    def test_report_page_exposes_period_and_report_type_filters(self):
+        response = self.client.get(reverse('finance:monthly_report'), {
+            'report_type': 'visual',
+            'start': '2026-09-01',
+            'end': '2026-09-30',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['report_type'], 'visual')
+        self.assertContains(response, 'Relatório visual')
+        self.assertContains(response, 'report-income-expense')
+
+    def test_csv_and_pdf_use_selected_period(self):
+        Transaction.objects.create(
+            date=self.today,
+            description='Mercado',
+            category=self.food,
+            type=Transaction.Type.EXPENSE,
+            payment_method=Transaction.PaymentMethod.PIX,
+            amount=Decimal('42.00'),
+            person=self.me,
+        )
+        query = '?report_type=income_expense&start=2026-09-01&end=2026-09-30'
+        csv_response = self.client.get(reverse('finance:report_csv') + query)
+        self.assertEqual(csv_response.status_code, 200)
+        self.assertIn('Mercado'.encode(), csv_response.content)
+        pdf_response = self.client.get(reverse('finance:report_pdf') + query)
+        self.assertEqual(pdf_response.status_code, 200)
+        self.assertEqual(pdf_response['Content-Type'], 'application/pdf')
+
+    def test_dashboard_bill_preview_is_bounded_to_current_month(self):
+        create_card_installments({
+            'date': self.today,
+            'description': 'Compra compacta',
+            'category': self.food,
+            'person': self.me,
+            'amount': Decimal('30.00'),
+            'total_installments': 1,
+        })
+        response = self.client.get(reverse('finance:dashboard'), {'year': 2026, 'month': 9})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['bill_items'].count(), 1)
+        self.assertContains(response, 'Compra compacta')
+
+
+class OpenPeriodTests(BaseFinanceTest):
+    def test_dashboard_shows_active_fixed_expenses(self):
+        FixedExpense.objects.create(
+            description='Internet',
+            category=self.food,
+            amount=Decimal('99.90'),
+            active=True,
+            included_in_credit_card=False,
+        )
+        response = self.client.get(reverse('finance:dashboard'), {'year': 2026, 'month': 9})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Contas fixas')
+        self.assertContains(response, 'Internet')
+
+    def test_default_period_stays_on_current_month_when_invoice_is_open(self):
+        self.assertEqual(default_open_period(date(2026, 9, 10)), (2026, 9))
+
+    def test_default_period_moves_to_next_month_after_paid_invoice(self):
+        CreditCardBill.objects.create(
+            invoice_month=date(2026, 9, 1),
+            amount=Decimal('100.00'),
+            status=CreditCardBill.Status.PAID,
+            paid_at=date(2026, 9, 30),
+        )
+        self.assertEqual(default_open_period(date(2026, 9, 10)), (2026, 10))
