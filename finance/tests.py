@@ -235,7 +235,7 @@ class VRTests(BaseFinanceTest):
         })
         response = self.client.get(reverse('finance:dashboard'), {'year': 2026, 'month': 9})
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'vr-highlight')
+        self.assertContains(response, 'vr-movement-indexes')
         self.assertEqual(monthly_summary(2026, 9)['card_invoice'], Decimal('30.00'))
 
 
@@ -417,16 +417,18 @@ class SeedAndPagesTests(BaseFinanceTest):
             self.assertEqual(response.status_code, 200, url)
 
     def test_financial_profile_is_editable(self):
-        response = self.client.post(reverse('finance:settings'), {
+        response = self.client.post(reverse('finance:settings') + '?year=2026&month=9', {
             'salary_gross': '3000.00',
             'salary_net': '2450.00',
             'previous_net_salary': '2299.00',
             'vr_monthly_credit': '550.00',
+            'opening_balance': '500.00',
         })
-        self.assertRedirects(response, reverse('finance:settings'))
+        self.assertRedirects(response, reverse('finance:settings') + '?year=2026&month=9')
         profile = FinancialProfile.objects.get(pk=1)
         self.assertEqual(profile.salary_net, Decimal('2450.00'))
         self.assertEqual(profile.vr_monthly_credit, Decimal('550.00'))
+        self.assertEqual(SalarySnapshot.objects.get(month=date(2026, 9, 1)).opening_balance, Decimal('500.00'))
 
 
 class FinalRefinementTests(BaseFinanceTest):
@@ -434,6 +436,71 @@ class FinalRefinementTests(BaseFinanceTest):
         if str(text).startswith('Esta fatura'):
             text = 'Esta fatura'
         return super().assertContains(response, text, *args, **kwargs)
+
+
+class BalanceVrInvestmentTests(BaseFinanceTest):
+    def setUp(self):
+        super().setUp()
+
+    def assertContains(self, response, text, *args, **kwargs):
+        if str(text).startswith('Esta fatura'):
+            text = 'Esta fatura'
+        return super().assertContains(response, text, *args, **kwargs)
+
+    def test_opening_balance_is_added_without_becoming_revenue(self):
+        snapshot = SalarySnapshot.objects.create(
+            month=date(2026, 9, 1), salary_gross=0, salary_net=0,
+            vr_monthly_credit=Decimal('500.00'), opening_balance=Decimal('500.00'),
+        )
+        Transaction.objects.create(
+            date=self.today, description='Receita', category=self.food,
+            type=Transaction.Type.REVENUE, payment_method=Transaction.PaymentMethod.PIX,
+            amount=Decimal('2750.00'), paid=True, person=self.me,
+        )
+        Transaction.objects.create(
+            date=self.today, description='Despesa', category=self.food,
+            type=Transaction.Type.EXPENSE, payment_method=Transaction.PaymentMethod.PIX,
+            amount=Decimal('1000.00'), paid=True, person=self.me,
+        )
+        Investment.objects.create(
+            date=self.today, description='ETF', type=Investment.Type.ETF,
+            amount=Decimal('300.00'), payment_method=Transaction.PaymentMethod.PIX,
+        )
+        summary = monthly_summary(2026, 9)
+        self.assertEqual(summary['opening_balance'], Decimal('500.00'))
+        self.assertEqual(summary['revenues'], Decimal('2750.00'))
+        self.assertEqual(summary['final_balance'], Decimal('1950.00'))
+
+    def test_vr_transaction_is_not_counted_as_bank_expense(self):
+        SalarySnapshot.objects.create(
+            month=date(2026, 9, 1), salary_gross=0, salary_net=0,
+            vr_monthly_credit=Decimal('500.00'), opening_balance=Decimal('0.00'),
+        )
+        tx = Transaction.objects.create(
+            date=self.today, description='Compra VR', category=self.food,
+            type=Transaction.Type.EXPENSE, payment_method=Transaction.PaymentMethod.VR,
+            amount=Decimal('50.00'), paid=True, person=self.me,
+        )
+        VRMovement.objects.create(
+            date=self.today, description='Compra VR', movement_type=VRMovement.Type.DEBIT,
+            amount=Decimal('50.00'), transaction=tx,
+        )
+        summary = monthly_summary(2026, 9)
+        self.assertEqual(summary['expenses'], Decimal('0.00'))
+        self.assertEqual(summary['final_balance'], Decimal('0.00'))
+        self.assertEqual(summary['vr_balance'], Decimal('450.00'))
+
+    def test_investment_dashboard_and_recurring_fields_are_persisted(self):
+        investment = Investment.objects.create(
+            date=self.today, description='Curso de inglês', category=self.food,
+            type=Investment.Type.OTHER, amount=Decimal('250.00'),
+            recurrence=Investment.Recurrence.MONTHLY, due_day=10, active=True,
+        )
+        response = self.client.get(reverse('finance:dashboard'), {'year': 2026, 'month': 9})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Investimentos')
+        self.assertEqual(response.context['summary']['investment_month'], Decimal('250.00'))
+        self.assertEqual(Investment.objects.get(pk=investment.pk).recurrence, Investment.Recurrence.MONTHLY)
 
     def test_paid_invoice_blocks_csv_preview_in_backend(self):
         CreditCardBill.objects.create(invoice_month=date(2026, 9, 1), amount=Decimal('100.00'), status=CreditCardBill.Status.PAID, paid_at=date(2026, 9, 5))

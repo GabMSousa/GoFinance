@@ -1,7 +1,32 @@
 function parseJsonScript(id) {
   const element = document.getElementById(id);
   if (!element) return null;
-  try { return JSON.parse(element.textContent); } catch { return null; }
+  try {
+    const parsed = JSON.parse(element.textContent);
+    return typeof parsed === 'string' ? JSON.parse(parsed) : parsed;
+  } catch { return null; }
+}
+
+function initSecurityInteractions() {
+  document.querySelectorAll('[data-confirm-submit]').forEach((form) => {
+    form.addEventListener('submit', (event) => {
+      if (!window.confirm(form.dataset.confirmSubmit)) event.preventDefault();
+    });
+  });
+  const applyVrBadges = (id, selector, titleSelector) => {
+    const indexes = parseJsonScript(id) || [];
+    indexes.forEach((index) => {
+      const row = document.querySelectorAll(selector)[index];
+      if (!row) return;
+      row.classList.add('vr-highlight');
+      const title = row.querySelector(titleSelector);
+      if (title && !title.querySelector('.vr-badge')) {
+        title.insertAdjacentHTML('beforeend', '<span class="vr-badge">VR</span>');
+      }
+    });
+  };
+  applyVrBadges('vr-movement-indexes', '.movement-row', '.movement-main strong');
+  applyVrBadges('vr-card-indexes', 'tbody tr', 'td strong');
 }
 
 function initPurchaseFields() {
@@ -86,7 +111,9 @@ function initCharts() {
   const setCursor = (event, active) => { if (event.native?.target) event.native.target.style.cursor = active.length ? 'pointer' : 'default'; };
   const makeBar = (canvas, values, labels) => {
     if (!canvas) return;
-    window.sfCharts.push(new Chart(canvas, { type: 'bar', data: { labels, datasets: [{ label: 'Valor', data: values, backgroundColor: ['#79b843', '#df6a65'], hoverBackgroundColor: ['#a9e873', '#f28a84'], borderRadius: 8, borderSkipped: false, barPercentage: .62, categoryPercentage: .62 }] }, options: { ...common, interaction: { mode: 'nearest', intersect: true }, plugins: { ...common.plugins, tooltip: { ...common.plugins.tooltip, callbacks: { title: (items) => items[0]?.label || '', label: (context) => `Valor: ${money.format(context.raw)}` } } }, onHover: setCursor } }));
+    const colors = ['#79b843', '#df6a65', '#4dd2c8'];
+    const hoverColors = ['#a9e873', '#f28a84', '#83eee5'];
+    window.sfCharts.push(new Chart(canvas, { type: 'bar', data: { labels, datasets: [{ label: 'Valor', data: values, backgroundColor: colors.slice(0, values.length), hoverBackgroundColor: hoverColors.slice(0, values.length), borderRadius: 8, borderSkipped: false, barPercentage: .62, categoryPercentage: .62 }] }, options: { ...common, interaction: { mode: 'nearest', intersect: true }, plugins: { ...common.plugins, tooltip: { ...common.plugins.tooltip, callbacks: { title: (items) => items[0]?.label || '', label: (context) => `Valor: ${money.format(context.raw)}` } } }, onHover: setCursor } }));
   };
   const makeDonut = (canvas, labels, values) => {
     if (!canvas) return;
@@ -98,14 +125,14 @@ function initCharts() {
     window.sfCharts.push(new Chart(canvas, { type: 'line', data: { labels, datasets: [{ label: 'Saldo', data: values, borderColor: dark ? '#c6f584' : '#42661a', backgroundColor: dark ? 'rgba(198,245,132,.15)' : 'rgba(66,102,26,.10)', fill: true, tension: .35, pointRadius: 3, pointHoverRadius: 8, pointHoverBackgroundColor: dark ? '#fff' : '#14213d', pointHoverBorderColor: dark ? '#c6f584' : '#b7f36b', pointHoverBorderWidth: 3, borderWidth: 3 }] }, options: { ...common, interaction: { mode: 'index', intersect: false }, plugins: { ...common.plugins, tooltip: { ...common.plugins.tooltip, callbacks: { title: (items) => `Período: ${items[0]?.label || ''}`, label: (context) => `Saldo: ${money.format(context.parsed.y)}` } } }, onHover: setCursor } }));
   };
   if (dashboard) {
-    makeBar(document.getElementById('chart-income-expense'), [dashboard.revenues, dashboard.expenses], ['Receitas', 'Despesas']);
+    makeBar(document.getElementById('chart-income-expense'), [dashboard.revenues, dashboard.expenses, dashboard.investments], ['Receitas', 'Despesas', 'Investimentos']);
     makeDonut(document.getElementById('chart-categories'), dashboard.category_labels, dashboard.category_values);
     makeLine(document.getElementById('chart-balance'), dashboard.balance_labels, dashboard.balance_values);
   }
   if (report) {
-    makeBar(document.getElementById('report-income-expense'), [report.revenues, report.expenses], ['Receitas', 'Despesas']);
+    makeBar(document.getElementById('report-income-expense'), [report.revenues, report.expenses, report.investments], ['Receitas', 'Despesas', 'Investimentos']);
     makeDonut(document.getElementById('report-categories'), report.labels, report.values);
   }
 }
 
-document.addEventListener('DOMContentLoaded', () => { initPurchaseFields(); initTheme(); initCharts(); window.addEventListener('sf-theme-change', initCharts); });
+document.addEventListener('DOMContentLoaded', () => { initPurchaseFields(); initTheme(); initSecurityInteractions(); initCharts(); window.addEventListener('sf-theme-change', initCharts); });

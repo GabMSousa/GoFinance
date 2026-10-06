@@ -1,7 +1,6 @@
 import calendar
 import csv
 import io
-import json
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
@@ -85,6 +84,29 @@ def person_from_responsibility(data):
     return Person.objects.get_or_create(name=name, defaults={'active': True})[0]
 
 
+def sync_transaction_vr(transaction):
+    movement = transaction.vr_movements.filter(movement_type=VRMovement.Type.DEBIT).first()
+    if transaction.payment_method == Transaction.PaymentMethod.VR:
+        defaults = {
+            'date': transaction.date,
+            'description': transaction.description,
+            'amount': transaction.amount,
+            'notes': transaction.notes,
+        }
+        if movement:
+            for field, value in defaults.items():
+                setattr(movement, field, value)
+            movement.save(update_fields=list(defaults))
+        else:
+            VRMovement.objects.create(
+                transaction=transaction,
+                movement_type=VRMovement.Type.DEBIT,
+                **defaults,
+            )
+    elif movement:
+        movement.delete()
+
+
 def create_card_installments(data, amount_key='amount'):
     total = to_decimal(data[amount_key])
     count = int(data.get('total_installments') or data.get('installment_total') or 1)
@@ -165,7 +187,7 @@ def dashboard(request):
         })
     movements.sort(key=lambda item: item['date'], reverse=True)
     vr_movement_indexes = [index for index, item in enumerate(movements) if item.get('uses_vr')]
-    balance = summary['revenues']
+    balance = summary['opening_balance'] + summary['revenues']
     balance_points = [{'label': '01/' + f'{month:02d}', 'value': float(balance)}]
     all_items = []
     for item in Transaction.objects.filter(date__range=(date(year, month, 1), date(year, month, calendar.monthrange(year, month)[1]))):
@@ -175,6 +197,8 @@ def dashboard(request):
     for item in Investment.objects.filter(date__year=year, date__month=month):
         all_items.append((item.date, item.amount, Transaction.Type.INVESTMENT, None))
     for movement_date, amount, movement_type, payment_method in sorted(all_items, key=lambda row: row[0]):
+        if movement_type == Transaction.Type.EXPENSE and payment_method == Transaction.PaymentMethod.VR:
+            continue
         if movement_type in (Transaction.Type.EXPENSE, Transaction.Type.INVESTMENT):
             balance -= amount
         elif movement_type == Transaction.Type.REVENUE:
@@ -192,7 +216,7 @@ def dashboard(request):
         'category_id': category_id,
         'payment': payment,
         'person_filter': person_filter,
-        'vr_movement_indexes': json.dumps(vr_movement_indexes),
+        'vr_movement_indexes': vr_movement_indexes,
         'purchase_form': QuickExpenseForm(initial={'date': date.today(), 'installment_total': 1, 'vr_amount': 0}),
         'revenue_form': RevenueForm(initial={'date': date.today(), 'paid': True, 'payment_method': Transaction.PaymentMethod.PIX}),
         'investment_form': InvestmentForm(initial={'date': date.today()}),
@@ -201,25 +225,32 @@ def dashboard(request):
             date__year=year, date__month=month
         ),
         'fixed_items': FixedExpense.objects.select_related('category').filter(active=True),
+        'investment_items': Investment.objects.select_related('category').filter(date__year=year, date__month=month),
+        'active_investments': Investment.objects.filter(active=True),
+        'next_investment': Investment.objects.filter(active=True, date__gte=date(year, month, 1)).order_by('date', 'id').first(),
         'bill_payment_form': CardBillPaymentForm(initial={'amount': summary['card_invoice'], 'paid_at': date.today()}),
         'csv_form': CsvImportForm(initial={'invoice_month': date(year, month, 1)}),
-        'chart_data': json.dumps({
+        'chart_data': {
             'revenues': float(summary['revenues']),
             'expenses': float(summary['expenses']),
+            'investments': float(summary['investment_month']),
             'category_labels': summary['category_labels'],
             'category_values': summary['category_values'],
             'balance_labels': [point['label'] for point in balance_points],
             'balance_values': [point['value'] for point in balance_points],
-        }),
+        },
     })
     return render(request, 'finance/dashboard.html', context)
 
 
 def settings_page(request):
     profile = FinancialProfile.current()
-    form = FinancialProfileForm(request.POST or None, instance=profile)
+    year, month = selected_period(request)
+    target = date(year, month, 1)
+    snapshot = SalarySnapshot.objects.filter(month=target).first()
+    initial = {'opening_balance': snapshot.opening_balance if snapshot else Decimal('0.00')}
+    form = FinancialProfileForm(request.POST or None, instance=profile, initial=initial)
     if request.method == 'POST' and form.is_valid():
-        target = date.today().replace(day=1)
         updated = form.save()
         SalarySnapshot.objects.update_or_create(
             month=target,
@@ -227,12 +258,17 @@ def settings_page(request):
                 'salary_gross': updated.salary_gross,
                 'salary_net': updated.salary_net,
                 'vr_monthly_credit': updated.vr_monthly_credit,
+                'opening_balance': form.cleaned_data.get('opening_balance') or Decimal('0.00'),
             },
         )
         messages.success(request, 'Dados financeiros atualizados.')
-        return redirect('finance:settings')
+        redirect_url = reverse('finance:settings')
+        if request.GET.get('year') or request.GET.get('month'):
+            redirect_url = f'{redirect_url}?year={year}&month={month}'
+        return redirect(redirect_url)
     return render(request, 'finance/settings.html', {
         'form': form,
+        **period_context(year, month),
         'fixed_items': FixedExpense.objects.select_related('category').all(),
         'categories': Category.objects.all(),
         'people': Person.objects.all(),
@@ -311,22 +347,6 @@ def csv_import_confirm(request):
     return redirect(f"{reverse('finance:dashboard')}?year={invoice_month.year}&month={invoice_month.month}")
 
 
-def _legacy_report_rows(year, month, category_id=''):
-    start, end = month_bounds(year, month)
-    rows = []
-    transactions = Transaction.objects.select_related('category', 'person').filter(date__range=(start, end))
-    if category_id:
-        transactions = transactions.filter(category_id=category_id)
-    for item in transactions:
-        rows.append([item.date, item.description, item.category.name if item.category else '', item.get_type_display(), item.amount, item.get_payment_method_display(), '', '', '', item.person.name if item.person else '', 'Pago' if item.paid else 'Pendente', ''])
-    cards = CreditCardExpense.objects.select_related('category', 'person').filter(date__range=(start, end))
-    if category_id:
-        cards = cards.filter(category_id=category_id)
-    for item in cards:
-        rows.append([item.date, item.description, item.category.name, 'Despesa', item.amount, 'Cartão', item.invoice_month or item.date, item.vr_amount, item.amount, item.person.name, 'Pago' if item.paid else 'Pendente', f'{item.current_installment}/{item.total_installments}'])
-    return rows
-
-
 REPORT_TYPES = {
     'financial': 'Relatório financeiro',
     'bills': 'Relatório de faturas',
@@ -399,11 +419,13 @@ def report_filters(request):
 
 def report_csv(request):
     year, month, start, end, category_id, report_type = report_filters(request)
+    summary = monthly_summary(year, month)
     response = HttpResponse(content_type='text/csv; charset=utf-8')
-    response['Content-Disposition'] = f'attachment; filename="saas-finance-{start.isoformat()}-{end.isoformat()}.csv"'
+    response['Content-Disposition'] = f'attachment; filename="gofinance-{start.isoformat()}-{end.isoformat()}.csv"'
     response.write('\ufeff')
     writer = csv.writer(response)
     writer.writerow(['Data', 'Descrição', 'Categoria', 'Tipo', 'Valor', 'Forma de pagamento', 'Fatura', 'Valor VR', 'Valor cartão', 'Responsável', 'Status', 'Parcelamento'])
+    writer.writerow(['', 'Saldo inicial', '', 'Saldo inicial', summary['opening_balance'], '', '', '', '', '', '', ''])
     writer.writerows(report_rows(start, end, category_id, report_type))
     return response
 
@@ -412,9 +434,10 @@ def report_pdf(request):
     year, month, start, end, category_id, report_type = report_filters(request)
     summary = monthly_summary(year, month)
     lines = [
-        f'SaaS Finance - {REPORT_TYPES[report_type]}',
+        f'GoFinance - {REPORT_TYPES[report_type]}',
         f'Periodo: {start.strftime("%d/%m/%Y")} a {end.strftime("%d/%m/%Y")}',
-        f'SaaS Finance - Relatório {month:02d}/{year}',
+        f'GoFinance - Relatório {month:02d}/{year}',
+        f'Saldo inicial: R$ {summary["opening_balance"]:.2f}',
         f'Receitas: R$ {summary["revenues"]:.2f}',
         f'Despesas: R$ {summary["expenses"]:.2f}',
         f'Fatura: R$ {summary["card_invoice"]:.2f}',
@@ -436,13 +459,13 @@ def report_pdf(request):
         offsets.append(len(pdf)); pdf.extend(f'{number} 0 obj\n'.encode()); pdf.extend(obj); pdf.extend(b'\nendobj\n')
     xref = len(pdf); pdf.extend(f'xref\n0 {len(objects)+1}\n0000000000 65535 f \n'.encode()); pdf.extend(''.join(f'{offset:010d} 00000 n \n' for offset in offsets[1:]).encode()); pdf.extend(f'trailer\n<< /Size {len(objects)+1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF'.encode())
     response = HttpResponse(bytes(pdf), content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename="saas-finance-{start.isoformat()}-{end.isoformat()}.pdf"'
+    response['Content-Disposition'] = f'attachment; filename="gofinance-{start.isoformat()}-{end.isoformat()}.pdf"'
     return response
 
 
 def transaction_list(request):
     year, month = selected_period(request)
-    qs = Transaction.objects.select_related('category', 'person').filter(date__year=year, date__month=month)
+    qs = Transaction.objects.select_related('category', 'person').prefetch_related('vr_movements').filter(date__year=year, date__month=month)
     if request.GET.get('q'):
         qs = qs.filter(description__icontains=request.GET['q'])
     if request.GET.get('category'):
@@ -475,14 +498,7 @@ def transaction_create(request):
             return redirect('finance:card_list')
         if d['type'] == Transaction.Type.EXPENSE and d['payment_method'] == Transaction.PaymentMethod.VR:
             tx = form.save()
-            VRMovement.objects.create(
-                date=d['date'],
-                description=d['description'],
-                movement_type=VRMovement.Type.DEBIT,
-                amount=d['amount'],
-                transaction=tx,
-                notes=d.get('notes', ''),
-            )
+            sync_transaction_vr(tx)
             messages.success(request, 'Gasto lançado no Vale Refeição.')
             return redirect('finance:vr_list')
         form.save()
@@ -495,14 +511,17 @@ def transaction_edit(request, pk):
     obj = get_object_or_404(Transaction, pk=pk)
     form = TransactionForm(request.POST or None, instance=obj)
     if form.is_valid():
-        form.save()
+        sync_transaction_vr(form.save())
         messages.success(request, 'Lançamento atualizado.')
         return redirect('finance:transaction_list')
     return render(request, 'finance/form.html', {'form': form, 'title': 'Editar lançamento'})
 
 
 def transaction_delete(request, pk):
-    return delete_object(request, get_object_or_404(Transaction, pk=pk), 'finance:transaction_list', 'lançamento')
+    item = get_object_or_404(Transaction, pk=pk)
+    if request.method == 'POST':
+        item.vr_movements.all().delete()
+    return delete_object(request, item, 'finance:transaction_list', 'lançamento')
 
 
 @require_POST
@@ -671,7 +690,7 @@ def card_list(request):
     context = period_context(year, month)
     distinct_items = items.distinct()
     item_list = list(distinct_items)
-    context.update({'items': distinct_items, 'vr_card_indexes': json.dumps([index for index, item in enumerate(item_list) if item.vr_amount > 0]), 'summary': summary, 'next_commitment': next_commitment, 'person_filter': person_filter, 'search': search})
+    context.update({'items': distinct_items, 'vr_card_indexes': [index for index, item in enumerate(item_list) if item.vr_amount > 0], 'summary': summary, 'next_commitment': next_commitment, 'person_filter': person_filter, 'search': search})
     return render(request, 'finance/card_list.html', context)
 
 
@@ -796,13 +815,18 @@ def person_edit(request, pk):
 
 def investment_list(request):
     year, month = selected_period(request)
-    items = Investment.objects.filter(date__year=year, date__month=month)
+    items = Investment.objects.select_related('category').filter(date__year=year, date__month=month)
+    recurring_items = Investment.objects.filter(active=True).exclude(recurrence=Investment.Recurrence.ONE_TIME)
+    next_investment = Investment.objects.filter(active=True, date__gte=date.today()).order_by('date', 'id').first()
     context = period_context(year, month)
     context.update({
         'items': items,
         'month_total': money_sum(items, 'amount'),
         'balance_total': Investment.objects.aggregate(total=Sum('current_balance'))['total'] or 0,
         'applied_total': money_sum(Investment.objects.all(), 'amount'),
+        'recurring_items': recurring_items,
+        'active_count': Investment.objects.filter(active=True).count(),
+        'next_investment': next_investment,
     })
     return render(request, 'finance/investment_list.html', context)
 
@@ -831,12 +855,13 @@ def monthly_report(request):
         'report_end': end,
         'report_category': category_id,
         'report_categories': Category.objects.filter(active=True),
-        'report_chart_data': json.dumps({
+        'report_chart_data': {
             'labels': context['summary']['category_labels'],
             'values': context['summary']['category_values'],
             'revenues': float(context['summary']['revenues']),
             'expenses': float(context['summary']['expenses']),
-        }),
+            'investments': float(context['summary']['investment_month']),
+        },
     })
     return render(request, 'finance/monthly_report.html', context)
 

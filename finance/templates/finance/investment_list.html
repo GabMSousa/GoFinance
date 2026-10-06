@@ -1,24 +1,27 @@
 {% extends 'finance/base.html' %}
 {% block title %}Investimentos{% endblock %}
 {% block content %}
-<div class="d-flex justify-content-between"><h2>Investimentos</h2><a class="btn btn-primary" href="{% url 'finance:investment_create' %}">Novo investimento</a></div>
+<div class="page-heading"><div><p class="eyebrow">Aplicações</p><h1>Investimentos</h1><p class="page-subtitle">Registre aportes únicos ou recorrentes sem misturá-los às despesas comuns.</p></div><a class="btn btn-primary" href="{% url 'finance:investment_create' %}">+ Novo investimento</a></div>
 {% include 'finance/_period.html' %}
-<p>Total investido (saldo atual): <strong>R$ {{ balance_total|floatformat:2 }}</strong> | Aportes do mês: <strong>R$ {{ month_total|floatformat:2 }}</strong> | Aportes acumulados: <strong>R$ {{ applied_total|floatformat:2 }}</strong></p>
+<div class="summary-strip"><div><span>Total no mês</span><strong>R$ {{ month_total|floatformat:2 }}</strong></div><div><span>Recorrentes ativos</span><strong>{{ recurring_items|length }}</strong></div><div><span>Saldo aplicado</span><strong>R$ {{ balance_total|floatformat:2 }}</strong></div></div>
+{% if next_investment %}<p class="form-help">Próximo investimento: <strong>{{ next_investment.description }}</strong> em {{ next_investment.date|date:'d/m/Y' }} — R$ {{ next_investment.amount|floatformat:2 }}.</p>{% endif %}
 <div class="table-responsive">
   <table class="table">
-    <thead><tr><th>Data</th><th>Descrição</th><th>Tipo</th><th>Aporte</th><th>Saldo atual</th><th></th></tr></thead>
+    <thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Tipo</th><th>Valor</th><th>Periodicidade</th><th>Status</th><th>Ações</th></tr></thead>
     <tbody>
       {% for x in items %}
       <tr>
         <td>{{ x.date|date:'d/m/Y' }}</td>
-        <td>{{ x.description }}</td>
+        <td><strong>{{ x.description }}</strong><div class="muted-cell">{{ x.payment_method|default:'Conta não informada' }}</div></td>
+        <td>{{ x.category|default:'—' }}</td>
         <td>{{ x.get_type_display }}</td>
         <td>R$ {{ x.amount|floatformat:2 }}</td>
-        <td>R$ {{ x.current_balance|floatformat:2 }}</td>
+        <td>{{ x.get_recurrence_display }}{% if x.due_day %} · dia {{ x.due_day }}{% endif %}</td>
+        <td><span class="badge {% if x.active %}ok{% else %}muted{% endif %}">{% if x.active %}Ativo{% else %}Inativo{% endif %}</span></td>
         <td><a class="btn btn-sm btn-outline-primary" href="{% url 'finance:investment_edit' x.id %}">Editar</a> <a class="btn btn-sm btn-outline-danger" href="{% url 'finance:investment_delete' x.id %}">Excluir</a></td>
       </tr>
       {% empty %}
-      <tr><td colspan="6">Nenhum investimento no período.</td></tr>
+      <tr><td colspan="8">Nenhum investimento no período.</td></tr>
       {% endfor %}
     </tbody>
   </table>
