@@ -1,8 +1,19 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
   <title id="title">Marca GoFinance</title>
-  <desc id="desc">Seta ascendente integrada a um círculo aberto</desc>
-  <path d="M13 43.5 27 29.5l7 7L51 19.5" fill="none" stroke="#4DD2C8" stroke-linecap="round" stroke-linejoin="round" stroke-width="7"/>
-  <path d="M42 19.5h9v9" fill="none" stroke="#4DD2C8" stroke-linecap="round" stroke-linejoin="round" stroke-width="7"/>
-  <path d="M12 25.5a22 22 0 0 1 34-8" fill="none" stroke="#AAB1C2" stroke-linecap="round" stroke-width="3.5"/>
-  <path d="M52 38.5a22 22 0 0 1-34 8" fill="none" stroke="#AAB1C2" stroke-linecap="round" stroke-width="3.5"/>
+  <desc id="desc">Moeda com cifrão sobre pilhas de dinheiro</desc>
+  <defs>
+    <linearGradient id="money" x1="7" y1="14" x2="57" y2="51" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFB347"/>
+      <stop offset="1" stop-color="#4DD2C8"/>
+    </linearGradient>
+  </defs>
+  <g fill="none" stroke="url(#money)" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M8 18c0-2.2 1.8-4 4-4h20c3.2 0 6 1.1 8.2 3" stroke-width="5"/>
+    <path d="M8 18v5c0 2.2 1.8 4 4 4h16" stroke-width="5"/>
+    <path d="M11 29c-2.2 0-4 1.8-4 4v4c0 2.2 1.8 4 4 4h15" stroke-width="5"/>
+    <path d="M11 41c-2.2 0-4 1.8-4 4v4c0 2.2 1.8 4 4 4h23" stroke-width="5"/>
+    <circle cx="42" cy="32" r="19" fill="#121621" stroke-width="5"/>
+    <path d="M47 24h-6.5a4.5 4.5 0 0 0 0 9H44a4.5 4.5 0 0 1 0 9h-7" stroke-width="4"/>
+    <path d="M42 20v4M42 44v4" stroke-width="4"/>
+  </g>
 </svg>

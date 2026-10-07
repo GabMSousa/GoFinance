@@ -32,7 +32,7 @@ from .forms import (
 )
 from .models import Category, CreditCardBill, CreditCardExpense, FinancialProfile, FixedExpense, Goal, Investment, Person, SalarySnapshot, Transaction, VRMovement
 from .importers import import_preview_rows, preview_csv
-from .services import add_months, month_bounds, monthly_summary, money_sum, split_installment_values, third_party_by_person, to_decimal
+from .services import add_months, month_bounds, monthly_summary, money_sum, split_installment_values, sync_card_vr, sync_transaction_vr, third_party_by_person, to_decimal
 
 
 def selected_period(request):
@@ -71,6 +71,7 @@ def period_context(year, month):
         'month': month,
         'year': year,
         'month_name': month_names[month],
+        'invoice_close_date': add_months(date(year, month, 1), 1),
         'months': [
             (1, 'Janeiro'), (2, 'Fevereiro'), (3, 'Março'), (4, 'Abril'),
             (5, 'Maio'), (6, 'Junho'), (7, 'Julho'), (8, 'Agosto'),
@@ -84,31 +85,10 @@ def person_from_responsibility(data):
     return Person.objects.get_or_create(name=name, defaults={'active': True})[0]
 
 
-def sync_transaction_vr(transaction):
-    movement = transaction.vr_movements.filter(movement_type=VRMovement.Type.DEBIT).first()
-    if transaction.payment_method == Transaction.PaymentMethod.VR:
-        defaults = {
-            'date': transaction.date,
-            'description': transaction.description,
-            'amount': transaction.amount,
-            'notes': transaction.notes,
-        }
-        if movement:
-            for field, value in defaults.items():
-                setattr(movement, field, value)
-            movement.save(update_fields=list(defaults))
-        else:
-            VRMovement.objects.create(
-                transaction=transaction,
-                movement_type=VRMovement.Type.DEBIT,
-                **defaults,
-            )
-    elif movement:
-        movement.delete()
-
-
 def create_card_installments(data, amount_key='amount'):
     total = to_decimal(data[amount_key])
+    vr_amount = to_decimal(data.get('vr_amount') or 0)
+    purchase_total = to_decimal(data.get('purchase_total') or data.get('total_amount') or (total + vr_amount))
     count = int(data.get('total_installments') or data.get('installment_total') or 1)
     values = split_installment_values(total, count)
     series = uuid.uuid4()
@@ -117,14 +97,14 @@ def create_card_installments(data, amount_key='amount'):
     person = data.get('person') or person_from_responsibility(data)
     created = []
     for number, value in enumerate(values, start=1):
-        created.append(CreditCardExpense.objects.create(
+        expense = CreditCardExpense.objects.create(
             date=add_months(first_date, number - 1),
             purchase_date=first_date,
             invoice_month=add_months(first_date, number - 1).replace(day=1),
             description=data['description'],
             category=data['category'],
             amount=value,
-            total_amount=total,
+            total_amount=purchase_total,
             person=person,
             current_installment=number,
             total_installments=count,
@@ -133,10 +113,12 @@ def create_card_installments(data, amount_key='amount'):
             reimbursable=data.get('reimbursable', False),
             received=data.get('received', False),
             paid=data.get('paid', False),
-            vr_amount=to_decimal(data.get('vr_amount') or 0) if number == 1 else Decimal('0.00'),
+            vr_amount=vr_amount if number == 1 else Decimal('0.00'),
             notes=data.get('notes', ''),
             series_id=series,
-        ))
+        )
+        sync_card_vr(expense)
+        created.append(expense)
     return created
 
 
@@ -158,7 +140,10 @@ def dashboard(request):
     if payment:
         tx_qs = tx_qs.filter(payment_method=payment)
         if payment == Transaction.PaymentMethod.CREDIT_CARD:
-            pass
+            card_qs = card_qs.filter(vr_amount=0)
+        elif payment == Transaction.PaymentMethod.VR:
+            tx_qs = tx_qs.filter(vr_amount__gt=0)
+            card_qs = card_qs.filter(vr_amount__gt=0)
         else:
             card_qs = card_qs.none()
     if person_filter == 'other':
@@ -171,19 +156,27 @@ def dashboard(request):
     for item in tx_qs:
         movements.append({
             'date': item.date, 'description': item.description, 'amount': item.amount,
+            'total_amount': item.amount + item.vr_amount, 'vr_amount': item.vr_amount,
             'category': item.category, 'payment': item.get_payment_method_display(),
             'person': item.person, 'kind': 'transaction', 'type': item.get_type_display(),
             'paid': item.paid, 'pk': item.pk,
             'uses_vr': item.vr_movements.exists(),
+            'total_amount': item.amount + item.vr_amount,
+            'vr_amount': item.vr_amount,
+            'card_amount': item.amount if item.payment_method != Transaction.PaymentMethod.VR else Decimal('0.00'),
         })
     for item in card_qs.distinct():
         movements.append({
             'date': item.date, 'description': item.description, 'amount': item.amount,
             'category': item.category, 'payment': 'Cartão', 'person': item.person,
+            'total_amount': item.amount + item.vr_amount, 'vr_amount': item.vr_amount,
             'kind': 'card', 'type': 'Compra', 'paid': item.paid, 'paid_at': item.paid_at,
             'pk': item.pk, 'installment': f'{item.current_installment}/{item.total_installments}',
             'reimbursable': item.reimbursable, 'reimbursement_pending': item.reimbursement_pending,
             'uses_vr': item.vr_amount > 0,
+            'total_amount': item.movement_total,
+            'vr_amount': item.vr_amount,
+            'card_amount': item.amount,
         })
     movements.sort(key=lambda item: item['date'], reverse=True)
     vr_movement_indexes = [index for index, item in enumerate(movements) if item.get('uses_vr')]
@@ -230,6 +223,10 @@ def dashboard(request):
         'next_investment': Investment.objects.filter(active=True, date__gte=date(year, month, 1)).order_by('date', 'id').first(),
         'bill_payment_form': CardBillPaymentForm(initial={'amount': summary['card_invoice'], 'paid_at': date.today()}),
         'csv_form': CsvImportForm(initial={'invoice_month': date(year, month, 1)}),
+        'movement_details': [
+            {'total': float(item['total_amount']), 'vr': float(item['vr_amount']), 'card': float(item['card_amount'])}
+            for item in movements
+        ],
         'chart_data': {
             'revenues': float(summary['revenues']),
             'expenses': float(summary['expenses']),
@@ -388,7 +385,9 @@ def report_rows(start, end, category_id='', report_type='financial'):
             continue
         if report_type == 'third_party' and not item.reimbursable:
             continue
-        rows.append([item.date, item.description, item.category.name if item.category else '', item.get_type_display(), item.amount, item.get_payment_method_display(), '', '', '', item.person.name if item.person else '', 'Pago' if item.paid else 'Pendente', ''])
+        total = item.amount + item.vr_amount
+        card_amount = item.amount if item.payment_method != Transaction.PaymentMethod.VR else Decimal('0.00')
+        rows.append([item.date, item.description, item.category.name if item.category else '', item.get_type_display(), total, item.get_payment_method_display(), '', item.vr_amount, card_amount, item.person.name if item.person else '', 'Pago' if item.paid else 'Pendente', ''])
     cards = CreditCardExpense.objects.select_related('category', 'person').filter(date__range=(start, end))
     if category_id:
         cards = cards.filter(category_id=category_id)
@@ -403,7 +402,12 @@ def report_rows(start, end, category_id='', report_type='financial'):
             rows.append([item.date, item.description, '', 'Investimento', item.amount, '', '', '', '', '', '', ''])
     if report_type in ('financial', 'vr', 'visual'):
         for item in VRMovement.objects.filter(date__range=(start, end)):
+            if report_type != 'vr' and (item.transaction_id or item.card_expense_id):
+                continue
             rows.append([item.date, item.description, '', item.get_movement_type_display(), item.amount, 'VR', '', item.amount, '', '', '', ''])
+    for row in rows:
+        if len(row) == 12 and row[11]:
+            row[4] = row[7] + row[8]
     rows.sort(key=lambda row: row[0], reverse=True)
     return rows
 
@@ -441,6 +445,9 @@ def report_pdf(request):
         f'Receitas: R$ {summary["revenues"]:.2f}',
         f'Despesas: R$ {summary["expenses"]:.2f}',
         f'Fatura: R$ {summary["card_invoice"]:.2f}',
+        f'Compras: R$ {summary["purchase_total"]:.2f}',
+        f'Compras no VR: R$ {summary["purchase_vr"]:.2f}',
+        f'Compras no cartão/banco: R$ {summary["purchase_bank"]:.2f}',
         f'Investimentos: R$ {summary["investment_month"]:.2f}',
         f'VR utilizado: R$ {summary["vr_spent"]:.2f}',
         f'Terceiros pendentes: R$ {summary["third_party_pending"]:.2f}',
@@ -588,7 +595,7 @@ def quick_expense(request):
             vr_amount += remaining
             remaining = Decimal('0.00')
         if remaining > 0 and d['payment_method'] == Transaction.PaymentMethod.CREDIT_CARD:
-            create_card_installments({**d, 'person': person, 'amount': remaining, 'vr_amount': vr_amount, 'total_installments': d.get('installment_total') or 1})
+            create_card_installments({**d, 'person': person, 'amount': remaining, 'purchase_total': total, 'vr_amount': vr_amount, 'total_installments': d.get('installment_total') or 1})
         elif remaining > 0:
             tx = Transaction.objects.create(
                 date=d['date'],
@@ -597,6 +604,7 @@ def quick_expense(request):
                 type=Transaction.Type.EXPENSE,
                 payment_method=d['payment_method'],
                 amount=remaining,
+                vr_amount=vr_amount,
                 paid=d['paid'],
                 person=person,
                 reimbursable=d['reimbursable'],
@@ -615,6 +623,7 @@ def quick_expense(request):
                 type=Transaction.Type.EXPENSE,
                 payment_method=Transaction.PaymentMethod.VR,
                 amount=vr_amount,
+                vr_amount=vr_amount,
                 paid=d['paid'],
                 person=person,
                 reimbursable=d['reimbursable'],
@@ -622,15 +631,8 @@ def quick_expense(request):
                 installment_total=1,
                 notes=f'Compra paga integralmente com VR. {notes}'.strip(),
             )
-        if vr_amount > 0:
-            VRMovement.objects.create(
-                date=d['date'],
-                description=d['description'],
-                movement_type=VRMovement.Type.DEBIT,
-                amount=vr_amount,
-                transaction=tx,
-                notes=f'Pagamento dividido. Total R$ {total}. {notes}'.strip(),
-            )
+        if tx:
+            sync_transaction_vr(tx)
         messages.success(request, 'Gasto salvo.')
         return redirect('finance:dashboard')
     return render(request, 'finance/quick_expense.html', {'form': form, 'title': 'Novo gasto'})
@@ -708,7 +710,7 @@ def card_list(request):
     context = period_context(year, month)
     distinct_items = items.distinct()
     item_list = list(distinct_items)
-    context.update({'items': distinct_items, 'vr_card_indexes': [index for index, item in enumerate(item_list) if item.vr_amount > 0], 'summary': summary, 'next_commitment': next_commitment, 'person_filter': person_filter, 'search': search})
+    context.update({'items': distinct_items, 'vr_card_indexes': [index for index, item in enumerate(item_list) if item.vr_amount > 0], 'vr_card_details': [{'total': str(item.movement_total), 'vr': str(item.vr_amount), 'card': str(item.amount)} for item in item_list], 'summary': summary, 'next_commitment': next_commitment, 'person_filter': person_filter, 'search': search})
     return render(request, 'finance/card_list.html', context)
 
 
@@ -728,35 +730,22 @@ def card_edit(request, pk):
     form = CreditCardExpenseForm(request.POST or None, instance=obj)
     if form.is_valid():
         updated = form.save()
-        vr = VRMovement.objects.filter(
-            date=old_vr_date,
-            description=old_vr_description,
-            movement_type=VRMovement.Type.DEBIT,
-            transaction__isnull=True,
-        ).order_by('-id').first()
-        if updated.vr_amount > 0:
-            if vr:
-                vr.amount = updated.vr_amount
-                vr.date = updated.purchase_date or updated.date
-                vr.description = updated.description
-                vr.save(update_fields=['amount', 'date', 'description'])
-            else:
-                VRMovement.objects.create(
-                    date=updated.purchase_date or updated.date,
-                    description=updated.description,
-                    movement_type=VRMovement.Type.DEBIT,
-                    amount=updated.vr_amount,
-                    notes='VR associado à compra do cartão.',
-                )
-        elif vr:
-            vr.delete()
+        sync_card_vr(updated, legacy_date=old_vr_date, legacy_description=old_vr_description)
         messages.success(request, 'Parcela atualizada.')
         return redirect('finance:card_list')
     return render(request, 'finance/form.html', {'form': form, 'title': 'Editar parcela do cartão'})
 
 
 def card_delete(request, pk):
-    return delete_object(request, get_object_or_404(CreditCardExpense, pk=pk), 'finance:card_list', 'parcela')
+    item = get_object_or_404(CreditCardExpense, pk=pk)
+    VRMovement.objects.filter(
+        date=item.purchase_date or item.date,
+        description=item.description,
+        movement_type=VRMovement.Type.DEBIT,
+        transaction__isnull=True,
+        card_expense__isnull=True,
+    ).delete()
+    return delete_object(request, item, 'finance:card_list', 'parcela')
 
 
 @require_POST

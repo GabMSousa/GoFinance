@@ -39,20 +39,20 @@
 <div class="table-responsive">
   <table class="table table-hover align-middle">
     <thead>
-      <tr class="{% if x.payment_method == 'VR' or x.vr_movements.exists %}vr-highlight{% endif %}">
+      <tr>
         <th>Data</th><th>Descrição</th><th>Categoria</th><th>Tipo</th><th>Pagamento</th><th>Responsável</th><th>Valor</th><th>Pago</th><th></th>
       </tr>
     </thead>
     <tbody>
       {% for x in items %}
-      <tr>
+      <tr class="{% if x.vr_amount > 0 or x.payment_method == 'VR' or x.vr_movements.exists %}vr-highlight{% endif %}">
         <td>{{ x.date|date:'d/m/Y' }}</td>
         <td>{{ x.description }}{% if x.payment_method == 'VR' or x.vr_movements.exists %}<span class="vr-badge">VR</span>{% endif %}</td>
         <td>{{ x.category|default:'—' }}</td>
         <td><span class="badge {% if x.type == 'REVENUE' %}text-bg-success{% elif x.type == 'EXPENSE' %}text-bg-danger{% else %}text-bg-secondary{% endif %}">{{ x.get_type_display }}</span></td>
         <td>{{ x.get_payment_method_display }}</td>
         <td>{{ x.person|default:'—' }}</td>
-        <td>R$ {{ x.amount|floatformat:2 }}</td>
+        <td>R$ {{ x.amount|add:x.vr_amount|floatformat:2 }}{% if x.vr_amount > 0 %}<div class="muted-cell">VR R$ {{ x.vr_amount|floatformat:2 }} · Cartão/banco R$ {{ x.amount|floatformat:2 }}</div>{% endif %}</td>
         <td>
           <form method="post" action="{% url 'finance:transaction_toggle_paid' x.id %}">
             {% csrf_token %}

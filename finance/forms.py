@@ -47,6 +47,7 @@ class TransactionForm(BootstrapModelForm):
             'type',
             'payment_method',
             'amount',
+            'vr_amount',
             'paid',
             'fixed_expense',
             'person',
@@ -77,8 +78,13 @@ class TransactionForm(BootstrapModelForm):
         current = data.get('installment_current')
         total = data.get('installment_total') or 1
         amount = data.get('amount')
+        vr_amount = to_decimal(data.get('vr_amount') or 0)
         if amount is not None and amount <= 0:
             self.add_error('amount', 'Informe um valor maior que zero.')
+        if vr_amount < 0:
+            self.add_error('vr_amount', 'O valor de VR nÃ£o pode ser negativo.')
+        if tx_type == Transaction.Type.EXPENSE and data.get('payment_method') == Transaction.PaymentMethod.VR and amount:
+            data['vr_amount'] = amount
         if tx_type == Transaction.Type.EXPENSE and not category:
             self.add_error('category', 'Categoria é obrigatória para despesas.')
         if reimbursable and not person:

@@ -27,6 +27,25 @@ function initSecurityInteractions() {
   };
   applyVrBadges('vr-movement-indexes', '.movement-row', '.movement-main strong');
   applyVrBadges('vr-card-indexes', 'tbody tr', 'td strong');
+  const money = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value || 0));
+  const movementDetails = parseJsonScript('movement-details') || [];
+  document.querySelectorAll('.movement-row').forEach((row, index) => {
+    const item = movementDetails[index];
+    if (!item || Number(item.vr) <= 0) return;
+    const target = row.querySelector('.movement-main');
+    if (target && !target.querySelector('.movement-breakdown')) {
+      target.insertAdjacentHTML('beforeend', `<span class="movement-breakdown">Total ${money(item.total)} · VR ${money(item.vr)} · Cartão ${money(item.card)}</span>`);
+    }
+  });
+  const cardDetails = parseJsonScript('vr-card-details') || [];
+  document.querySelectorAll('tbody tr').forEach((row, index) => {
+    const item = cardDetails[index];
+    if (!item || Number(item.vr) <= 0) return;
+    const target = row.querySelector('td:first-child');
+    if (target && !target.querySelector('.movement-breakdown')) {
+      target.insertAdjacentHTML('beforeend', `<div class="movement-breakdown">Total ${money(item.total)} · VR ${money(item.vr)} · Cartão ${money(item.card)}</div>`);
+    }
+  });
 }
 
 function initPurchaseFields() {

@@ -672,6 +672,23 @@ class OpenPeriodTests(BaseFinanceTest):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Contas fixas')
         self.assertContains(response, 'Internet')
+        self.assertContains(response, 'fatura fecha em 01/10/2026')
+        self.assertContains(response, 'Ajustar')
+
+    def test_fixed_expense_value_can_be_adjusted_from_fixed_list(self):
+        fixed = FixedExpense.objects.create(
+            description='Internet', category=self.food, amount=Decimal('99.90'), active=True,
+            included_in_credit_card=False,
+        )
+        response = self.client.post(
+            reverse('finance:fixed_edit', args=[fixed.pk]),
+            {'description': 'Internet', 'category': self.food.pk, 'amount': '129.90',
+             'due_day': '', 'payment_method': 'PIX', 'recurrence': 'MONTHLY',
+             'active': 'on', 'paid': '', 'is_subscription': '', 'included_in_credit_card': ''},
+        )
+        self.assertEqual(response.status_code, 302)
+        fixed.refresh_from_db()
+        self.assertEqual(fixed.amount, Decimal('129.90'))
 
     def test_default_period_stays_on_current_month_when_invoice_is_open(self):
         self.assertEqual(default_open_period(date(2026, 9, 10)), (2026, 9))

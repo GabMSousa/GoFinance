@@ -23,6 +23,9 @@
         <tr><th>Variáveis</th><td class="text-end">R$ {{ summary.variable_total|floatformat:2 }}</td></tr>
         <tr><th>Cartão</th><td class="text-end">R$ {{ summary.card_invoice|floatformat:2 }}</td></tr>
         <tr><th>Terceiros</th><td class="text-end">R$ {{ summary.third_party_total|floatformat:2 }}</td></tr>
+        <tr><th>Compras</th><td class="text-end">R$ {{ summary.purchase_total|floatformat:2 }}</td></tr>
+        <tr><th>Compras no VR</th><td class="text-end">R$ {{ summary.purchase_vr|floatformat:2 }}</td></tr>
+        <tr><th>Compras no cartão/banco</th><td class="text-end">R$ {{ summary.purchase_bank|floatformat:2 }}</td></tr>
         <tr><th>Reembolsos</th><td class="text-end text-success">R$ {{ summary.reimbursements|floatformat:2 }}</td></tr>
         <tr><th>VR</th><td class="text-end">R$ {{ summary.vr_spent|floatformat:2 }} utilizado / R$ {{ summary.vr_balance|floatformat:2 }} saldo</td></tr>
         <tr><th>Investimentos</th><td class="text-end">R$ {{ summary.investment_month|floatformat:2 }}</td></tr>
