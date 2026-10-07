@@ -1,35 +1,32 @@
 {% extends 'finance/base.html' %}
-{% block title %}Vale Refeição{% endblock %}
+{% block title %}Vale-refeição{% endblock %}
 {% block content %}
-<div class="d-flex justify-content-between"><h2>Vale Refeição</h2><a class="btn btn-primary" href="{% url 'finance:vr_create' %}">Novo movimento</a></div>
-{% include 'finance/_period.html' %}
-<div class="row g-3 mb-3">
-  <div class="col-md-3"><div class="card"><div class="card-body"><small>Saldo inicial</small><h5>R$ {{ summary.vr_initial|floatformat:2 }}</h5></div></div></div>
-  <div class="col-md-3"><div class="card"><div class="card-body"><small>Crédito mensal</small><h5>R$ {{ summary.vr_credit|floatformat:2 }}</h5></div></div></div>
-  <div class="col-md-3"><div class="card"><div class="card-body"><small>Total utilizado</small><h5>R$ {{ summary.vr_spent|floatformat:2 }}</h5></div></div></div>
-  <div class="col-md-3"><div class="card"><div class="card-body"><small>Saldo atual</small><h5>R$ {{ summary.vr_balance|floatformat:2 }}</h5></div></div></div>
+<div class="page-heading">
+  <div><p class="eyebrow">Benefício mensal</p><h1>Vale-refeição</h1><p class="page-subtitle">Créditos, consumo e saldo disponível calculados a partir dos movimentos salvos.</p></div>
+  <a class="btn btn-primary" href="{% url 'finance:vr_create' %}">+ Novo movimento</a>
 </div>
-<p>
-  <a class="btn btn-outline-success btn-sm" href="{% url 'finance:vr_create' %}">Adicionar crédito</a>
-  <a class="btn btn-outline-danger btn-sm" href="{% url 'finance:vr_create' %}">Registrar gasto</a>
-  <a class="btn btn-outline-warning btn-sm" href="{% url 'finance:vr_create' %}">Registrar ajuste</a>
-</p>
-<section class="data-panel vr-table-panel"><div class="table-responsive">
-  <table class="table">
-    <thead><tr><th>Data</th><th>Descrição</th><th>Tipo</th><th>Valor</th></tr></thead>
-    <tbody>
-      {% for x in items %}
-      <tr class="vr-highlight">
-        <td>{{ x.date|date:'d/m/Y' }}</td>
-        <td>{{ x.description }}<span class="vr-badge">VR</span></td>
-        <td>{{ x.get_movement_type_display }}</td>
-        <td>R$ {{ x.amount|floatformat:2 }}</td>
-      </tr>
-      {% empty %}
-      <tr><td colspan="4">Nenhum movimento no período.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div></section>
-<section class="data-panel mt-3"><div class="panel-heading"><div><h2>Correções</h2><p>Edite qualquer movimento de VR já lançado.</p></div></div><div class="settings-list">{% for x in items %}<div class="settings-row"><div><strong>{{ x.description }}</strong><span>R$ {{ x.amount|floatformat:2 }}</span></div><a href="{% url 'finance:vr_edit' x.id %}">Editar</a></div>{% endfor %}</div></section>
+{% include 'finance/_period.html' %}
+<section class="summary-grid vr-summary-grid">
+  <article class="summary-card summary-balance"><div class="summary-label">Disponível</div><div class="summary-value">R$ {{ summary.vr_balance|floatformat:2 }}</div></article>
+  <article class="summary-card"><div class="summary-label">Utilizado no mês</div><div class="summary-value">R$ {{ summary.vr_spent|floatformat:2 }}</div></article>
+  <article class="summary-card summary-forecast"><div class="summary-label">Crédito mensal</div><div class="summary-value">R$ {{ summary.vr_credit|floatformat:2 }}</div></article>
+</section>
+<div class="vr-actions"><a class="btn btn-outline-success btn-sm" href="{% url 'finance:vr_create' %}">Adicionar crédito</a><a class="btn btn-outline-danger btn-sm" href="{% url 'finance:vr_create' %}">Registrar gasto</a><a class="btn btn-outline-warning btn-sm" href="{% url 'finance:vr_create' %}">Registrar ajuste</a></div>
+<section class="data-panel vr-table-panel">
+  <div class="panel-heading"><div><h2>Gastos e movimentos</h2><p>O laranja identifica qualquer baixa de VR no período.</p></div><span class="panel-kpi">{{ items|length }}</span></div>
+  <div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Valor total</th><th>VR</th><th>Cartão</th><th>Tipo</th></tr></thead><tbody>
+    {% for x in items %}
+    <tr class="{% if x.movement_type == 'DEBIT' %}vr-highlight{% endif %}">
+      <td>{{ x.date|date:'d/m/Y' }}</td>
+      <td><strong>{{ x.description }}</strong>{% if x.movement_type == 'DEBIT' %}<span class="vr-badge">VR</span>{% endif %}</td>
+      <td>{% if x.card_expense %}{{ x.card_expense.category }}{% elif x.transaction %}{{ x.transaction.category }}{% else %}—{% endif %}</td>
+      <td>{% if x.card_expense %}R$ {{ x.card_expense.movement_total|floatformat:2 }}{% elif x.transaction %}R$ {{ x.transaction.amount|floatformat:2 }}{% else %}R$ {{ x.amount|floatformat:2 }}{% endif %}</td>
+      <td>R$ {{ x.amount|floatformat:2 }}</td>
+      <td>{% if x.card_expense %}R$ {{ x.card_expense.amount|floatformat:2 }}{% elif x.transaction and x.transaction.payment_method != 'VR' %}R$ {{ x.transaction.amount|floatformat:2 }}{% else %}R$ 0,00{% endif %}</td>
+      <td>{{ x.get_movement_type_display }}</td>
+    </tr>
+    {% empty %}<tr><td colspan="7" class="empty-state">Nenhum movimento no período.</td></tr>{% endfor %}
+  </tbody></table></div>
+</section>
+<section class="data-panel mt-3"><div class="panel-heading"><div><h2>Correções</h2><p>Edite um movimento manual quando precisar ajustar o histórico.</p></div></div><div class="settings-list">{% for x in items %}<div class="settings-row"><div><strong>{{ x.description }}</strong><span>R$ {{ x.amount|floatformat:2 }}</span></div><a href="{% url 'finance:vr_edit' x.id %}">Editar</a></div>{% endfor %}</div></section>
 {% endblock %}

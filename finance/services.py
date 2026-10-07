@@ -30,6 +30,53 @@ def to_decimal(value):
     return Decimal(str(value or 0)).quantize(Decimal('0.01'))
 
 
+def sync_transaction_vr(transaction):
+    """Keep the persisted VR debit for a full-VR transaction idempotent."""
+    movements = list(transaction.vr_movements.filter(movement_type=VRMovement.Type.DEBIT).order_by('id'))
+    if transaction.vr_amount <= 0:
+        VRMovement.objects.filter(pk__in=[movement.pk for movement in movements]).delete()
+        return
+
+    movement = movements[0] if movements else VRMovement(transaction=transaction)
+    movement.date = transaction.date
+    movement.description = transaction.description
+    movement.amount = transaction.vr_amount
+    movement.notes = transaction.notes
+    movement.movement_type = VRMovement.Type.DEBIT
+    movement.save()
+    VRMovement.objects.filter(pk__in=[item.pk for item in movements[1:]]).delete()
+
+
+def sync_card_vr(expense, legacy_date=None, legacy_description=None):
+    """Synchronize one card installment's VR portion without creating duplicates."""
+    movements = list(expense.vr_movements.filter(movement_type=VRMovement.Type.DEBIT).order_by('id'))
+    if not movements and legacy_date and legacy_description:
+        legacy = VRMovement.objects.filter(
+            date=legacy_date,
+            description=legacy_description,
+            movement_type=VRMovement.Type.DEBIT,
+            transaction__isnull=True,
+            card_expense__isnull=True,
+        ).order_by('-id').first()
+        if legacy:
+            legacy.card_expense = expense
+            legacy.save(update_fields=['card_expense'])
+            movements = [legacy]
+
+    if expense.vr_amount <= 0:
+        VRMovement.objects.filter(pk__in=[movement.pk for movement in movements]).delete()
+        return
+
+    movement = movements[0] if movements else VRMovement(card_expense=expense)
+    movement.date = expense.purchase_date or expense.date
+    movement.description = expense.description
+    movement.movement_type = VRMovement.Type.DEBIT
+    movement.amount = expense.vr_amount
+    movement.notes = expense.notes
+    movement.save()
+    VRMovement.objects.filter(pk__in=[item.pk for item in movements[1:]]).delete()
+
+
 def split_installment_values(total, count):
     total = to_decimal(total)
     count = max(int(count or 1), 1)
@@ -198,6 +245,9 @@ def monthly_summary(year, month):
         'subscriptions_total': subscriptions_total,
         'fixed_non_card': fixed_non_card,
         'variable_total': variable_total,
+        'purchase_bank': variable_total,
+        'purchase_vr': vr_spent,
+        'purchase_total': variable_total + vr_spent,
         'card_invoice': card_invoice,
         'card_manual': card_manual,
         'card_fixed': fixed_card,
