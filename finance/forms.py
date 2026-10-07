@@ -38,6 +38,8 @@ class PersonForm(BootstrapModelForm):
 
 
 class TransactionForm(BootstrapModelForm):
+    vr_amount = forms.DecimalField(label='Valor pago com VR', min_value=Decimal('0.00'), decimal_places=2, required=False, initial=0)
+
     class Meta:
         model = Transaction
         fields = [
@@ -79,8 +81,11 @@ class TransactionForm(BootstrapModelForm):
         total = data.get('installment_total') or 1
         amount = data.get('amount')
         vr_amount = to_decimal(data.get('vr_amount') or 0)
+        vr_amount = to_decimal(data.get('vr_amount') or 0)
         if amount is not None and amount <= 0:
             self.add_error('amount', 'Informe um valor maior que zero.')
+        if amount is not None and vr_amount > amount:
+            self.add_error('vr_amount', 'O valor de VR não pode ser maior que o total do lançamento.')
         if vr_amount < 0:
             self.add_error('vr_amount', 'O valor de VR nÃ£o pode ser negativo.')
         if tx_type == Transaction.Type.EXPENSE and data.get('payment_method') == Transaction.PaymentMethod.VR and amount:
