@@ -218,7 +218,7 @@ class VRTests(BaseFinanceTest):
             'installment_total': '1',
             'notes': '',
         })
-        self.assertRedirects(response, reverse('finance:dashboard'))
+        self.assertRedirects(response, reverse('finance:dashboard') + '?year=2026&month=9')
         self.assertEqual(CreditCardExpense.objects.get().amount, Decimal('30.00'))
         self.assertEqual(CreditCardExpense.objects.get().vr_amount, Decimal('50.00'))
         self.assertEqual(VRMovement.objects.get().amount, Decimal('50.00'))
@@ -236,7 +236,7 @@ class VRTests(BaseFinanceTest):
             'installment_total': '1',
             'notes': '',
         })
-        self.assertRedirects(response, reverse('finance:dashboard'))
+        self.assertRedirects(response, reverse('finance:dashboard') + '?year=2026&month=9')
         tx = Transaction.objects.get(description='Compra integral VR')
         self.assertEqual(tx.payment_method, Transaction.PaymentMethod.VR)
         self.assertEqual(tx.amount, Decimal('50.00'))
@@ -268,7 +268,7 @@ class VRTests(BaseFinanceTest):
             'amount': '100.00', 'vr_amount': '40.00', 'responsible': 'SELF',
             'paid': 'on', 'installment_total': '1', 'notes': '',
         })
-        self.assertRedirects(response, reverse('finance:dashboard'))
+        self.assertRedirects(response, reverse('finance:dashboard') + '?year=2026&month=9')
         card = CreditCardExpense.objects.get(description='Compra parcial')
         movement = VRMovement.objects.get(description='Compra parcial')
         self.assertEqual(card.amount, Decimal('60.00'))
@@ -298,7 +298,7 @@ class VRTests(BaseFinanceTest):
             'payment_method': Transaction.PaymentMethod.VR, 'amount': '80.00', 'vr_amount': '50.00',
             'responsible': 'SELF', 'paid': 'on', 'installment_total': '1',
         })
-        self.assertRedirects(response, reverse('finance:dashboard'))
+        self.assertRedirects(response, reverse('finance:dashboard') + '?year=2026&month=9')
         expense = CreditCardExpense.objects.get(description='VR parcial com opção antiga')
         self.assertEqual(expense.amount, Decimal('30.00'))
         self.assertEqual(expense.vr_amount, Decimal('50.00'))
@@ -381,7 +381,7 @@ class VRTests(BaseFinanceTest):
             'payment_method': Transaction.PaymentMethod.CREDIT_CARD, 'amount': '100.00', 'vr_amount': '0.00',
             'responsible': 'SELF', 'paid': 'on', 'installment_total': '1',
         })
-        self.assertRedirects(response, reverse('finance:dashboard'))
+        self.assertRedirects(response, reverse('finance:dashboard') + '?year=2026&month=9')
         expense = CreditCardExpense.objects.get(description='Compra sem VR')
         self.assertEqual(expense.amount, Decimal('100.00'))
         self.assertEqual(VRMovement.objects.count(), 0)
@@ -404,6 +404,23 @@ class VRTests(BaseFinanceTest):
         self.assertEqual(summary['purchase_bank'], Decimal('30.00'))
         self.assertEqual(summary['card_invoice'], Decimal('30.00'))
         self.assertEqual(summary['final_balance'], Decimal('-30.00'))
+
+    def test_manual_purchase_appears_in_card_list_dashboard_and_bill_items(self):
+        response = self.client.post(reverse('finance:quick_expense'), {
+            'date': self.today.isoformat(), 'description': 'Compra manual integrada', 'category': self.food.pk,
+            'payment_method': Transaction.PaymentMethod.CREDIT_CARD, 'amount': '80.00', 'vr_amount': '50.00',
+            'responsible': 'SELF', 'paid': 'on', 'installment_total': '1',
+        })
+        self.assertRedirects(response, reverse('finance:dashboard') + '?year=2026&month=9')
+        card_page = self.client.get(reverse('finance:card_list'), {'year': 2026, 'month': 9})
+        dashboard = self.client.get(reverse('finance:dashboard'), {'year': 2026, 'month': 9})
+        report = self.client.get(reverse('finance:report_csv'), {'year': 2026, 'month': 9})
+        self.assertContains(card_page, 'Compra manual integrada')
+        self.assertContains(dashboard, 'Compra manual integrada')
+        self.assertIn('Compra manual integrada', report.content.decode('utf-8-sig'))
+        self.assertEqual(dashboard.context['bill_items'].count(), 1)
+        self.assertEqual(dashboard.context['summary']['card_invoice'], Decimal('30.00'))
+        self.assertEqual(dashboard.context['summary']['vr_spent'], Decimal('50.00'))
 
     def test_editing_partial_vr_updates_one_linked_movement_and_zero_removes_it(self):
         item = create_card_installments({
@@ -863,3 +880,25 @@ class OpenPeriodTests(BaseFinanceTest):
             paid_at=date(2026, 9, 30),
         )
         self.assertEqual(default_open_period(date(2026, 9, 10)), (2026, 10))
+
+    def test_manual_purchase_form_uses_open_period_after_paid_invoice(self):
+        CreditCardBill.objects.create(
+            invoice_month=date(2026, 10, 1), amount=Decimal('100.00'),
+            status=CreditCardBill.Status.PAID, paid_at=date(2026, 10, 5),
+        )
+        response = self.client.get(reverse('finance:dashboard'))
+        self.assertEqual(response.context['purchase_form'].initial['date'], date(2026, 11, 1))
+
+    def test_manual_card_purchase_is_blocked_in_paid_invoice_period(self):
+        CreditCardBill.objects.create(
+            invoice_month=date(2026, 10, 1), amount=Decimal('100.00'),
+            status=CreditCardBill.Status.PAID, paid_at=date(2026, 10, 5),
+        )
+        response = self.client.post(reverse('finance:quick_expense'), {
+            'date': '2026-10-06', 'description': 'Compra em fatura paga', 'category': self.food.pk,
+            'payment_method': Transaction.PaymentMethod.CREDIT_CARD, 'amount': '80.00', 'vr_amount': '0.00',
+            'responsible': 'SELF', 'paid': 'on', 'installment_total': '1',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'A fatura deste período já foi paga')
+        self.assertFalse(CreditCardExpense.objects.filter(description='Compra em fatura paga').exists())
