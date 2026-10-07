@@ -500,7 +500,7 @@ def transaction_create(request):
     if form.is_valid():
         d = form.cleaned_data
         if d['type'] == Transaction.Type.EXPENSE and d['payment_method'] == Transaction.PaymentMethod.CREDIT_CARD:
-            create_card_installments({**d, 'amount': d['amount'], 'total_installments': d.get('installment_total') or 1})
+            create_card_installments({**d, 'amount': d['amount'] - d.get('vr_amount', 0), 'purchase_total': d['amount'], 'total_installments': d.get('installment_total') or 1})
             messages.success(request, 'Compra enviada ao cartão e parcelas criadas.')
             return redirect('finance:card_list')
         if d['type'] == Transaction.Type.EXPENSE and d['payment_method'] == Transaction.PaymentMethod.VR:
@@ -508,7 +508,8 @@ def transaction_create(request):
             sync_transaction_vr(tx)
             messages.success(request, 'Gasto lançado no Vale Refeição.')
             return redirect('finance:vr_list')
-        form.save()
+        tx = form.save()
+        sync_transaction_vr(tx)
         messages.success(request, 'Lançamento salvo.')
         return redirect('finance:transaction_list')
     return render(request, 'finance/form.html', {'form': form, 'title': 'Novo lançamento'})
