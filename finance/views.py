@@ -140,7 +140,7 @@ def dashboard(request):
     if payment:
         tx_qs = tx_qs.filter(payment_method=payment)
         if payment == Transaction.PaymentMethod.CREDIT_CARD:
-            card_qs = card_qs.filter(vr_amount=0)
+            pass
         elif payment == Transaction.PaymentMethod.VR:
             tx_qs = tx_qs.filter(vr_amount__gt=0)
             card_qs = card_qs.filter(vr_amount__gt=0)
