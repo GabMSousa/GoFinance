@@ -38,7 +38,14 @@ class PersonForm(BootstrapModelForm):
 
 
 class TransactionForm(BootstrapModelForm):
-    vr_amount = forms.DecimalField(label='Valor pago com VR', min_value=Decimal('0.00'), decimal_places=2, required=False, initial=0)
+    vr_amount = forms.DecimalField(
+        label='Valor gasto no VR',
+        min_value=Decimal('0.00'),
+        decimal_places=2,
+        required=False,
+        initial=0,
+        help_text='O restante é calculado automaticamente pelo valor da compra.',
+    )
 
     class Meta:
         model = Transaction
@@ -70,6 +77,16 @@ class TransactionForm(BootstrapModelForm):
         self.fields['person'].queryset = Person.objects.filter(active=True)
         self.fields['category'].required = False
         self.fields['person'].required = False
+        self.fields['amount'].label = 'Valor total'
+        self.fields['amount'].widget.attrs['data-total-with-vr'] = 'true'
+        if (
+            self.instance
+            and self.instance.pk
+            and self.instance.type == Transaction.Type.EXPENSE
+            and self.instance.vr_amount
+            and self.instance.payment_method != Transaction.PaymentMethod.VR
+        ):
+            self.initial['amount'] = self.instance.amount + self.instance.vr_amount
 
     def clean(self):
         data = super().clean()
@@ -81,15 +98,19 @@ class TransactionForm(BootstrapModelForm):
         total = data.get('installment_total') or 1
         amount = data.get('amount')
         vr_amount = to_decimal(data.get('vr_amount') or 0)
-        vr_amount = to_decimal(data.get('vr_amount') or 0)
         if amount is not None and amount <= 0:
             self.add_error('amount', 'Informe um valor maior que zero.')
         if amount is not None and vr_amount > amount:
             self.add_error('vr_amount', 'O valor de VR não pode ser maior que o total do lançamento.')
         if vr_amount < 0:
             self.add_error('vr_amount', 'O valor de VR nÃ£o pode ser negativo.')
-        if tx_type == Transaction.Type.EXPENSE and data.get('payment_method') == Transaction.PaymentMethod.VR and amount:
-            data['vr_amount'] = amount
+        if (
+            tx_type == Transaction.Type.EXPENSE
+            and data.get('payment_method') == Transaction.PaymentMethod.VR
+            and amount is not None
+            and vr_amount != amount
+        ):
+            self.add_error('payment_method', 'Use o valor gasto no VR para informar a parte consumida do benefício.')
         if tx_type == Transaction.Type.EXPENSE and not category:
             self.add_error('category', 'Categoria é obrigatória para despesas.')
         if reimbursable and not person:
@@ -99,6 +120,18 @@ class TransactionForm(BootstrapModelForm):
         if current and total and current > total:
             self.add_error('installment_current', 'A parcela atual não pode ser maior que o total.')
         return data
+
+    def save(self, commit=True):
+        obj = super().save(commit=False)
+        if self.cleaned_data.get('type') == Transaction.Type.EXPENSE:
+            total = to_decimal(self.cleaned_data.get('amount') or 0)
+            vr_amount = to_decimal(self.cleaned_data.get('vr_amount') or 0)
+            remaining = total - vr_amount
+            obj.amount = total if remaining <= 0 else remaining
+            obj.vr_amount = vr_amount
+        if commit:
+            obj.save()
+        return obj
 
 
 class RevenueForm(BootstrapModelForm):
@@ -221,6 +254,8 @@ class CreditCardExpenseForm(BootstrapModelForm):
         super().__init__(*args, **kwargs)
         self.fields['responsible'].required = False
         self.fields['category'].queryset = Category.objects.filter(active=True)
+        self.fields['vr_amount'].label = 'Valor gasto no VR'
+        self.fields['vr_amount'].help_text = 'O restante da compra já está calculado na parcela do cartão.'
         if self.instance and self.instance.pk:
             self.initial['responsible'] = 'SELF' if self.instance.person.is_self else 'OTHER'
             self.initial['person_name'] = '' if self.instance.person.is_self else self.instance.person.name
@@ -236,6 +271,9 @@ class CreditCardExpenseForm(BootstrapModelForm):
             self.add_error('current_installment', 'A parcela atual não pode ser maior que o total.')
         if data.get('responsible') == 'OTHER' and not (data.get('person_name') or '').strip():
             self.add_error('person_name', 'Informe o nome da pessoa.')
+        total = to_decimal(self.instance.total_amount or self.instance.amount or 0)
+        if to_decimal(data.get('vr_amount') or 0) > total:
+            self.add_error('vr_amount', 'O valor gasto no VR não pode ser maior que o total da compra.')
         return data
 
     def save(self, commit=True):
@@ -297,14 +335,15 @@ class QuickExpenseForm(BootstrapMixin, forms.Form):
     date = forms.DateField(label='Data', widget=forms.DateInput(attrs={'type': 'date'}))
     description = forms.CharField(label='Descrição', max_length=180)
     category = forms.ModelChoiceField(label='Categoria', queryset=Category.objects.none())
-    payment_method = forms.ChoiceField(label='Forma de pagamento', choices=Transaction.PaymentMethod.choices)
+    payment_method = forms.ChoiceField(label='Forma de pagamento do restante', choices=Transaction.PaymentMethod.choices)
     amount = forms.DecimalField(label='Valor total', min_value=Decimal('0.01'), decimal_places=2)
     vr_amount = forms.DecimalField(
-        label='Valor pago com VR',
+        label='Valor gasto no VR',
         min_value=Decimal('0.00'),
         decimal_places=2,
         initial=0,
         required=False,
+        help_text='Informe quanto desta compra foi consumido do VR. O restante é calculado automaticamente.',
     )
     responsible = forms.ChoiceField(label='Responsável', choices=RESPONSIBLE_CHOICES, initial='SELF')
     person_name = forms.CharField(label='Nome da pessoa', max_length=100, required=False)
@@ -328,11 +367,13 @@ class QuickExpenseForm(BootstrapMixin, forms.Form):
         payment = data.get('payment_method')
         reimbursable = data.get('reimbursable')
         if vr_amount > total:
-            self.add_error('vr_amount', 'O valor pago com VR não pode ser maior que o total da compra.')
-        if payment == Transaction.PaymentMethod.VR and vr_amount <= 0:
-            data['vr_amount'] = total
-            vr_amount = total
+            self.add_error('vr_amount', 'O valor gasto no VR não pode ser maior que o total da compra.')
         remaining = total - vr_amount
+        if payment == Transaction.PaymentMethod.VR and remaining > 0:
+            # VR informa apenas o valor consumido. Se a opção antiga "VR"
+            # permanecer selecionada em uma compra parcial, o restante cai
+            # no cartão sem aumentar a baixa do benefício.
+            data['payment_method'] = Transaction.PaymentMethod.CREDIT_CARD
         if remaining > 0 and not payment:
             self.add_error('payment_method', 'Informe a forma de pagamento do restante.')
         if data.get('responsible') == 'OTHER' and not (data.get('person_name') or '').strip():
@@ -348,7 +389,6 @@ class QuickExpenseForm(BootstrapMixin, forms.Form):
         if remaining <= 0:
             data['payment_method'] = Transaction.PaymentMethod.VR
         return data
-
 
 class CardPurchaseForm(BootstrapMixin, forms.Form):
     date = forms.DateField(label='Primeira parcela', widget=forms.DateInput(attrs={'type': 'date'}))

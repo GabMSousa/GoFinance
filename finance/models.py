@@ -78,7 +78,7 @@ class Transaction(models.Model):
         validators=[MinValueValidator(Decimal('0.01'))],
     )
     vr_amount = models.DecimalField(
-        'Valor pago com VR',
+        'Valor gasto no VR',
         max_digits=12,
         decimal_places=2,
         default=0,
@@ -299,7 +299,7 @@ class CreditCardExpense(models.Model):
         validators=[MinValueValidator(Decimal('0.00'))],
     )
     reimbursed_at = models.DateField('Data do reembolso', null=True, blank=True)
-    vr_amount = models.DecimalField('Valor pago com VR', max_digits=12, decimal_places=2, default=0, validators=[MinValueValidator(Decimal('0.00'))])
+    vr_amount = models.DecimalField('Valor gasto no VR', max_digits=12, decimal_places=2, default=0, validators=[MinValueValidator(Decimal('0.00'))])
     notes = models.TextField('Observações', blank=True)
     total_amount = models.DecimalField(
         'Valor total da compra',
@@ -355,6 +355,8 @@ class CreditCardExpense(models.Model):
             self.reimbursed_amount = self.amount
         if self.vr_amount is not None and self.vr_amount < 0:
             raise ValidationError({'vr_amount': 'O valor de VR não pode ser negativo.'})
+        if self.vr_amount is not None and self.vr_amount > (self.total_amount or self.amount or Decimal('0.00')):
+            raise ValidationError({'vr_amount': 'O valor gasto no VR não pode ser maior que o total da compra.'})
 
 
 class Investment(models.Model):
