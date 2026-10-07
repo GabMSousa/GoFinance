@@ -34,7 +34,7 @@ function initSecurityInteractions() {
     if (!item || Number(item.vr) <= 0) return;
     const target = row.querySelector('.movement-main');
     if (target && !target.querySelector('.movement-breakdown')) {
-      target.insertAdjacentHTML('beforeend', `<span class="movement-breakdown">Total ${money(item.total)} · VR ${money(item.vr)} · Cartão ${money(item.card)}</span>`);
+      target.insertAdjacentHTML('beforeend', `<span class="movement-breakdown">Total ${money(item.total)} · VR ${money(item.vr)} · Restante ${money(item.card)}</span>`);
     }
   });
   const cardDetails = parseJsonScript('vr-card-details') || [];
@@ -43,7 +43,7 @@ function initSecurityInteractions() {
     if (!item || Number(item.vr) <= 0) return;
     const target = row.querySelector('td:first-child');
     if (target && !target.querySelector('.movement-breakdown')) {
-      target.insertAdjacentHTML('beforeend', `<div class="movement-breakdown">Total ${money(item.total)} · VR ${money(item.vr)} · Cartão ${money(item.card)}</div>`);
+      target.insertAdjacentHTML('beforeend', `<div class="movement-breakdown">Total ${money(item.total)} · VR ${money(item.vr)} · Restante ${money(item.card)}</div>`);
     }
   });
 }
@@ -56,16 +56,41 @@ function initPurchaseFields() {
   const installments = document.getElementById('modal-installment-box') || document.getElementById('installment-box');
   const person = document.getElementById('modal-person-box') || document.getElementById('person-name-box');
   const reimburse = document.getElementById('modal-reimburse-box') || document.getElementById('reimbursable-box');
+  const amountInput = document.getElementById('id_amount');
+  const vrInput = document.getElementById('id_vr_amount');
+  let remaining = vr?.querySelector('.vr-remaining');
+  if (!remaining && amountInput?.dataset.totalWithVr === 'true' && vrInput) {
+    remaining = document.createElement('div');
+    remaining.className = 'form-text vr-remaining';
+    remaining.setAttribute('aria-live', 'polite');
+    vrInput.parentElement.appendChild(remaining);
+  } else if (vr && !remaining) {
+    remaining = document.createElement('div');
+    remaining.className = 'form-text vr-remaining';
+    remaining.setAttribute('aria-live', 'polite');
+    vr.appendChild(remaining);
+  }
+  const parseAmount = (input) => Number(String(input?.value || '0').replace(',', '.')) || 0;
+  const money = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value || 0));
+  const updateRemaining = () => {
+    if (!remaining) return;
+    const total = parseAmount(amountInput);
+    const spent = Math.min(Math.max(parseAmount(vrInput), 0), total);
+    remaining.textContent = `Restante: ${money(total - spent)}`;
+  };
   function sync() {
     const method = payment?.value;
     const other = responsible?.value === 'OTHER';
-    vr?.classList.toggle('d-none', method !== 'VR' && method !== 'CREDIT_CARD');
+    vr?.classList.remove('d-none');
     installments?.classList.toggle('d-none', method !== 'CREDIT_CARD');
     person?.classList.toggle('d-none', !other);
     reimburse?.classList.toggle('d-none', !other);
+    updateRemaining();
   }
   payment?.addEventListener('change', sync);
   responsible?.addEventListener('change', sync);
+  amountInput?.addEventListener('input', updateRemaining);
+  vrInput?.addEventListener('input', updateRemaining);
   sync();
 }
 

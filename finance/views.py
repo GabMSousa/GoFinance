@@ -592,9 +592,6 @@ def quick_expense(request):
         notes = d.get('notes') or ''
         person = person_from_responsibility(d)
         tx = None
-        if remaining > 0 and d['payment_method'] == Transaction.PaymentMethod.VR:
-            vr_amount += remaining
-            remaining = Decimal('0.00')
         if remaining > 0 and d['payment_method'] == Transaction.PaymentMethod.CREDIT_CARD:
             create_card_installments({**d, 'person': person, 'amount': remaining, 'purchase_total': total, 'vr_amount': vr_amount, 'total_installments': d.get('installment_total') or 1})
         elif remaining > 0:

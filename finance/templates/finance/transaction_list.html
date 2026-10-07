@@ -52,7 +52,7 @@
         <td><span class="badge {% if x.type == 'REVENUE' %}text-bg-success{% elif x.type == 'EXPENSE' %}text-bg-danger{% else %}text-bg-secondary{% endif %}">{{ x.get_type_display }}</span></td>
         <td>{{ x.get_payment_method_display }}</td>
         <td>{{ x.person|default:'—' }}</td>
-        <td>R$ {{ x.amount|add:x.vr_amount|floatformat:2 }}{% if x.vr_amount > 0 %}<div class="muted-cell">VR R$ {{ x.vr_amount|floatformat:2 }} · Cartão/banco R$ {{ x.amount|floatformat:2 }}</div>{% endif %}</td>
+        <td>R$ {{ x.amount|add:x.vr_amount|floatformat:2 }}{% if x.vr_amount > 0 %}<div class="muted-cell">VR R$ {{ x.vr_amount|floatformat:2 }} · Restante R$ {{ x.amount|floatformat:2 }}</div>{% endif %}</td>
         <td>
           <form method="post" action="{% url 'finance:transaction_toggle_paid' x.id %}">
             {% csrf_token %}

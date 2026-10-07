@@ -282,6 +282,28 @@ class VRTests(BaseFinanceTest):
         self.assertEqual(summary['purchase_bank'], Decimal('60.00'))
         self.assertEqual(summary['card_invoice'], Decimal('60.00'))
 
+    def test_quick_expense_rejects_vr_above_purchase_total(self):
+        response = self.client.post(reverse('finance:quick_expense'), {
+            'date': self.today.isoformat(), 'description': 'VR acima do total', 'category': self.food.pk,
+            'payment_method': Transaction.PaymentMethod.CREDIT_CARD, 'amount': '80.00', 'vr_amount': '80.01',
+            'responsible': 'SELF', 'paid': 'on', 'installment_total': '1',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'O valor gasto no VR não pode ser maior que o total da compra.')
+        self.assertFalse(CreditCardExpense.objects.filter(description='VR acima do total').exists())
+
+    def test_partial_vr_with_legacy_vr_payment_selection_uses_card_for_remaining(self):
+        response = self.client.post(reverse('finance:quick_expense'), {
+            'date': self.today.isoformat(), 'description': 'VR parcial com opção antiga', 'category': self.food.pk,
+            'payment_method': Transaction.PaymentMethod.VR, 'amount': '80.00', 'vr_amount': '50.00',
+            'responsible': 'SELF', 'paid': 'on', 'installment_total': '1',
+        })
+        self.assertRedirects(response, reverse('finance:dashboard'))
+        expense = CreditCardExpense.objects.get(description='VR parcial com opção antiga')
+        self.assertEqual(expense.amount, Decimal('30.00'))
+        self.assertEqual(expense.vr_amount, Decimal('50.00'))
+        self.assertEqual(VRMovement.objects.get(card_expense=expense).amount, Decimal('50.00'))
+
     def test_editing_card_vr_replaces_and_then_removes_existing_debit(self):
         card = create_card_installments({
             'date': self.today, 'description': 'Compra editável', 'category': self.food,
@@ -324,6 +346,18 @@ class VRTests(BaseFinanceTest):
         self.assertEqual(monthly_summary(2026, 10)['vr_spent'], Decimal('50.00'))
         rows = self.client.get(reverse('finance:report_csv'), {'year': 2026, 'month': 10}).content.decode('utf-8-sig')
         self.assertEqual(rows.count('Compra outubro'), 1)
+
+    def test_vr_page_shows_available_used_and_monthly_credit(self):
+        VRMovement.objects.create(
+            date=self.today, description='Compra no painel VR',
+            movement_type=VRMovement.Type.DEBIT, amount=Decimal('50.00'),
+        )
+        response = self.client.get(reverse('finance:vr_list'), {'year': 2026, 'month': 9})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Disponível')
+        self.assertContains(response, 'Utilizado no mês')
+        self.assertContains(response, 'Crédito mensal')
+        self.assertContains(response, 'Compra no painel VR')
 
     def test_vr_purchase_is_marked_in_dashboard_without_changing_financial_value(self):
         create_card_installments({
