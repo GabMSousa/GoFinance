@@ -2,7 +2,7 @@ from decimal import Decimal
 
 from django import forms
 
-from .models import Category, CreditCardExpense, FinancialProfile, FixedExpense, Goal, Investment, Person, Transaction, VRMovement
+from .models import Category, CreditCardBill, CreditCardExpense, FinancialProfile, FixedExpense, Goal, Investment, Person, Transaction, VRMovement
 from .services import monthly_summary, to_decimal
 
 RESPONSIBLE_CHOICES = (('SELF', 'Eu'), ('OTHER', 'Outro'))
@@ -119,6 +119,11 @@ class TransactionForm(BootstrapModelForm):
             self.add_error('installment_total', 'O total de parcelas deve ser no mínimo 1.')
         if current and total and current > total:
             self.add_error('installment_current', 'A parcela atual não pode ser maior que o total.')
+        if tx_type == Transaction.Type.EXPENSE and data.get('payment_method') == Transaction.PaymentMethod.CREDIT_CARD and amount is not None and vr_amount < amount and data.get('date'):
+            if CreditCardBill.objects.filter(invoice_month=data['date'].replace(day=1), status=CreditCardBill.Status.PAID).exists():
+                self.add_error('date', 'A fatura deste período já foi paga. Escolha uma data do próximo período aberto.')
+        if tx_type == Transaction.Type.EXPENSE and amount is not None and vr_amount >= amount:
+            data['payment_method'] = Transaction.PaymentMethod.VR
         return data
 
     def save(self, commit=True):
@@ -379,6 +384,9 @@ class QuickExpenseForm(BootstrapMixin, forms.Form):
         if data.get('responsible') == 'OTHER' and not (data.get('person_name') or '').strip():
             self.add_error('person_name', 'Informe o nome da pessoa.')
         movement_date = data.get('date')
+        if remaining > 0 and data.get('payment_method') == Transaction.PaymentMethod.CREDIT_CARD and movement_date:
+            if CreditCardBill.objects.filter(invoice_month=movement_date.replace(day=1), status=CreditCardBill.Status.PAID).exists():
+                self.add_error('date', 'A fatura deste período já foi paga. Escolha uma data do próximo período aberto.')
         if vr_amount > 0 and movement_date:
             summary = monthly_summary(movement_date.year, movement_date.month)
             if vr_amount > summary['vr_balance']:

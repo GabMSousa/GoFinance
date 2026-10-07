@@ -6,7 +6,7 @@ from datetime import date, datetime
 from decimal import Decimal
 
 from django.contrib import messages
-from django.db.models import Sum
+from django.db.models import Q, Sum
 from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -32,7 +32,7 @@ from .forms import (
 )
 from .models import Category, CreditCardBill, CreditCardExpense, FinancialProfile, FixedExpense, Goal, Investment, Person, SalarySnapshot, Transaction, VRMovement
 from .importers import import_preview_rows, preview_csv
-from .services import add_months, month_bounds, monthly_summary, money_sum, split_installment_values, sync_card_vr, sync_transaction_vr, third_party_by_person, to_decimal
+from .services import add_months, card_expenses_for_period, month_bounds, monthly_summary, money_sum, split_installment_values, sync_card_vr, sync_transaction_vr, third_party_by_person, to_decimal
 
 
 def selected_period(request):
@@ -78,6 +78,13 @@ def period_context(year, month):
             (9, 'Setembro'), (10, 'Outubro'), (11, 'Novembro'), (12, 'Dezembro'),
         ],
     }
+
+
+def purchase_initial_date(year, month, reference=None):
+    reference = reference or date.today()
+    if (year, month) == (reference.year, reference.month):
+        return reference
+    return date(year, month, 1)
 
 
 def person_from_responsibility(data):
@@ -130,7 +137,7 @@ def dashboard(request):
     payment = request.GET.get('payment', '')
     person_filter = request.GET.get('person', '')
     tx_qs = Transaction.objects.select_related('category', 'person').filter(date__year=year, date__month=month)
-    card_qs = CreditCardExpense.objects.select_related('category', 'person').filter(date__year=year, date__month=month)
+    card_qs = card_expenses_for_period(year, month).select_related('category', 'person')
     if search:
         tx_qs = tx_qs.filter(description__icontains=search)
         card_qs = card_qs.filter(description__icontains=search) | card_qs.filter(person__name__icontains=search)
@@ -185,7 +192,7 @@ def dashboard(request):
     all_items = []
     for item in Transaction.objects.filter(date__range=(date(year, month, 1), date(year, month, calendar.monthrange(year, month)[1]))):
         all_items.append((item.date, item.amount, item.type, item.payment_method))
-    for item in CreditCardExpense.objects.filter(date__year=year, date__month=month):
+    for item in card_expenses_for_period(year, month):
         all_items.append((item.date, item.amount, Transaction.Type.EXPENSE, Transaction.PaymentMethod.CREDIT_CARD))
     for item in Investment.objects.filter(date__year=year, date__month=month):
         all_items.append((item.date, item.amount, Transaction.Type.INVESTMENT, None))
@@ -210,13 +217,11 @@ def dashboard(request):
         'payment': payment,
         'person_filter': person_filter,
         'vr_movement_indexes': vr_movement_indexes,
-        'purchase_form': QuickExpenseForm(initial={'date': date.today(), 'installment_total': 1, 'vr_amount': 0}),
+        'purchase_form': QuickExpenseForm(initial={'date': purchase_initial_date(year, month), 'installment_total': 1, 'vr_amount': 0}),
         'revenue_form': RevenueForm(initial={'date': date.today(), 'paid': True, 'payment_method': Transaction.PaymentMethod.PIX}),
         'investment_form': InvestmentForm(initial={'date': date.today()}),
         'bill': CreditCardBill.objects.filter(invoice_month=date(year, month, 1)).first(),
-        'bill_items': CreditCardExpense.objects.select_related('category', 'person').filter(
-            date__year=year, date__month=month
-        ),
+        'bill_items': card_expenses_for_period(year, month).select_related('category', 'person'),
         'fixed_items': FixedExpense.objects.select_related('category').filter(active=True),
         'investment_items': Investment.objects.select_related('category').filter(date__year=year, date__month=month),
         'active_investments': Investment.objects.filter(active=True),
@@ -388,7 +393,10 @@ def report_rows(start, end, category_id='', report_type='financial'):
         total = item.amount + item.vr_amount
         card_amount = item.amount if item.payment_method != Transaction.PaymentMethod.VR else Decimal('0.00')
         rows.append([item.date, item.description, item.category.name if item.category else '', item.get_type_display(), total, item.get_payment_method_display(), '', item.vr_amount, card_amount, item.person.name if item.person else '', 'Pago' if item.paid else 'Pendente', ''])
-    cards = CreditCardExpense.objects.select_related('category', 'person').filter(date__range=(start, end))
+    cards = CreditCardExpense.objects.select_related('category', 'person').filter(
+        Q(invoice_month__range=(start.replace(day=1), end.replace(day=1)))
+        | Q(invoice_month__isnull=True, date__range=(start, end))
+    )
     if category_id:
         cards = cards.filter(category_id=category_id)
     for item in cards:
@@ -583,7 +591,8 @@ def revenue_edit(request, pk):
 
 
 def quick_expense(request):
-    form = QuickExpenseForm(request.POST or None, initial={'date': date.today(), 'installment_total': 1, 'vr_amount': 0})
+    year, month = selected_period(request)
+    form = QuickExpenseForm(request.POST or None, initial={'date': purchase_initial_date(year, month), 'installment_total': 1, 'vr_amount': 0})
     if form.is_valid():
         d = form.cleaned_data
         total = to_decimal(d['amount'])
@@ -632,7 +641,7 @@ def quick_expense(request):
         if tx:
             sync_transaction_vr(tx)
         messages.success(request, 'Gasto salvo.')
-        return redirect('finance:dashboard')
+        return redirect(f"{reverse('finance:dashboard')}?year={d['date'].year}&month={d['date'].month}")
     return render(request, 'finance/quick_expense.html', {'form': form, 'title': 'Novo gasto'})
 
 
@@ -692,7 +701,7 @@ def card_list(request):
     search = request.GET.get('q', '').strip()
     items = CreditCardExpense.objects.select_related('category', 'person')
     if not search and person_filter == 'all':
-        items = items.filter(date__year=year, date__month=month)
+        items = card_expenses_for_period(year, month)
     if search:
         items = items.filter(description__icontains=search) | items.filter(person__name__icontains=search)
     if person_filter == 'self':
@@ -701,10 +710,7 @@ def card_list(request):
         items = items.exclude(person__name__iexact='Eu')
     summary = monthly_summary(year, month)
     next_month = add_months(date(year, month, 1), 1)
-    next_commitment = money_sum(
-        CreditCardExpense.objects.filter(date__year=next_month.year, date__month=next_month.month),
-        'amount',
-    )
+    next_commitment = money_sum(card_expenses_for_period(next_month.year, next_month.month), 'amount')
     context = period_context(year, month)
     distinct_items = items.distinct()
     item_list = list(distinct_items)
@@ -789,7 +795,7 @@ def third_party(request):
     year, month = selected_period(request)
     summary = monthly_summary(year, month)
     rows = third_party_by_person(year, month)
-    items = CreditCardExpense.objects.filter(date__year=year, date__month=month).exclude(
+    items = card_expenses_for_period(year, month).exclude(
         person__name__iexact='Eu'
     ).select_related('person', 'category')
     context = period_context(year, month)

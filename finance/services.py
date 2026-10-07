@@ -18,6 +18,15 @@ def month_bounds(year, month):
     return date(year, month, 1), date(year, month, calendar.monthrange(year, month)[1])
 
 
+def card_expenses_for_period(year, month):
+    period = date(year, month, 1)
+    start, end = month_bounds(year, month)
+    return CreditCardExpense.objects.filter(
+        Q(invoice_month=period)
+        | Q(invoice_month__isnull=True, date__range=(start, end))
+    )
+
+
 def add_months(source_date, months):
     month_index = source_date.month - 1 + months
     year = source_date.year + month_index // 12
@@ -152,7 +161,7 @@ def vr_available(year, month, extra_spent=ZERO):
 def monthly_summary(year, month):
     start, end = month_bounds(year, month)
     tx = Transaction.objects.filter(date__range=(start, end))
-    card = CreditCardExpense.objects.filter(date__range=(start, end))
+    card = card_expenses_for_period(year, month)
     investments = Investment.objects.filter(date__range=(start, end))
     vr = VRMovement.objects.filter(date__range=(start, end))
 
@@ -274,7 +283,7 @@ def third_party_by_person(year, month):
     start, end = month_bounds(year, month)
     rows = []
     for person in Person.objects.filter(active=True).exclude(name__iexact='Eu'):
-        card = CreditCardExpense.objects.filter(date__range=(start, end), person=person)
+        card = card_expenses_for_period(year, month).filter(person=person)
         tx = Transaction.objects.filter(
             date__range=(start, end),
             person=person,
