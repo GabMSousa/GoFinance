@@ -370,6 +370,13 @@ REPORT_TYPES = {
 }
 
 
+def safe_csv_cell(value):
+    """Prevent spreadsheet applications from interpreting text as a formula."""
+    if isinstance(value, str) and value[:1] in {'=', '+', '-', '@'}:
+        return "'" + value
+    return value
+
+
 def report_period(request):
     year, month = selected_period(request)
     start, end = month_bounds(year, month)
@@ -447,7 +454,9 @@ def report_csv(request):
     writer = csv.writer(response)
     writer.writerow(['Data', 'Descrição', 'Categoria', 'Tipo', 'Valor', 'Forma de pagamento', 'Fatura', 'Valor VR', 'Valor cartão', 'Responsável', 'Status', 'Parcelamento'])
     writer.writerow(['', 'Saldo inicial', '', 'Saldo inicial', summary['opening_balance'], '', '', '', '', '', '', ''])
-    writer.writerows(report_rows(start, end, category_id, report_type))
+    writer.writerows(
+        [[safe_csv_cell(value) for value in row] for row in report_rows(start, end, category_id, report_type)]
+    )
     return response
 
 

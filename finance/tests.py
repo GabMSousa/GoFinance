@@ -934,6 +934,22 @@ class ReportingTests(BaseFinanceTest):
         self.assertEqual(pdf_response.status_code, 200)
         self.assertEqual(pdf_response['Content-Type'], 'application/pdf')
 
+    def test_report_csv_neutralizes_formula_like_text(self):
+        Transaction.objects.create(
+            date=self.today,
+            description='=HYPERLINK("https://example.invalid")',
+            category=self.food,
+            type=Transaction.Type.EXPENSE,
+            payment_method=Transaction.PaymentMethod.PIX,
+            amount=Decimal('10.00'),
+            person=self.me,
+        )
+        response = self.client.get(reverse('finance:report_csv'), {
+            'start': '2026-09-01', 'end': '2026-09-30',
+        })
+        content = response.content.decode('utf-8-sig')
+        self.assertIn("'=HYPERLINK", content)
+
     def test_dashboard_bill_preview_is_bounded_to_current_month(self):
         create_card_installments({
             'date': self.today,
