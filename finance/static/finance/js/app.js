@@ -101,9 +101,8 @@ function initPurchasePeriod() {
   const year = Number(params.get('year'));
   const month = Number(params.get('month'));
   if (!year || month < 1 || month > 12) return;
-  const periodDate = `${year}-${String(month).padStart(2, '0')}-01`;
-  const dateInput = form.querySelector('[name="date"]');
-  if (dateInput) dateInput.value = periodDate;
+  // The dashboard period is only navigation state. Keep the real purchase
+  // date entered by the user; the backend calculates the invoice from it.
   form.action = `${form.action.split('?')[0]}?year=${year}&month=${month}`;
   ['year', 'month'].forEach((part) => {
     const input = document.createElement('input');
