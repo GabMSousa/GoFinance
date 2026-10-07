@@ -1,14 +1,14 @@
 import csv
 import re
 import uuid
-from datetime import date
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from django.core.management.base import BaseCommand, CommandError
 
+from finance.importers import parse_date
 from finance.models import Category, CreditCardExpense, FixedExpense, Person, Transaction
-from finance.services import add_months
+from finance.services import add_months, invoice_month_for_purchase
 
 
 class Command(BaseCommand):
@@ -16,18 +16,12 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument('csv_path', type=str)
-        parser.add_argument('--invoice-date', default='2026-10-01', help='Mês da fatura no formato YYYY-MM-DD.')
         parser.add_argument('--dry-run', action='store_true')
 
     def handle(self, *args, **options):
         path = Path(options['csv_path'])
         if not path.exists():
             raise CommandError(f'CSV não encontrado: {path}')
-        try:
-            invoice_date = date.fromisoformat(options['invoice_date'])
-        except ValueError as exc:
-            raise CommandError('--invoice-date deve usar YYYY-MM-DD.') from exc
-
         categories = {x.name: x for x in Category.objects.all()}
         people = {x.name: x for x in Person.objects.all()}
         required_categories = ['Saúde', 'Mercado', 'Combustível', 'Restaurante', 'Compras', 'Transporte', 'Assinaturas', 'Outros']
@@ -43,6 +37,14 @@ class Command(BaseCommand):
         with path.open('r', encoding='utf-8-sig', newline='') as source:
             for row in csv.DictReader(source):
                 title = (row.get('title') or '').strip()
+                raw_date = (row.get('date') or row.get('data') or '').strip()
+                if not raw_date:
+                    raise CommandError(f'Data ausente em {title!r}.')
+                try:
+                    purchase_date = parse_date(raw_date)
+                except ValueError as exc:
+                    raise CommandError(f'Data inválida em {title!r}: {raw_date}') from exc
+                invoice_date = invoice_month_for_purchase(purchase_date)
                 raw_amount = (row.get('amount') or '').strip().replace(' ', '').replace('.', '').replace(',', '.')
                 try:
                     amount = Decimal(raw_amount)
@@ -69,6 +71,11 @@ class Command(BaseCommand):
                     continue
 
                 if CreditCardExpense.objects.filter(
+                    purchase_date=purchase_date,
+                    invoice_month=invoice_date,
+                    description=title,
+                    amount=amount,
+                ).exists() or CreditCardExpense.objects.filter(
                     date=invoice_date,
                     description=title,
                     amount=amount,
@@ -78,9 +85,10 @@ class Command(BaseCommand):
                     continue
 
                 if not options['dry_run']:
-                    first = add_months(invoice_date, -(current - 1))
                     CreditCardExpense.objects.create(
-                        date=invoice_date,
+                        date=purchase_date,
+                        purchase_date=purchase_date,
+                        invoice_month=invoice_date,
                         description=title,
                         category=categories[category_name],
                         amount=amount,
@@ -88,11 +96,11 @@ class Command(BaseCommand):
                         person=person,
                         current_installment=current,
                         total_installments=installments,
-                        first_installment=first,
-                        last_installment=add_months(first, installments - 1),
+                        first_installment=purchase_date,
+                        last_installment=add_months(purchase_date, installments - 1),
                         reimbursable=person_name != 'Eu',
                         received=False,
-                        notes=f'{source_tag}; fatura com vencimento em 01/11/2026.',
+                        notes=f'{source_tag}; fatura de {invoice_date:%m/%Y}.',
                         series_id=uuid.uuid4(),
                     )
                 created += 1

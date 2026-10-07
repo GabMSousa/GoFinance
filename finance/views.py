@@ -10,6 +10,7 @@ from django.db.models import Q, Sum
 from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils.timezone import localdate
 from django.views.decorators.http import require_POST
 
 from .forms import (
@@ -32,7 +33,7 @@ from .forms import (
 )
 from .models import Category, CreditCardBill, CreditCardExpense, FinancialProfile, FixedExpense, Goal, Investment, Person, SalarySnapshot, Transaction, VRMovement
 from .importers import import_preview_rows, preview_csv
-from .services import add_months, card_expenses_for_period, month_bounds, monthly_summary, money_sum, split_installment_values, sync_card_vr, sync_transaction_vr, third_party_by_person, to_decimal
+from .services import add_months, card_expenses_for_period, invoice_month_for_installment, invoice_month_for_purchase, month_bounds, monthly_summary, money_sum, split_installment_values, sync_card_vr, sync_transaction_vr, third_party_by_person, to_decimal
 
 
 def selected_period(request):
@@ -47,18 +48,26 @@ def selected_period(request):
     return year, month
 
 
+def posted_period(request, default_year, default_month):
+    """Read the period carried by a quick-add form without trusting its date."""
+    try:
+        year = int(request.POST.get('period_year', default_year))
+        month = int(request.POST.get('period_month', default_month))
+        if year < 1 or month not in range(1, 13):
+            raise ValueError
+    except (TypeError, ValueError):
+        return default_year, default_month
+    return year, month
+
+
 def default_open_period(today=None):
-    """Return the first period that is not closed by a paid invoice."""
-    reference = today or date.today()
-    candidate = reference.replace(day=1)
-    for _ in range(24):
-        closed = CreditCardBill.objects.filter(
-            invoice_month=candidate,
-            status=CreditCardBill.Status.PAID,
-        ).exists()
-        if not closed:
-            return candidate.year, candidate.month
-        candidate = add_months(candidate, 1)
+    """Return the calendar period currently displayed by default.
+
+    The selected dashboard period is navigation state, not the source of a
+    purchase's invoice cycle. A paid invoice must remain paid without moving
+    the application to another month on reload.
+    """
+    reference = today or localdate()
     return reference.year, reference.month
 
 
@@ -81,10 +90,8 @@ def period_context(year, month):
 
 
 def purchase_initial_date(year, month, reference=None):
-    reference = reference or date.today()
-    if (year, month) == (reference.year, reference.month):
-        return reference
-    return date(year, month, 1)
+    reference = reference or localdate()
+    return reference
 
 
 def person_from_responsibility(data):
@@ -107,7 +114,7 @@ def create_card_installments(data, amount_key='amount'):
         expense = CreditCardExpense.objects.create(
             date=add_months(first_date, number - 1),
             purchase_date=first_date,
-            invoice_month=add_months(first_date, number - 1).replace(day=1),
+            invoice_month=invoice_month_for_installment(first_date, number),
             description=data['description'],
             category=data['category'],
             amount=value,
@@ -193,7 +200,7 @@ def dashboard(request):
     for item in Transaction.objects.filter(date__range=(date(year, month, 1), date(year, month, calendar.monthrange(year, month)[1]))):
         all_items.append((item.date, item.amount, item.type, item.payment_method))
     for item in card_expenses_for_period(year, month):
-        all_items.append((item.date, item.amount, Transaction.Type.EXPENSE, Transaction.PaymentMethod.CREDIT_CARD))
+        all_items.append((item.invoice_month or item.date, item.amount, Transaction.Type.EXPENSE, Transaction.PaymentMethod.CREDIT_CARD))
     for item in Investment.objects.filter(date__year=year, date__month=month):
         all_items.append((item.date, item.amount, Transaction.Type.INVESTMENT, None))
     for movement_date, amount, movement_type, payment_method in sorted(all_items, key=lambda row: row[0]):
@@ -218,16 +225,16 @@ def dashboard(request):
         'person_filter': person_filter,
         'vr_movement_indexes': vr_movement_indexes,
         'purchase_form': QuickExpenseForm(initial={'date': purchase_initial_date(year, month), 'installment_total': 1, 'vr_amount': 0}),
-        'revenue_form': RevenueForm(initial={'date': date.today(), 'paid': True, 'payment_method': Transaction.PaymentMethod.PIX}),
-        'investment_form': InvestmentForm(initial={'date': date.today()}),
+        'revenue_form': RevenueForm(initial={'date': localdate(), 'paid': True, 'payment_method': Transaction.PaymentMethod.PIX}),
+        'investment_form': InvestmentForm(initial={'date': localdate()}),
         'bill': CreditCardBill.objects.filter(invoice_month=date(year, month, 1)).first(),
         'bill_items': card_expenses_for_period(year, month).select_related('category', 'person'),
         'fixed_items': FixedExpense.objects.select_related('category').filter(active=True),
         'investment_items': Investment.objects.select_related('category').filter(date__year=year, date__month=month),
         'active_investments': Investment.objects.filter(active=True),
         'next_investment': Investment.objects.filter(active=True, date__gte=date(year, month, 1)).order_by('date', 'id').first(),
-        'bill_payment_form': CardBillPaymentForm(initial={'amount': summary['card_invoice'], 'paid_at': date.today()}),
-        'csv_form': CsvImportForm(initial={'invoice_month': date(year, month, 1)}),
+        'bill_payment_form': CardBillPaymentForm(initial={'amount': to_decimal(summary['card_invoice']), 'paid_at': localdate()}),
+        'csv_form': CsvImportForm(),
         'movement_details': [
             {'total': float(item['total_amount']), 'vr': float(item['vr_amount']), 'card': float(item['card_amount'])}
             for item in movements
@@ -309,44 +316,46 @@ def undo_bill_payment(request):
 def csv_import_preview(request):
     form = CsvImportForm(request.POST, request.FILES)
     if not form.is_valid():
-        messages.error(request, 'Selecione um CSV e informe o mês da fatura.')
+        messages.error(request, 'Selecione um CSV válido.')
         return redirect('finance:dashboard')
-    invoice_month = form.cleaned_data['invoice_month'].replace(day=1)
-    bill = CreditCardBill.objects.filter(invoice_month=invoice_month).first()
-    if bill and bill.is_paid:
-        messages.error(request, 'Esta fatura já foi paga. Para importar novos lançamentos, desfaça o pagamento da fatura primeiro.')
-        return redirect(f"{reverse('finance:dashboard')}?year={invoice_month.year}&month={invoice_month.month}")
     try:
-        rows = preview_csv(form.cleaned_data['csv_file'], invoice_month)
+        rows = preview_csv(form.cleaned_data['csv_file'])
     except ValueError as exc:
         messages.error(request, str(exc))
         return redirect('finance:dashboard')
+    invoice_months = sorted({date.fromisoformat(row['invoice_month']) for row in rows})
+    paid_bill = CreditCardBill.objects.filter(invoice_month__in=invoice_months, status=CreditCardBill.Status.PAID).order_by('invoice_month').first()
+    if paid_bill:
+        messages.error(request, f'Esta fatura já foi paga. A fatura de {paid_bill.invoice_month:%m/%Y} precisa ser reaberta antes de importar.')
+        return redirect(f"{reverse('finance:dashboard')}?year={paid_bill.invoice_month.year}&month={paid_bill.invoice_month.month}")
     request.session['csv_preview_rows'] = rows
-    request.session['csv_preview_month'] = form.cleaned_data['invoice_month'].isoformat()
-    context = period_context(form.cleaned_data['invoice_month'].year, form.cleaned_data['invoice_month'].month)
-    context.update({'rows': rows, 'new_count': sum(not row['duplicate'] for row in rows), 'duplicate_count': sum(row['duplicate'] for row in rows), 'filename': form.cleaned_data['csv_file'].name})
+    request.session['csv_preview_months'] = [item.isoformat() for item in invoice_months]
+    preview_month = invoice_months[0] if invoice_months else date.today().replace(day=1)
+    context = period_context(preview_month.year, preview_month.month)
+    context.update({'rows': rows, 'invoice_months': invoice_months, 'new_count': sum(not row['duplicate'] for row in rows), 'duplicate_count': sum(row['duplicate'] for row in rows), 'filename': form.cleaned_data['csv_file'].name})
     return render(request, 'finance/import_preview.html', context)
 
 
 @require_POST
 def csv_import_confirm(request):
     rows = request.session.get('csv_preview_rows', [])
-    month_value = request.session.get('csv_preview_month')
-    if not rows or not month_value:
+    month_values = request.session.get('csv_preview_months', [])
+    if not rows or not month_values:
         messages.error(request, 'A prévia expirou. Selecione o CSV novamente.')
         return redirect('finance:dashboard')
-    invoice_month = date.fromisoformat(month_value)
-    bill = CreditCardBill.objects.filter(invoice_month=invoice_month).first()
-    if bill and bill.is_paid:
+    invoice_months = [date.fromisoformat(value) for value in month_values]
+    paid_bill = CreditCardBill.objects.filter(invoice_month__in=invoice_months, status=CreditCardBill.Status.PAID).order_by('invoice_month').first()
+    if paid_bill:
         request.session.pop('csv_preview_rows', None)
-        request.session.pop('csv_preview_month', None)
-        messages.error(request, 'Esta fatura já foi paga. Para importar novos lançamentos, desfaça o pagamento da fatura primeiro.')
-        return redirect(f"{reverse('finance:dashboard')}?year={invoice_month.year}&month={invoice_month.month}")
-    created, skipped = import_preview_rows(rows, invoice_month)
+        request.session.pop('csv_preview_months', None)
+        messages.error(request, f'Esta fatura já foi paga. A fatura de {paid_bill.invoice_month:%m/%Y} precisa ser reaberta antes de importar.')
+        return redirect(f"{reverse('finance:dashboard')}?year={paid_bill.invoice_month.year}&month={paid_bill.invoice_month.month}")
+    created, skipped = import_preview_rows(rows)
     request.session.pop('csv_preview_rows', None)
-    request.session.pop('csv_preview_month', None)
+    request.session.pop('csv_preview_months', None)
     messages.success(request, f'CSV importado: {created} novos registros, {skipped} duplicados ignorados.')
-    return redirect(f"{reverse('finance:dashboard')}?year={invoice_month.year}&month={invoice_month.month}")
+    preview_month = invoice_months[0]
+    return redirect(f"{reverse('finance:dashboard')}?year={preview_month.year}&month={preview_month.month}")
 
 
 REPORT_TYPES = {
@@ -592,6 +601,8 @@ def revenue_edit(request, pk):
 
 def quick_expense(request):
     year, month = selected_period(request)
+    if request.method == 'POST':
+        year, month = posted_period(request, year, month)
     form = QuickExpenseForm(request.POST or None, initial={'date': purchase_initial_date(year, month), 'installment_total': 1, 'vr_amount': 0})
     if form.is_valid():
         d = form.cleaned_data
@@ -642,7 +653,12 @@ def quick_expense(request):
             sync_transaction_vr(tx)
         messages.success(request, 'Gasto salvo.')
         return redirect(f"{reverse('finance:dashboard')}?year={d['date'].year}&month={d['date'].month}")
-    return render(request, 'finance/quick_expense.html', {'form': form, 'title': 'Novo gasto'})
+    return render(request, 'finance/quick_expense.html', {
+        'form': form,
+        'title': 'Novo gasto',
+        'period_year': year,
+        'period_month': month,
+    })
 
 
 def category_list(request):
@@ -734,6 +750,15 @@ def card_edit(request, pk):
     form = CreditCardExpenseForm(request.POST or None, instance=obj)
     if form.is_valid():
         updated = form.save()
+        purchase_date = updated.purchase_date or updated.date
+        if updated.date == purchase_date:
+            # Imported CSV rows keep the real purchase date even when their
+            # description contains a label such as "8/12". That label must
+            # not move the row to a future invoice.
+            updated.invoice_month = invoice_month_for_purchase(purchase_date)
+        else:
+            updated.invoice_month = invoice_month_for_installment(purchase_date, updated.current_installment)
+        updated.save(update_fields=['invoice_month', 'updated_at'])
         sync_card_vr(updated, legacy_date=old_vr_date, legacy_description=old_vr_description)
         messages.success(request, 'Parcela atualizada.')
         return redirect('finance:card_list')

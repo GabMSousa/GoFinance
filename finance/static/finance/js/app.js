@@ -94,6 +94,26 @@ function initPurchaseFields() {
   sync();
 }
 
+function initPurchasePeriod() {
+  const form = document.querySelector('#purchaseFormPanel form');
+  if (!form) return;
+  const params = new URLSearchParams(window.location.search);
+  const year = Number(params.get('year'));
+  const month = Number(params.get('month'));
+  if (!year || month < 1 || month > 12) return;
+  const periodDate = `${year}-${String(month).padStart(2, '0')}-01`;
+  const dateInput = form.querySelector('[name="date"]');
+  if (dateInput) dateInput.value = periodDate;
+  form.action = `${form.action.split('?')[0]}?year=${year}&month=${month}`;
+  ['year', 'month'].forEach((part) => {
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = `period_${part}`;
+    input.value = part === 'year' ? year : month;
+    form.appendChild(input);
+  });
+}
+
 function initTheme() {
   const root = document.documentElement;
   const buttons = document.querySelectorAll('[data-theme-toggle]');
@@ -179,4 +199,4 @@ function initCharts() {
   }
 }
 
-document.addEventListener('DOMContentLoaded', () => { initPurchaseFields(); initTheme(); initSecurityInteractions(); initCharts(); window.addEventListener('sf-theme-change', initCharts); });
+document.addEventListener('DOMContentLoaded', () => { initPurchaseFields(); initPurchasePeriod(); initTheme(); initSecurityInteractions(); initCharts(); window.addEventListener('sf-theme-change', initCharts); });

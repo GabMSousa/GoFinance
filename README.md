@@ -105,7 +105,7 @@ Com o serviço parado, ou usando uma cópia consistente, preserve o arquivo `db.
 Para importar compras de uma fatura sem duplicar cobranças recorrentes ou pagamentos recebidos:
 
 ```bash
-python manage.py import_nubank_csv /caminho/Nubank_2026-10-08.csv --invoice-date 2026-10-01
+python manage.py import_nubank_csv /caminho/Nubank_2026-10-08.csv
 ```
 
 O comando é idempotente, registra parcelas identificadas no título e mantém Seguro Connecta/Spotify como fixos no cartão quando já existem no cadastro.
