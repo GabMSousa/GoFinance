@@ -341,6 +341,57 @@ class VRTests(BaseFinanceTest):
         self.assertEqual(monthly_summary(2026, 9)['card_invoice'], Decimal('30.00'))
 
 
+    def test_quick_expense_without_vr_does_not_create_vr_debit(self):
+        response = self.client.post(reverse('finance:quick_expense'), {
+            'date': self.today.isoformat(), 'description': 'Compra sem VR', 'category': self.food.pk,
+            'payment_method': Transaction.PaymentMethod.CREDIT_CARD, 'amount': '100.00', 'vr_amount': '0.00',
+            'responsible': 'SELF', 'paid': 'on', 'installment_total': '1',
+        })
+        self.assertRedirects(response, reverse('finance:dashboard'))
+        expense = CreditCardExpense.objects.get(description='Compra sem VR')
+        self.assertEqual(expense.amount, Decimal('100.00'))
+        self.assertEqual(VRMovement.objects.count(), 0)
+        self.assertEqual(monthly_summary(2026, 9)['vr_spent'], Decimal('0.00'))
+
+    def test_partial_vr_is_linked_and_only_card_share_hits_bank(self):
+        self.client.post(reverse('finance:quick_expense'), {
+            'date': self.today.isoformat(), 'description': 'Compra parcial auditada', 'category': self.food.pk,
+            'payment_method': Transaction.PaymentMethod.CREDIT_CARD, 'amount': '80.00', 'vr_amount': '50.00',
+            'responsible': 'SELF', 'paid': 'on', 'installment_total': '1',
+        })
+        expense = CreditCardExpense.objects.get(description='Compra parcial auditada')
+        movement = VRMovement.objects.get(card_expense=expense)
+        summary = monthly_summary(2026, 9)
+        self.assertEqual(expense.amount, Decimal('30.00'))
+        self.assertEqual(expense.movement_total, Decimal('80.00'))
+        self.assertEqual(movement.amount, Decimal('50.00'))
+        self.assertEqual(summary['purchase_total'], Decimal('80.00'))
+        self.assertEqual(summary['purchase_vr'], Decimal('50.00'))
+        self.assertEqual(summary['purchase_bank'], Decimal('30.00'))
+        self.assertEqual(summary['card_invoice'], Decimal('30.00'))
+        self.assertEqual(summary['final_balance'], Decimal('-30.00'))
+
+    def test_editing_partial_vr_updates_one_linked_movement_and_zero_removes_it(self):
+        item = create_card_installments({
+            'date': self.today, 'description': 'Compra editável VR', 'category': self.food,
+            'person': self.me, 'amount': Decimal('50.00'), 'purchase_total': Decimal('80.00'),
+            'vr_amount': Decimal('30.00'), 'total_installments': 1,
+        })[0]
+        payload = {
+            'date': self.today.isoformat(), 'description': 'Compra editável VR', 'category': self.food.pk,
+            'amount': '40.00', 'responsible': 'SELF', 'person_name': '', 'current_installment': '1',
+            'total_installments': '1', 'received': '', 'reimbursed_amount': '0.00', 'reimbursed_at': '',
+            'vr_amount': '40.00', 'notes': '',
+        }
+        self.client.post(reverse('finance:card_edit', args=[item.pk]), payload)
+        item.refresh_from_db()
+        self.assertEqual(VRMovement.objects.filter(card_expense=item).count(), 1)
+        self.assertEqual(VRMovement.objects.get(card_expense=item).amount, Decimal('40.00'))
+        payload['vr_amount'] = '0.00'
+        self.client.post(reverse('finance:card_edit', args=[item.pk]), payload)
+        self.assertFalse(VRMovement.objects.filter(card_expense=item).exists())
+
+
 class InstallmentTests(BaseFinanceTest):
     def test_installment_values_and_remaining(self):
         values = split_installment_values(Decimal('100.00'), 3)
