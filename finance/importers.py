@@ -6,7 +6,8 @@ import unicodedata
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 
-from .models import Category, CreditCardExpense, Person, VRMovement
+from .models import Category, CreditCardExpense, Person
+from .services import sync_card_vr
 
 csv.field_size_limit(1024 * 1024)
 
@@ -137,23 +138,18 @@ def import_preview_rows(rows, invoice_month, source_name='CSV'):
             continue
         purchase_date = date.fromisoformat(row['purchase_date'])
         current, total = int(row['current_installment']), int(row['total_installments'])
+        vr_amount = Decimal(row.get('vr_amount') or '0.00')
+        card_amount = (Decimal(row['amount']) - vr_amount).quantize(Decimal('0.01'))
         expense = CreditCardExpense.objects.create(
             date=invoice_month, purchase_date=purchase_date, invoice_month=invoice_month,
-            description=row['description'], amount=Decimal(row['amount']),
+            description=row['description'], amount=card_amount,
             category=category_map.get(row['category']) or category_map.get('Outros'), person=person,
             current_installment=current, total_installments=total,
             total_amount=(Decimal(row['amount']) * total).quantize(Decimal('0.01')),
             reimbursable=False, notes=f'{source_name}; importado via prévia CSV.',
-            vr_amount=Decimal(row.get('vr_amount') or '0.00'),
+            vr_amount=vr_amount,
             import_hash=row['import_hash'],
         )
-        if expense.vr_amount > 0:
-            VRMovement.objects.create(
-                date=expense.date,
-                description=expense.description,
-                movement_type=VRMovement.Type.DEBIT,
-                amount=expense.vr_amount,
-                notes=f'{source_name}; VR importado via CSV.',
-            )
+        sync_card_vr(expense)
         created += 1
     return created, skipped

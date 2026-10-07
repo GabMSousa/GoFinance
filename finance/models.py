@@ -77,6 +77,13 @@ class Transaction(models.Model):
         decimal_places=2,
         validators=[MinValueValidator(Decimal('0.01'))],
     )
+    vr_amount = models.DecimalField(
+        'Valor pago com VR',
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+        validators=[MinValueValidator(Decimal('0.00'))],
+    )
     paid = models.BooleanField('Pago?', default=False)
     fixed_expense = models.BooleanField('É gasto fixo?', default=False)
     person = models.ForeignKey(
@@ -113,6 +120,8 @@ class Transaction(models.Model):
     def clean(self):
         if self.amount is not None and self.amount <= 0:
             raise ValidationError({'amount': 'Informe um valor maior que zero.'})
+        if self.vr_amount is not None and self.vr_amount < 0:
+            raise ValidationError({'vr_amount': 'O valor de VR não pode ser negativo.'})
         if self.installment_total is not None and self.installment_total < 1:
             raise ValidationError({'installment_total': 'O total de parcelas deve ser no mínimo 1.'})
         if (
@@ -268,7 +277,7 @@ class CreditCardExpense(models.Model):
         'Valor da parcela',
         max_digits=12,
         decimal_places=2,
-        validators=[MinValueValidator(Decimal('0.01'))],
+        validators=[MinValueValidator(Decimal('0.00'))],
     )
     person = models.ForeignKey(
         Person,
@@ -326,8 +335,15 @@ class CreditCardExpense(models.Model):
             return Decimal('0.00')
         return max(self.amount - (self.reimbursed_amount or Decimal('0.00')), Decimal('0.00'))
 
+    @property
+    def movement_total(self):
+        """The total represented by this installment, including its VR share."""
+        return self.amount + (self.vr_amount or Decimal('0.00'))
+
     def clean(self):
-        if self.amount is not None and self.amount <= 0:
+        if self.amount is not None and self.amount < 0:
+            raise ValidationError({'amount': 'Informe um valor maior que zero.'})
+        if self.amount == 0 and not self.vr_amount:
             raise ValidationError({'amount': 'Informe um valor maior que zero.'})
         if self.total_installments is not None and self.total_installments < 1:
             raise ValidationError({'total_installments': 'O total de parcelas deve ser no mínimo 1.'})
@@ -337,6 +353,8 @@ class CreditCardExpense(models.Model):
             raise ValidationError({'reimbursed_amount': 'O valor reembolsado não pode ser maior que o valor da parcela.'})
         if self.received and self.reimbursable and self.reimbursed_amount == 0:
             self.reimbursed_amount = self.amount
+        if self.vr_amount is not None and self.vr_amount < 0:
+            raise ValidationError({'vr_amount': 'O valor de VR não pode ser negativo.'})
 
 
 class Investment(models.Model):
@@ -418,9 +436,17 @@ class VRMovement(models.Model):
     )
     transaction = models.ForeignKey(
         Transaction,
-        on_delete=models.SET_NULL,
+        on_delete=models.CASCADE,
         related_name='vr_movements',
         verbose_name='Lançamento',
+        null=True,
+        blank=True,
+    )
+    card_expense = models.ForeignKey(
+        CreditCardExpense,
+        on_delete=models.CASCADE,
+        related_name='vr_movements',
+        verbose_name='Compra no cartão',
         null=True,
         blank=True,
     )
