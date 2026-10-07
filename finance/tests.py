@@ -248,6 +248,83 @@ class VRTests(BaseFinanceTest):
         dashboard = self.client.get(reverse('finance:dashboard'), {'year': 2026, 'month': 9})
         self.assertContains(dashboard, 'Compra integral VR')
 
+    def test_quick_expense_without_vr_does_not_create_vr_debit(self):
+        self.client.post(reverse('finance:quick_expense'), {
+            'date': self.today.isoformat(), 'description': 'Compra normal',
+            'category': self.food.pk, 'payment_method': Transaction.PaymentMethod.PIX,
+            'amount': '100.00', 'vr_amount': '0.00', 'responsible': 'SELF',
+            'paid': 'on', 'installment_total': '1', 'notes': '',
+        })
+        self.assertFalse(VRMovement.objects.filter(description='Compra normal').exists())
+        summary = monthly_summary(2026, 9)
+        self.assertEqual(summary['vr_spent'], Decimal('0.00'))
+        self.assertEqual(summary['purchase_total'], Decimal('100.00'))
+        self.assertEqual(summary['purchase_bank'], Decimal('100.00'))
+
+    def test_quick_expense_partial_vr_persists_each_source_once(self):
+        response = self.client.post(reverse('finance:quick_expense'), {
+            'date': self.today.isoformat(), 'description': 'Compra parcial',
+            'category': self.food.pk, 'payment_method': Transaction.PaymentMethod.CREDIT_CARD,
+            'amount': '100.00', 'vr_amount': '40.00', 'responsible': 'SELF',
+            'paid': 'on', 'installment_total': '1', 'notes': '',
+        })
+        self.assertRedirects(response, reverse('finance:dashboard'))
+        card = CreditCardExpense.objects.get(description='Compra parcial')
+        movement = VRMovement.objects.get(description='Compra parcial')
+        self.assertEqual(card.amount, Decimal('60.00'))
+        self.assertEqual(card.total_amount, Decimal('100.00'))
+        self.assertEqual(card.vr_amount, Decimal('40.00'))
+        self.assertEqual(movement.amount, Decimal('40.00'))
+        self.assertEqual(movement.card_expense_id, card.pk)
+        summary = monthly_summary(2026, 9)
+        self.assertEqual(summary['purchase_total'], Decimal('100.00'))
+        self.assertEqual(summary['purchase_vr'], Decimal('40.00'))
+        self.assertEqual(summary['purchase_bank'], Decimal('60.00'))
+        self.assertEqual(summary['card_invoice'], Decimal('60.00'))
+
+    def test_editing_card_vr_replaces_and_then_removes_existing_debit(self):
+        card = create_card_installments({
+            'date': self.today, 'description': 'Compra editável', 'category': self.food,
+            'person': self.me, 'amount': Decimal('60.00'), 'purchase_total': Decimal('100.00'),
+            'vr_amount': Decimal('40.00'), 'total_installments': 1,
+        })[0]
+        self.client.post(reverse('finance:card_edit', args=[card.pk]), {
+            'date': self.today.isoformat(), 'description': 'Compra editável', 'category': self.food.pk,
+            'amount': '40.00', 'responsible': 'SELF', 'person_name': '', 'current_installment': '1',
+            'total_installments': '1', 'received': '', 'reimbursed_amount': '0.00',
+            'reimbursed_at': '', 'vr_amount': '60.00', 'notes': '',
+        })
+        self.assertEqual(VRMovement.objects.filter(card_expense=card).count(), 1)
+        self.assertEqual(VRMovement.objects.get(card_expense=card).amount, Decimal('60.00'))
+        self.client.post(reverse('finance:card_edit', args=[card.pk]), {
+            'date': self.today.isoformat(), 'description': 'Compra editável', 'category': self.food.pk,
+            'amount': '100.00', 'responsible': 'SELF', 'person_name': '', 'current_installment': '1',
+            'total_installments': '1', 'received': '', 'reimbursed_amount': '0.00',
+            'reimbursed_at': '', 'vr_amount': '0.00', 'notes': '',
+        })
+        self.assertFalse(VRMovement.objects.filter(card_expense=card).exists())
+        self.assertEqual(monthly_summary(2026, 9)['vr_spent'], Decimal('0.00'))
+
+    def test_deleting_card_with_vr_removes_linked_debit(self):
+        card = create_card_installments({
+            'date': self.today, 'description': 'Compra removida', 'category': self.food,
+            'person': self.me, 'amount': Decimal('50.00'), 'purchase_total': Decimal('80.00'),
+            'vr_amount': Decimal('30.00'), 'total_installments': 1,
+        })[0]
+        self.client.post(reverse('finance:card_delete', args=[card.pk]))
+        self.assertFalse(VRMovement.objects.filter(description='Compra removida').exists())
+
+    def test_vr_debit_stays_in_its_month_and_linked_rows_are_not_duplicated_in_report(self):
+        card = create_card_installments({
+            'date': date(2026, 10, 1), 'description': 'Compra outubro', 'category': self.food,
+            'person': self.me, 'amount': Decimal('30.00'), 'purchase_total': Decimal('80.00'),
+            'vr_amount': Decimal('50.00'), 'total_installments': 1,
+        })[0]
+        self.assertEqual(monthly_summary(2026, 9)['vr_spent'], Decimal('0.00'))
+        self.assertEqual(monthly_summary(2026, 10)['vr_spent'], Decimal('50.00'))
+        rows = self.client.get(reverse('finance:report_csv'), {'year': 2026, 'month': 10}).content.decode('utf-8-sig')
+        self.assertEqual(rows.count('Compra outubro'), 1)
+
     def test_vr_purchase_is_marked_in_dashboard_without_changing_financial_value(self):
         create_card_installments({
             'date': self.today,
