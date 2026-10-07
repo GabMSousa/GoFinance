@@ -10,7 +10,7 @@ from django.urls import reverse
 
 from .models import Category, CreditCardBill, CreditCardExpense, FinancialProfile, FixedExpense, Investment, Person, SalarySnapshot, Transaction, VRMovement
 from .importers import preview_csv
-from .services import monthly_summary, split_installment_values
+from .services import invoice_month_for_installment, invoice_month_for_purchase, monthly_summary, split_installment_values
 from .views import create_card_installments, default_open_period
 
 
@@ -201,9 +201,10 @@ class VRTests(BaseFinanceTest):
         )
         summary = monthly_summary(2026, 9)
         self.assertEqual(summary['vr_spent'], Decimal('50.00'))
-        self.assertEqual(summary['card_invoice'], Decimal('30.00'))
-        self.assertEqual(summary['expenses'], Decimal('30.00'))
-        self.assertEqual(summary['final_balance'], Decimal('-30.00'))
+        self.assertEqual(summary['card_invoice'], Decimal('0.00'))
+        self.assertEqual(monthly_summary(2026, 10)['card_invoice'], Decimal('30.00'))
+        self.assertEqual(monthly_summary(2026, 10)['expenses'], Decimal('30.00'))
+        self.assertEqual(monthly_summary(2026, 10)['final_balance'], Decimal('-30.00'))
 
     def test_quick_expense_persists_split_vr_and_card(self):
         response = self.client.post(reverse('finance:quick_expense'), {
@@ -277,10 +278,12 @@ class VRTests(BaseFinanceTest):
         self.assertEqual(movement.amount, Decimal('40.00'))
         self.assertEqual(movement.card_expense_id, card.pk)
         summary = monthly_summary(2026, 9)
-        self.assertEqual(summary['purchase_total'], Decimal('100.00'))
+        self.assertEqual(summary['purchase_total'], Decimal('40.00'))
+        self.assertEqual(monthly_summary(2026, 10)['card_invoice'], Decimal('60.00'))
         self.assertEqual(summary['purchase_vr'], Decimal('40.00'))
-        self.assertEqual(summary['purchase_bank'], Decimal('60.00'))
-        self.assertEqual(summary['card_invoice'], Decimal('60.00'))
+        self.assertEqual(summary['purchase_bank'], Decimal('0.00'))
+        self.assertEqual(monthly_summary(2026, 10)['purchase_bank'], Decimal('60.00'))
+        self.assertEqual(summary['card_invoice'], Decimal('0.00'))
 
     def test_quick_expense_rejects_vr_above_purchase_total(self):
         response = self.client.post(reverse('finance:quick_expense'), {
@@ -344,7 +347,7 @@ class VRTests(BaseFinanceTest):
         })[0]
         self.assertEqual(monthly_summary(2026, 9)['vr_spent'], Decimal('0.00'))
         self.assertEqual(monthly_summary(2026, 10)['vr_spent'], Decimal('50.00'))
-        rows = self.client.get(reverse('finance:report_csv'), {'year': 2026, 'month': 10}).content.decode('utf-8-sig')
+        rows = self.client.get(reverse('finance:report_csv'), {'year': 2026, 'month': 11}).content.decode('utf-8-sig')
         self.assertEqual(rows.count('Compra outubro'), 1)
 
     def test_vr_page_shows_available_used_and_monthly_credit(self):
@@ -372,7 +375,7 @@ class VRTests(BaseFinanceTest):
         response = self.client.get(reverse('finance:dashboard'), {'year': 2026, 'month': 9})
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'vr-movement-indexes')
-        self.assertEqual(monthly_summary(2026, 9)['card_invoice'], Decimal('30.00'))
+        self.assertEqual(monthly_summary(2026, 10)['card_invoice'], Decimal('30.00'))
 
 
     def test_quick_expense_without_vr_does_not_create_vr_debit(self):
@@ -399,11 +402,12 @@ class VRTests(BaseFinanceTest):
         self.assertEqual(expense.amount, Decimal('30.00'))
         self.assertEqual(expense.movement_total, Decimal('80.00'))
         self.assertEqual(movement.amount, Decimal('50.00'))
-        self.assertEqual(summary['purchase_total'], Decimal('80.00'))
+        self.assertEqual(summary['purchase_total'], Decimal('50.00'))
         self.assertEqual(summary['purchase_vr'], Decimal('50.00'))
-        self.assertEqual(summary['purchase_bank'], Decimal('30.00'))
-        self.assertEqual(summary['card_invoice'], Decimal('30.00'))
-        self.assertEqual(summary['final_balance'], Decimal('-30.00'))
+        self.assertEqual(summary['purchase_bank'], Decimal('0.00'))
+        self.assertEqual(monthly_summary(2026, 10)['purchase_bank'], Decimal('30.00'))
+        self.assertEqual(monthly_summary(2026, 10)['card_invoice'], Decimal('30.00'))
+        self.assertEqual(monthly_summary(2026, 10)['final_balance'], Decimal('-30.00'))
 
     def test_manual_purchase_appears_in_card_list_dashboard_and_bill_items(self):
         response = self.client.post(reverse('finance:quick_expense'), {
@@ -412,15 +416,15 @@ class VRTests(BaseFinanceTest):
             'responsible': 'SELF', 'paid': 'on', 'installment_total': '1',
         })
         self.assertRedirects(response, reverse('finance:dashboard') + '?year=2026&month=9')
-        card_page = self.client.get(reverse('finance:card_list'), {'year': 2026, 'month': 9})
-        dashboard = self.client.get(reverse('finance:dashboard'), {'year': 2026, 'month': 9})
-        report = self.client.get(reverse('finance:report_csv'), {'year': 2026, 'month': 9})
+        card_page = self.client.get(reverse('finance:card_list'), {'year': 2026, 'month': 10})
+        dashboard = self.client.get(reverse('finance:dashboard'), {'year': 2026, 'month': 10})
+        report = self.client.get(reverse('finance:report_csv'), {'year': 2026, 'month': 10})
         self.assertContains(card_page, 'Compra manual integrada')
         self.assertContains(dashboard, 'Compra manual integrada')
         self.assertIn('Compra manual integrada', report.content.decode('utf-8-sig'))
         self.assertEqual(dashboard.context['bill_items'].count(), 1)
         self.assertEqual(dashboard.context['summary']['card_invoice'], Decimal('30.00'))
-        self.assertEqual(dashboard.context['summary']['vr_spent'], Decimal('50.00'))
+        self.assertEqual(dashboard.context['summary']['vr_spent'], Decimal('0.00'))
 
     def test_editing_partial_vr_updates_one_linked_movement_and_zero_removes_it(self):
         item = create_card_installments({
@@ -466,7 +470,10 @@ class InstallmentTests(BaseFinanceTest):
         self.assertEqual(created[-1].remaining_installments, 0)
         self.assertEqual(created[0].first_installment, self.today)
         self.assertEqual(created[-1].date.month, 11)
-        summary = monthly_summary(2026, 9)
+        self.assertEqual(created[0].invoice_month, date(2026, 10, 1))
+        self.assertEqual(created[1].invoice_month, date(2026, 11, 1))
+        self.assertEqual(created[2].invoice_month, date(2026, 12, 1))
+        summary = monthly_summary(2026, 10)
         self.assertEqual(summary['card_invoice'], created[0].amount)
 
     def test_current_installment_cannot_exceed_total(self):
@@ -707,10 +714,10 @@ class BalanceVrInvestmentTests(BaseFinanceTest):
         self.assertEqual(Investment.objects.get(pk=investment.pk).recurrence, Investment.Recurrence.MONTHLY)
 
     def test_paid_invoice_blocks_csv_preview_in_backend(self):
-        CreditCardBill.objects.create(invoice_month=date(2026, 9, 1), amount=Decimal('100.00'), status=CreditCardBill.Status.PAID, paid_at=date(2026, 9, 5))
+        CreditCardBill.objects.create(invoice_month=date(2026, 10, 1), amount=Decimal('100.00'), status=CreditCardBill.Status.PAID, paid_at=date(2026, 10, 5))
         upload = SimpleUploadedFile('fatura.csv', b'DATE,DESCRIPTION,AMOUNT\n10/09/2026,Compra,10.00\n', content_type='text/csv')
-        response = self.client.post(reverse('finance:csv_import_preview'), {'csv_file': upload, 'invoice_month': '2026-09-01'}, follow=True)
-        self.assertRedirects(response, reverse('finance:dashboard') + '?year=2026&month=9')
+        response = self.client.post(reverse('finance:csv_import_preview'), {'csv_file': upload}, follow=True)
+        self.assertRedirects(response, reverse('finance:dashboard') + '?year=2026&month=10')
         self.assertEqual(CreditCardExpense.objects.count(), 0)
         self.assertContains(response, 'Esta fatura jÃ¡ foi paga')
 
@@ -737,7 +744,7 @@ class BalanceVrInvestmentTests(BaseFinanceTest):
         self.assertRedirects(response, reverse('finance:card_list'))
         item.refresh_from_db()
         self.assertEqual(item.vr_amount, Decimal('40.00'))
-        self.assertEqual(item.invoice_month, date(2026, 9, 1))
+        self.assertEqual(item.invoice_month, date(2026, 10, 1))
         vr = VRMovement.objects.get(description='Almoço corrigido')
         self.assertEqual(vr.amount, Decimal('40.00'))
 
@@ -752,22 +759,22 @@ class BalanceVrInvestmentTests(BaseFinanceTest):
 
     def test_bill_payment_marks_only_bill_and_future_installment_stays_pending(self):
         created = create_card_installments({'date': date(2026, 9, 10), 'description': 'Notebook', 'category': self.food, 'person': self.me, 'amount': Decimal('600'), 'total_installments': 3})
-        response = self.client.post(reverse('finance:pay_bill') + '?year=2026&month=9', {'amount': '200.00', 'paid_at': '2026-10-05'})
+        response = self.client.post(reverse('finance:pay_bill') + '?year=2026&month=10', {'amount': '200.00', 'paid_at': '2026-10-05'})
         self.assertEqual(response.status_code, 302)
-        bill = CreditCardBill.objects.get(invoice_month=date(2026, 9, 1))
+        bill = CreditCardBill.objects.get(invoice_month=date(2026, 10, 1))
         self.assertEqual(bill.status, CreditCardBill.Status.PAID)
         self.assertEqual(bill.paid_at, date(2026, 10, 5))
         self.assertEqual(CreditCardExpense.objects.filter(paid=True).count(), 0)
         self.assertEqual(CreditCardExpense.objects.count(), 3)
-        self.assertEqual(monthly_summary(2026, 9)['expenses'], Decimal('200.00'))
+        self.assertEqual(monthly_summary(2026, 10)['expenses'], Decimal('200.00'))
 
     def test_bill_payment_can_be_undone_and_months_are_independent(self):
-        self.client.post(reverse('finance:pay_bill') + '?year=2026&month=9', {'amount': '100.00', 'paid_at': '2026-10-05'})
-        self.assertEqual(CreditCardBill.objects.get(invoice_month=date(2026, 9, 1)).status, CreditCardBill.Status.PAID)
-        self.assertFalse(CreditCardBill.objects.filter(invoice_month=date(2026, 10, 1)).exists())
-        response = self.client.post(reverse('finance:undo_bill_payment') + '?year=2026&month=9')
+        self.client.post(reverse('finance:pay_bill') + '?year=2026&month=10', {'amount': '100.00', 'paid_at': '2026-10-05'})
+        self.assertEqual(CreditCardBill.objects.get(invoice_month=date(2026, 10, 1)).status, CreditCardBill.Status.PAID)
+        self.assertFalse(CreditCardBill.objects.filter(invoice_month=date(2026, 11, 1)).exists())
+        response = self.client.post(reverse('finance:undo_bill_payment') + '?year=2026&month=10')
         self.assertEqual(response.status_code, 302)
-        bill = CreditCardBill.objects.get(invoice_month=date(2026, 9, 1))
+        bill = CreditCardBill.objects.get(invoice_month=date(2026, 10, 1))
         self.assertEqual(bill.status, CreditCardBill.Status.PENDING)
         self.assertIsNone(bill.paid_at)
 
@@ -781,6 +788,110 @@ class BalanceVrInvestmentTests(BaseFinanceTest):
         import_preview_rows(rows, date(2026, 10, 1))
         rows_again = preview_csv(content, date(2026, 10, 1))
         self.assertTrue(all(row['duplicate'] for row in rows_again))
+
+
+class BillingCycleTests(BaseFinanceTest):
+    def test_purchase_month_maps_to_next_invoice_month(self):
+        self.assertEqual(invoice_month_for_purchase(date(2026, 9, 30)), date(2026, 10, 1))
+        self.assertEqual(invoice_month_for_purchase(date(2026, 10, 6)), date(2026, 11, 1))
+        self.assertEqual(invoice_month_for_purchase(date(2026, 11, 3)), date(2026, 12, 1))
+
+    def test_manual_card_purchase_keeps_real_date_and_enters_next_invoice(self):
+        item = create_card_installments({
+            'date': date(2026, 10, 6), 'description': 'Compra outubro ciclo',
+            'category': self.food, 'person': self.me, 'amount': Decimal('100.00'),
+            'total_installments': 1,
+        })[0]
+        self.assertEqual(item.purchase_date, date(2026, 10, 6))
+        self.assertEqual(item.date, date(2026, 10, 6))
+        self.assertEqual(item.invoice_month, date(2026, 11, 1))
+        self.assertEqual(monthly_summary(2026, 10)['card_invoice'], Decimal('0.00'))
+        self.assertEqual(monthly_summary(2026, 11)['card_invoice'], Decimal('100.00'))
+
+    def test_vr_and_card_parts_use_purchase_and_invoice_months(self):
+        item = create_card_installments({
+            'date': date(2026, 10, 6), 'description': 'Compra VR outubro',
+            'category': self.food, 'person': self.me, 'amount': Decimal('30.00'),
+            'purchase_total': Decimal('80.00'), 'vr_amount': Decimal('50.00'),
+            'total_installments': 1,
+        })[0]
+        self.assertEqual(item.invoice_month, date(2026, 11, 1))
+        self.assertEqual(VRMovement.objects.get(card_expense=item).date, date(2026, 10, 6))
+        self.assertEqual(monthly_summary(2026, 10)['vr_spent'], Decimal('50.00'))
+        self.assertEqual(monthly_summary(2026, 11)['card_invoice'], Decimal('30.00'))
+        self.assertEqual(monthly_summary(2026, 10)['card_invoice'], Decimal('0.00'))
+
+    def test_installments_advance_from_next_invoice_month(self):
+        items = create_card_installments({
+            'date': date(2026, 10, 10), 'description': 'Compra parcelada ciclo',
+            'category': self.food, 'person': self.me, 'amount': Decimal('600.00'),
+            'total_installments': 6,
+        })
+        self.assertEqual([item.invoice_month for item in items], [
+            date(2026, 11, 1), date(2026, 12, 1), date(2027, 1, 1),
+            date(2027, 2, 1), date(2027, 3, 1), date(2027, 4, 1),
+        ])
+        self.assertTrue(all(item.purchase_date == date(2026, 10, 10) for item in items))
+
+    def test_csv_purchase_date_calculates_next_invoice_and_preserves_date(self):
+        rows = preview_csv('DATE,DESCRIPTION,AMOUNT\n28/10/2026,Mercado outubro,150.00\n')
+        self.assertEqual(rows[0]['invoice_month'], '2026-11-01')
+        from .importers import import_preview_rows
+        import_preview_rows(rows)
+        item = CreditCardExpense.objects.get(description='Mercado outubro')
+        self.assertEqual(item.date, date(2026, 10, 28))
+        self.assertEqual(item.purchase_date, date(2026, 10, 28))
+        self.assertEqual(item.invoice_month, date(2026, 11, 1))
+
+    def test_csv_installment_labels_do_not_shift_rows_to_future_invoices(self):
+        content = (
+            'date,title,amount\n'
+            '2026-10-09,Pix no Credito,16.15\n'
+            '2026-10-05,Compra mercado,21.29\n'
+            '2026-10-01,Compra parcelada A - Parcela 2/2,"97,50"\n'
+            '2026-10-01,Compra online - Parcela 2/10,"54,48"\n'
+            '2026-10-01,Compra online B - Parcela 4/12,"337,75"\n'
+            '2026-10-01,Compra online - Parcela 3/8,"28,92"\n'
+            '2026-10-01,Compra tecnologia - Parcela 8/12,"97,86"\n'
+        )
+        rows = preview_csv(content)
+        self.assertEqual(len(rows), 7)
+        self.assertEqual({row['invoice_month'] for row in rows}, {'2026-11-01'})
+        from .importers import import_preview_rows
+        created, skipped = import_preview_rows(rows)
+        self.assertEqual((created, skipped), (7, 0))
+        self.assertEqual(CreditCardExpense.objects.filter(invoice_month=date(2026, 11, 1)).count(), 7)
+        self.assertEqual(CreditCardExpense.objects.filter(invoice_month__gt=date(2026, 11, 1)).count(), 0)
+
+    def test_dashboard_separates_october_purchase_into_november_invoice(self):
+        create_card_installments({
+            'date': date(2026, 10, 25), 'description': 'Compra visível em novembro',
+            'category': self.food, 'person': self.me, 'amount': Decimal('75.00'),
+            'total_installments': 1,
+        })
+        october = self.client.get(reverse('finance:dashboard'), {'year': 2026, 'month': 10})
+        november = self.client.get(reverse('finance:dashboard'), {'year': 2026, 'month': 11})
+        self.assertNotContains(october, 'Compra visível em novembro')
+        self.assertContains(november, 'Compra visível em novembro')
+        self.assertEqual(october.context['bill_items'].count(), 0)
+        self.assertEqual(november.context['bill_items'].count(), 1)
+
+    def test_invoice_payment_and_undo_do_not_create_or_change_purchases(self):
+        item = create_card_installments({
+            'date': date(2026, 10, 6), 'description': 'Compra antes do pagamento',
+            'category': self.food, 'person': self.me, 'amount': Decimal('100.00'),
+            'total_installments': 1,
+        })[0]
+        self.client.post(reverse('finance:pay_bill') + '?year=2026&month=11', {'amount': '100.00', 'paid_at': '2026-11-05'})
+        bill = CreditCardBill.objects.get(invoice_month=date(2026, 11, 1))
+        self.assertEqual(bill.status, CreditCardBill.Status.PAID)
+        self.assertEqual(CreditCardExpense.objects.count(), 1)
+        item.refresh_from_db()
+        self.assertFalse(item.paid)
+        self.client.post(reverse('finance:undo_bill_payment') + '?year=2026&month=11')
+        bill.refresh_from_db()
+        self.assertEqual(bill.status, CreditCardBill.Status.PENDING)
+        self.assertIsNone(bill.paid_at)
 
 
 class AuthenticationTests(TestCase):
@@ -832,7 +943,7 @@ class ReportingTests(BaseFinanceTest):
             'amount': Decimal('30.00'),
             'total_installments': 1,
         })
-        response = self.client.get(reverse('finance:dashboard'), {'year': 2026, 'month': 9})
+        response = self.client.get(reverse('finance:dashboard'), {'year': 2026, 'month': 10})
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context['bill_items'].count(), 1)
         self.assertContains(response, 'Compra compacta')
@@ -872,14 +983,14 @@ class OpenPeriodTests(BaseFinanceTest):
     def test_default_period_stays_on_current_month_when_invoice_is_open(self):
         self.assertEqual(default_open_period(date(2026, 9, 10)), (2026, 9))
 
-    def test_default_period_moves_to_next_month_after_paid_invoice(self):
+    def test_default_period_stays_on_current_month_after_paid_invoice(self):
         CreditCardBill.objects.create(
             invoice_month=date(2026, 9, 1),
             amount=Decimal('100.00'),
             status=CreditCardBill.Status.PAID,
             paid_at=date(2026, 9, 30),
         )
-        self.assertEqual(default_open_period(date(2026, 9, 10)), (2026, 10))
+        self.assertEqual(default_open_period(date(2026, 9, 10)), (2026, 9))
 
     def test_manual_purchase_form_uses_open_period_after_paid_invoice(self):
         CreditCardBill.objects.create(
@@ -887,11 +998,38 @@ class OpenPeriodTests(BaseFinanceTest):
             status=CreditCardBill.Status.PAID, paid_at=date(2026, 10, 5),
         )
         response = self.client.get(reverse('finance:dashboard'))
-        self.assertEqual(response.context['purchase_form'].initial['date'], date(2026, 11, 1))
+        self.assertEqual(response.context['purchase_form'].initial['date'], date(2026, 10, 6))
+
+    def test_manual_purchase_form_follows_selected_dashboard_period(self):
+        response = self.client.get(reverse('finance:dashboard'), {'year': 2026, 'month': 11})
+        self.assertEqual(response.context['purchase_form'].initial['date'], date(2026, 10, 6))
+        self.assertContains(response, 'value="06/10/2026"')
+        self.assertContains(response, 'finance/js/app.js?v=20261006-period')
+
+    def test_dashboard_payment_amount_is_rendered_with_two_decimal_places(self):
+        create_card_installments({
+            'date': date(2026, 10, 6), 'description': 'Pagamento formatado',
+            'category': self.food, 'person': self.me, 'amount': Decimal('159.74'),
+            'total_installments': 1,
+        })
+        response = self.client.get(reverse('finance:dashboard'), {'year': 2026, 'month': 11})
+        self.assertEqual(response.context['bill_payment_form'].initial['amount'], Decimal('159.74'))
+        self.assertContains(response, 'value="159.74"')
+
+    def test_quick_expense_preserves_selected_period_when_post_has_no_query_string(self):
+        response = self.client.post(reverse('finance:quick_expense'), {
+            'period_year': '2026', 'period_month': '11', 'date': '2026-11-01',
+            'description': 'Compra em novembro', 'category': self.food.pk,
+            'payment_method': Transaction.PaymentMethod.PIX, 'amount': '42.90',
+            'vr_amount': '0.00', 'responsible': 'SELF', 'paid': 'on',
+            'installment_total': '1',
+        })
+        self.assertRedirects(response, reverse('finance:dashboard') + '?year=2026&month=11')
+        self.assertTrue(Transaction.objects.filter(description='Compra em novembro', date=date(2026, 11, 1)).exists())
 
     def test_manual_card_purchase_is_blocked_in_paid_invoice_period(self):
         CreditCardBill.objects.create(
-            invoice_month=date(2026, 10, 1), amount=Decimal('100.00'),
+            invoice_month=date(2026, 11, 1), amount=Decimal('100.00'),
             status=CreditCardBill.Status.PAID, paid_at=date(2026, 10, 5),
         )
         response = self.client.post(reverse('finance:quick_expense'), {
@@ -900,5 +1038,5 @@ class OpenPeriodTests(BaseFinanceTest):
             'responsible': 'SELF', 'paid': 'on', 'installment_total': '1',
         })
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'A fatura deste período já foi paga')
+        self.assertContains(response, 'A fatura de 11/2026 já foi paga')
         self.assertFalse(CreditCardExpense.objects.filter(description='Compra em fatura paga').exists())

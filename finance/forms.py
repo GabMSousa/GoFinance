@@ -3,7 +3,7 @@ from decimal import Decimal
 from django import forms
 
 from .models import Category, CreditCardBill, CreditCardExpense, FinancialProfile, FixedExpense, Goal, Investment, Person, Transaction, VRMovement
-from .services import monthly_summary, to_decimal
+from .services import invoice_month_for_purchase, monthly_summary, to_decimal
 
 RESPONSIBLE_CHOICES = (('SELF', 'Eu'), ('OTHER', 'Outro'))
 
@@ -120,8 +120,9 @@ class TransactionForm(BootstrapModelForm):
         if current and total and current > total:
             self.add_error('installment_current', 'A parcela atual não pode ser maior que o total.')
         if tx_type == Transaction.Type.EXPENSE and data.get('payment_method') == Transaction.PaymentMethod.CREDIT_CARD and amount is not None and vr_amount < amount and data.get('date'):
-            if CreditCardBill.objects.filter(invoice_month=data['date'].replace(day=1), status=CreditCardBill.Status.PAID).exists():
-                self.add_error('date', 'A fatura deste período já foi paga. Escolha uma data do próximo período aberto.')
+            invoice_month = invoice_month_for_purchase(data['date'])
+            if CreditCardBill.objects.filter(invoice_month=invoice_month, status=CreditCardBill.Status.PAID).exists():
+                self.add_error('date', f'A fatura de {invoice_month:%m/%Y} já foi paga. Escolha outra data de compra.')
         if tx_type == Transaction.Type.EXPENSE and amount is not None and vr_amount >= amount:
             data['payment_method'] = Transaction.PaymentMethod.VR
         return data
@@ -207,13 +208,20 @@ class FinancialProfileForm(BootstrapModelForm):
 
 
 class CardBillPaymentForm(BootstrapMixin, forms.Form):
-    amount = forms.DecimalField(label='Valor efetivamente pago', min_value=Decimal('0.00'), decimal_places=2)
+    amount = forms.DecimalField(
+        label='Valor efetivamente pago',
+        min_value=Decimal('0.00'),
+        decimal_places=2,
+        widget=forms.NumberInput(attrs={'step': '0.01', 'inputmode': 'decimal'}),
+    )
     paid_at = forms.DateField(label='Data do pagamento', widget=forms.DateInput(attrs={'type': 'date'}))
+
+    def clean_amount(self):
+        return to_decimal(self.cleaned_data['amount'])
 
 
 class CsvImportForm(BootstrapMixin, forms.Form):
     csv_file = forms.FileField(label='Arquivo CSV')
-    invoice_month = forms.DateField(label='Mês da fatura', widget=forms.DateInput(attrs={'type': 'date'}))
 
     def clean_csv_file(self):
         uploaded = self.cleaned_data['csv_file']
@@ -385,8 +393,9 @@ class QuickExpenseForm(BootstrapMixin, forms.Form):
             self.add_error('person_name', 'Informe o nome da pessoa.')
         movement_date = data.get('date')
         if remaining > 0 and data.get('payment_method') == Transaction.PaymentMethod.CREDIT_CARD and movement_date:
-            if CreditCardBill.objects.filter(invoice_month=movement_date.replace(day=1), status=CreditCardBill.Status.PAID).exists():
-                self.add_error('date', 'A fatura deste período já foi paga. Escolha uma data do próximo período aberto.')
+            invoice_month = invoice_month_for_purchase(movement_date)
+            if CreditCardBill.objects.filter(invoice_month=invoice_month, status=CreditCardBill.Status.PAID).exists():
+                self.add_error('date', f'A fatura de {invoice_month:%m/%Y} já foi paga. Escolha outra data de compra.')
         if vr_amount > 0 and movement_date:
             summary = monthly_summary(movement_date.year, movement_date.month)
             if vr_amount > summary['vr_balance']:

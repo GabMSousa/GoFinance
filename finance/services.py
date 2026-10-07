@@ -18,6 +18,15 @@ def month_bounds(year, month):
     return date(year, month, 1), date(year, month, calendar.monthrange(year, month)[1])
 
 
+def invoice_month_for_installment(purchase_date, installment=1):
+    """Return the statement month for a real purchase and its installment."""
+    return add_months(purchase_date.replace(day=1), int(installment or 1))
+
+
+def invoice_month_for_purchase(purchase_date):
+    return invoice_month_for_installment(purchase_date, 1)
+
+
 def card_expenses_for_period(year, month):
     period = date(year, month, 1)
     start, end = month_bounds(year, month)

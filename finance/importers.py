@@ -7,7 +7,7 @@ from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 
 from .models import Category, CreditCardExpense, Person
-from .services import sync_card_vr
+from .services import invoice_month_for_purchase, sync_card_vr
 
 csv.field_size_limit(1024 * 1024)
 
@@ -82,7 +82,7 @@ def _field_map(fieldnames):
     return result
 
 
-def preview_csv(content, invoice_month):
+def preview_csv(content, invoice_month=None):
     if hasattr(content, 'read'):
         content = content.read()
     if isinstance(content, bytes):
@@ -111,22 +111,29 @@ def preview_csv(content, invoice_month):
         except (ValueError, InvalidOperation) as exc:
             raise ValueError(f'Linha inválida para {description}: {exc}') from exc
         current, total = installment_for(description, raw.get(fields.get('installment', ''), ''))
-        fingerprint = import_hash(purchase_date, description, amount, current, total, invoice_month)
+        # A linha do CSV representa a compra que pertence à fatura importada.
+        # O texto "2/10", "8/12" etc. identifica a parcela da compra, mas
+        # não deve deslocar esta linha para a fatura de meses futuros. O
+        # avanço mensal das parcelas é aplicado somente quando o sistema
+        # gera parcelas novas no cadastro manual.
+        row_invoice_month = invoice_month_for_purchase(purchase_date)
+        fingerprint = import_hash(purchase_date, description, amount, current, total, row_invoice_month)
         legacy_duplicate = CreditCardExpense.objects.filter(
-            invoice_month=invoice_month, description=description, amount=amount,
+            invoice_month=row_invoice_month, description=description, amount=amount,
         ).exists() or CreditCardExpense.objects.filter(
-            date=invoice_month, description=description, amount=amount,
+            date=row_invoice_month, description=description, amount=amount,
         ).exists()
         duplicate = bool(CreditCardExpense.objects.filter(import_hash=fingerprint).exists() or legacy_duplicate)
         rows.append({
             'purchase_date': purchase_date.isoformat(), 'description': description,
             'amount': str(amount), 'vr_amount': str(vr_amount), 'current_installment': current, 'total_installments': total,
-            'category': category_for(description), 'duplicate': duplicate, 'import_hash': fingerprint,
+            'invoice_month': row_invoice_month.isoformat(), 'category': category_for(description),
+            'duplicate': duplicate, 'import_hash': fingerprint,
         })
     return rows
 
 
-def import_preview_rows(rows, invoice_month, source_name='CSV'):
+def import_preview_rows(rows, invoice_month=None, source_name='CSV'):
     category_map = {item.name: item for item in Category.objects.all()}
     for name in {row['category'] for row in rows}:
         category_map.setdefault(name, Category.objects.get_or_create(name=name, defaults={'active': True})[0])
@@ -138,10 +145,11 @@ def import_preview_rows(rows, invoice_month, source_name='CSV'):
             continue
         purchase_date = date.fromisoformat(row['purchase_date'])
         current, total = int(row['current_installment']), int(row['total_installments'])
+        row_invoice_month = date.fromisoformat(row['invoice_month']) if row.get('invoice_month') else invoice_month_for_purchase(purchase_date)
         vr_amount = Decimal(row.get('vr_amount') or '0.00')
         card_amount = (Decimal(row['amount']) - vr_amount).quantize(Decimal('0.01'))
         expense = CreditCardExpense.objects.create(
-            date=invoice_month, purchase_date=purchase_date, invoice_month=invoice_month,
+            date=purchase_date, purchase_date=purchase_date, invoice_month=row_invoice_month,
             description=row['description'], amount=card_amount,
             category=category_map.get(row['category']) or category_map.get('Outros'), person=person,
             current_installment=current, total_installments=total,
