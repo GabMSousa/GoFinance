@@ -61,14 +61,17 @@ def posted_period(request, default_year, default_month):
 
 
 def default_open_period(today=None):
-    """Return the calendar period currently displayed by default.
-
-    The selected dashboard period is navigation state, not the source of a
-    purchase's invoice cycle. A paid invoice must remain paid without moving
-    the application to another month on reload.
-    """
+    """Return the first unpaid invoice period starting from the current month."""
     reference = today or localdate()
-    return reference.year, reference.month
+    period = date(reference.year, reference.month, 1)
+    for _ in range(120):
+        if not CreditCardBill.objects.filter(
+            invoice_month=period,
+            status=CreditCardBill.Status.PAID,
+        ).exists():
+            break
+        period = add_months(period, 1)
+    return period.year, period.month
 
 
 def period_context(year, month):
@@ -309,6 +312,15 @@ def undo_bill_payment(request):
     bill.paid_at = None
     bill.save(update_fields=['status', 'paid_at', 'updated_at'])
     messages.success(request, 'Pagamento desfeito. A fatura voltou para pendente.')
+    return redirect(f"{reverse('finance:dashboard')}?year={year}&month={month}")
+
+
+@require_POST
+def delete_bill(request):
+    year, month = selected_period(request)
+    bill = get_object_or_404(CreditCardBill, invoice_month=date(year, month, 1))
+    bill.delete()
+    messages.success(request, 'Registro da fatura apagado. As compras da fatura foram preservadas.')
     return redirect(f"{reverse('finance:dashboard')}?year={year}&month={month}")
 
 
