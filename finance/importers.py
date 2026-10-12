@@ -1,4 +1,5 @@
 import csv
+from difflib import SequenceMatcher
 import hashlib
 import io
 import re
@@ -6,7 +7,7 @@ import unicodedata
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 
-from .models import Category, CreditCardExpense, Person
+from .models import Category, CreditCardExpense, FixedExpense, Person
 from .services import invoice_month_for_purchase, sync_card_vr
 
 csv.field_size_limit(1024 * 1024)
@@ -67,6 +68,21 @@ def installment_for(description, raw=''):
     return (int(match.group(1)), int(match.group(2))) if match else (1, 1)
 
 
+def fixed_card_duplicate(description, amount):
+    """Find an active card-included fixed expense represented by a CSV row."""
+    row_words = [normalize(word) for word in str(description).split() if normalize(word)]
+    for fixed in FixedExpense.objects.filter(active=True, included_in_credit_card=True, amount=amount):
+        fixed_words = [normalize(word) for word in fixed.description.split() if normalize(word)]
+        if any(
+            word in row_words
+            or any(SequenceMatcher(None, word, candidate).ratio() >= 0.8 for candidate in row_words)
+            for word in fixed_words
+            if len(word) >= 4
+        ):
+            return fixed
+    return None
+
+
 def import_hash(purchase_date, description, amount, current, total, invoice_month):
     raw = f'{purchase_date.isoformat()}|{normalize(description)}|{amount:.2f}|{current}/{total}|{invoice_month.isoformat()}'
     return hashlib.sha256(raw.encode('utf-8')).hexdigest()
@@ -93,6 +109,7 @@ def preview_csv(content, invoice_month=None):
     if missing:
         raise ValueError(f'Colunas obrigatórias ausentes: {", ".join(missing)}')
     rows = []
+    seen_hashes = set()
     for row_number, raw in enumerate(reader, start=2):
         if row_number > 10000:
             raise ValueError('O arquivo CSV excede o limite de 10.000 linhas.')
@@ -123,12 +140,20 @@ def preview_csv(content, invoice_month=None):
         ).exists() or CreditCardExpense.objects.filter(
             date=row_invoice_month, description=description, amount=amount,
         ).exists()
-        duplicate = bool(CreditCardExpense.objects.filter(import_hash=fingerprint).exists() or legacy_duplicate)
+        fixed_duplicate = fixed_card_duplicate(description, amount)
+        duplicate = bool(
+            fingerprint in seen_hashes
+            or CreditCardExpense.objects.filter(import_hash=fingerprint).exists()
+            or legacy_duplicate
+            or fixed_duplicate
+        )
+        seen_hashes.add(fingerprint)
         rows.append({
             'purchase_date': purchase_date.isoformat(), 'description': description,
             'amount': str(amount), 'vr_amount': str(vr_amount), 'current_installment': current, 'total_installments': total,
             'invoice_month': row_invoice_month.isoformat(), 'category': category_for(description),
-            'duplicate': duplicate, 'import_hash': fingerprint,
+            'duplicate': duplicate, 'duplicate_reason': 'fixed' if fixed_duplicate else '',
+            'import_hash': fingerprint,
         })
     return rows
 
@@ -139,10 +164,17 @@ def import_preview_rows(rows, invoice_month=None, source_name='CSV'):
         category_map.setdefault(name, Category.objects.get_or_create(name=name, defaults={'active': True})[0])
     person, _ = Person.objects.get_or_create(name='Eu', defaults={'active': True})
     created = skipped = 0
+    seen_hashes = set()
     for row in rows:
-        if row.get('duplicate') or CreditCardExpense.objects.filter(import_hash=row['import_hash']).exists():
+        import_hash = row['import_hash']
+        if (
+            row.get('duplicate')
+            or import_hash in seen_hashes
+            or CreditCardExpense.objects.filter(import_hash=import_hash).exists()
+        ):
             skipped += 1
             continue
+        seen_hashes.add(import_hash)
         purchase_date = date.fromisoformat(row['purchase_date'])
         current, total = int(row['current_installment']), int(row['total_installments'])
         row_invoice_month = date.fromisoformat(row['invoice_month']) if row.get('invoice_month') else invoice_month_for_purchase(purchase_date)

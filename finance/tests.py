@@ -426,6 +426,31 @@ class VRTests(BaseFinanceTest):
         self.assertEqual(dashboard.context['summary']['card_invoice'], Decimal('30.00'))
         self.assertEqual(dashboard.context['summary']['vr_spent'], Decimal('0.00'))
 
+    def test_dashboard_movement_exposes_edit_and_delete_actions(self):
+        item = create_card_installments({
+            'date': self.today, 'description': 'Compra editável', 'category': self.food,
+            'person': self.me, 'amount': Decimal('30.00'), 'total_installments': 1,
+        })[0]
+        response = self.client.get(reverse('finance:dashboard'), {'year': 2026, 'month': 10})
+        self.assertContains(response, reverse('finance:card_edit', args=[item.pk]))
+        self.assertContains(response, reverse('finance:card_delete', args=[item.pk]))
+        self.assertContains(response, 'Pesquisar conta...')
+
+    def test_dashboard_movement_search_filters_accounts(self):
+        create_card_installments({
+            'date': self.today, 'description': 'Conta encontrada', 'category': self.food,
+            'person': self.me, 'amount': Decimal('10.00'), 'total_installments': 1,
+        })
+        create_card_installments({
+            'date': self.today, 'description': 'Outra conta', 'category': self.food,
+            'person': self.me, 'amount': Decimal('20.00'), 'total_installments': 1,
+        })
+        response = self.client.get(reverse('finance:dashboard'), {
+            'year': 2026, 'month': 10, 'q': 'encontrada',
+        })
+        self.assertContains(response, 'Conta encontrada')
+        self.assertNotContains(response, 'Outra conta')
+
     def test_editing_partial_vr_updates_one_linked_movement_and_zero_removes_it(self):
         item = create_card_installments({
             'date': self.today, 'description': 'Compra editável VR', 'category': self.food,
@@ -789,6 +814,45 @@ class BalanceVrInvestmentTests(BaseFinanceTest):
         rows_again = preview_csv(content, date(2026, 10, 1))
         self.assertTrue(all(row['duplicate'] for row in rows_again))
 
+    def test_csv_preview_marks_duplicates_inside_same_file(self):
+        content = (
+            'DATE,DESCRIPTION,AMOUNT\n'
+            '05/10/2026,MERCADO CONDOR,"-80,00"\n'
+            '05/10/2026,MERCADO CONDOR,"-80,00"\n'
+        )
+        rows = preview_csv(content)
+        self.assertEqual([row['duplicate'] for row in rows], [False, True])
+        from .importers import import_preview_rows
+        self.assertEqual(import_preview_rows(rows), (1, 1))
+        self.assertEqual(CreditCardExpense.objects.filter(description='MERCADO CONDOR').count(), 1)
+
+    def test_csv_preview_skips_card_included_fixed_expense_alias(self):
+        FixedExpense.objects.create(
+            description='Seguro Connecta', category=self.food, amount=Decimal('159.74'),
+            active=True, included_in_credit_card=True,
+        )
+        rows = preview_csv('date,title,amount\n2026-10-11,Asaas *Coonecta,159.74\n')
+        self.assertTrue(rows[0]['duplicate'])
+        self.assertEqual(rows[0]['duplicate_reason'], 'fixed')
+        from .importers import import_preview_rows
+        self.assertEqual(import_preview_rows(rows), (0, 1))
+
+    def test_delete_bill_preserves_purchases_and_vr_movements(self):
+        item = create_card_installments({
+            'date': self.today, 'description': 'Compra da fatura', 'category': self.food,
+            'person': self.me, 'amount': Decimal('30.00'), 'vr_amount': Decimal('10.00'),
+            'total_installments': 1,
+        })[0]
+        self.client.post(
+            reverse('finance:pay_bill') + '?year=2026&month=10',
+            {'amount': '20.00', 'paid_at': '2026-10-05'},
+        )
+        response = self.client.post(reverse('finance:delete_bill') + '?year=2026&month=10')
+        self.assertRedirects(response, reverse('finance:dashboard') + '?year=2026&month=10')
+        self.assertFalse(CreditCardBill.objects.filter(invoice_month=date(2026, 10, 1)).exists())
+        self.assertTrue(CreditCardExpense.objects.filter(pk=item.pk).exists())
+        self.assertTrue(VRMovement.objects.filter(card_expense=item).exists())
+
 
 class BillingCycleTests(BaseFinanceTest):
     def test_purchase_month_maps_to_next_invoice_month(self):
@@ -999,14 +1063,25 @@ class OpenPeriodTests(BaseFinanceTest):
     def test_default_period_stays_on_current_month_when_invoice_is_open(self):
         self.assertEqual(default_open_period(date(2026, 9, 10)), (2026, 9))
 
-    def test_default_period_stays_on_current_month_after_paid_invoice(self):
+    def test_default_period_advances_after_paid_invoice(self):
         CreditCardBill.objects.create(
             invoice_month=date(2026, 9, 1),
             amount=Decimal('100.00'),
             status=CreditCardBill.Status.PAID,
             paid_at=date(2026, 9, 30),
         )
-        self.assertEqual(default_open_period(date(2026, 9, 10)), (2026, 9))
+        self.assertEqual(default_open_period(date(2026, 9, 10)), (2026, 10))
+
+    def test_default_period_skips_consecutive_paid_invoices(self):
+        CreditCardBill.objects.create(
+            invoice_month=date(2026, 9, 1), amount=Decimal('100.00'),
+            status=CreditCardBill.Status.PAID, paid_at=date(2026, 9, 30),
+        )
+        CreditCardBill.objects.create(
+            invoice_month=date(2026, 10, 1), amount=Decimal('120.00'),
+            status=CreditCardBill.Status.PAID, paid_at=date(2026, 10, 31),
+        )
+        self.assertEqual(default_open_period(date(2026, 9, 10)), (2026, 11))
 
     def test_manual_purchase_form_uses_open_period_after_paid_invoice(self):
         CreditCardBill.objects.create(

@@ -1,0 +1,70 @@
+.movement-actions {
+  display: flex;
+  gap: 9px;
+  margin-top: 4px;
+  font-size: .68rem;
+}
+
+.movement-action {
+  color: var(--accent-dark);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.movement-action:hover,
+.movement-action:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.movement-action-danger {
+  color: var(--danger);
+}
+
+.movement-panel-heading {
+  align-items: center;
+}
+
+.movement-search {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-left: auto;
+}
+
+.movement-search .form-control {
+  width: min(190px, 22vw);
+  min-width: 120px;
+  padding: .38rem .55rem;
+  font-size: .72rem;
+  border-color: var(--border);
+}
+
+.movement-search .btn {
+  white-space: nowrap;
+  padding: .4rem .6rem;
+  font-size: .7rem;
+}
+
+@media (max-width: 800px) {
+  .movement-panel-heading {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .movement-search {
+    order: 3;
+    flex: 1 0 100%;
+    margin: 4px 0 0;
+  }
+
+  .movement-search .form-control {
+    width: auto;
+    flex: 1;
+  }
+
+  .movement-actions {
+    gap: 12px;
+    font-size: .7rem;
+  }
+}
