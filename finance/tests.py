@@ -8,10 +8,10 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
-from .models import Category, CreditCardBill, CreditCardExpense, FinancialProfile, FixedExpense, Investment, Person, SalarySnapshot, Transaction, VRMovement
+from .models import Category, CreditCardBill, CreditCardExpense, FinancialProfile, FixedExpense, Investment, Person, SalarySnapshot, Transaction, UserSecurityProfile, VRMovement
 from .importers import preview_csv
 from .services import invoice_month_for_installment, invoice_month_for_purchase, monthly_summary, split_installment_values
-from .views import create_card_installments, default_open_period
+from .views import DuplicateExpenseError, create_card_installments, default_open_period
 
 
 class BaseFinanceTest(TestCase):
@@ -451,6 +451,22 @@ class VRTests(BaseFinanceTest):
         self.assertContains(response, 'Conta encontrada')
         self.assertNotContains(response, 'Outra conta')
 
+    def test_dashboard_movement_filters_category_and_exact_date(self):
+        create_card_installments({
+            'date': self.today, 'description': 'Mercado filtrado', 'category': self.food,
+            'person': self.me, 'amount': Decimal('35.00'), 'total_installments': 1,
+        })
+        create_card_installments({
+            'date': date(2026, 9, 11), 'description': 'Moto filtrada', 'category': self.moto,
+            'person': self.me, 'amount': Decimal('80.00'), 'total_installments': 1,
+        })
+        response = self.client.get(reverse('finance:dashboard'), {
+            'year': 2026, 'month': 10, 'category': self.food.pk, 'date': self.today.isoformat(),
+        })
+        self.assertContains(response, 'Mercado filtrado')
+        self.assertNotContains(response, 'Moto filtrada')
+        self.assertEqual(response.context['date_filter'], self.today.isoformat())
+
     def test_editing_partial_vr_updates_one_linked_movement_and_zero_removes_it(self):
         item = create_card_installments({
             'date': self.today, 'description': 'Compra editável VR', 'category': self.food,
@@ -826,6 +842,38 @@ class BalanceVrInvestmentTests(BaseFinanceTest):
         self.assertEqual(import_preview_rows(rows), (1, 1))
         self.assertEqual(CreditCardExpense.objects.filter(description='MERCADO CONDOR').count(), 1)
 
+    def test_manual_card_entry_does_not_create_the_same_purchase_twice(self):
+        data = {
+            'date': date(2026, 10, 10), 'description': 'Compra repetida',
+            'category': self.food, 'person': self.me, 'amount': Decimal('100.00'),
+            'total_installments': 1,
+        }
+        create_card_installments(data)
+        with self.assertRaises(DuplicateExpenseError):
+            create_card_installments(data)
+        self.assertEqual(CreditCardExpense.objects.filter(description='Compra repetida').count(), 1)
+
+    def test_csv_import_detects_purchase_created_manually(self):
+        create_card_installments({
+            'date': date(2026, 10, 10), 'description': 'Compra Manual',
+            'category': self.food, 'person': self.me, 'amount': Decimal('100.00'),
+            'total_installments': 1,
+        })
+        rows = preview_csv('date,title,amount\n2026-10-10,compra manual,100.00\n')
+        self.assertTrue(rows[0]['duplicate'])
+
+    def test_quick_expense_does_not_create_the_same_non_card_purchase_twice(self):
+        payload = {
+            'date': '2026-09-10', 'description': 'Pix repetido', 'category': self.food.pk,
+            'payment_method': Transaction.PaymentMethod.PIX, 'amount': '20.00',
+            'vr_amount': '0.00', 'responsible': 'SELF', 'paid': 'on',
+            'installment_total': '1',
+        }
+        self.client.post(reverse('finance:quick_expense'), payload)
+        response = self.client.post(reverse('finance:quick_expense'), payload)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(Transaction.objects.filter(description='Pix repetido').count(), 1)
+
     def test_csv_preview_skips_card_included_fixed_expense_alias(self):
         FixedExpense.objects.create(
             description='Example Insurance', category=self.food, amount=Decimal('159.74'),
@@ -963,9 +1011,46 @@ class AuthenticationTests(TestCase):
         response = self.client.get(reverse('finance:dashboard'))
         self.assertRedirects(response, '/login/?next=/')
 
+    def test_unknown_application_path_also_requires_login(self):
+        response = self.client.get('/area-interna-nao-publica/')
+        self.assertRedirects(response, '/login/?next=/area-interna-nao-publica/')
+
     def test_login_page_is_available(self):
         response = self.client.get(reverse('login'))
         self.assertEqual(response.status_code, 200)
+
+    def test_fresh_login_ends_an_existing_session(self):
+        user = get_user_model().objects.create_user(username='fresh-login', password='Strong-test-password-123!')
+        self.client.force_login(user)
+        response = self.client.get(reverse('login') + '?fresh=1')
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.wsgi_request.user.is_authenticated)
+
+    def test_valid_login_opens_the_finance_area(self):
+        get_user_model().objects.create_user(username='login-user', password='Strong-test-password-123!')
+        response = self.client.post(reverse('login'), {
+            'username': 'login-user',
+            'password': 'Strong-test-password-123!',
+        })
+        self.assertRedirects(response, '/')
+        self.assertTrue(response.wsgi_request.user.is_authenticated)
+
+    def test_first_login_requires_password_change(self):
+        user = get_user_model().objects.create_user(username='first-login', password='Old-password-123!')
+        UserSecurityProfile.objects.create(user=user, must_change_password=True)
+        self.client.force_login(user)
+        response = self.client.get(reverse('finance:dashboard'))
+        self.assertRedirects(response, '/senha/alterar/')
+
+        response = self.client.post(reverse('finance:password_change'), {
+            'old_password': 'Old-password-123!',
+            'new_password1': 'New-password-456!',
+            'new_password2': 'New-password-456!',
+        })
+        self.assertRedirects(response, '/')
+        self.assertFalse(UserSecurityProfile.objects.get(user=user).must_change_password)
+        self.client.logout()
+        self.assertTrue(self.client.login(username='first-login', password='New-password-456!'))
 
 
 class ReportingTests(BaseFinanceTest):
