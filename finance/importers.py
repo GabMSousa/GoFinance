@@ -7,6 +7,8 @@ import unicodedata
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 
+from django.db.models import Q
+
 from .models import Category, CreditCardExpense, FixedExpense, Person
 from .services import invoice_month_for_purchase, sync_card_vr
 
@@ -135,11 +137,23 @@ def preview_csv(content, invoice_month=None):
         # gera parcelas novas no cadastro manual.
         row_invoice_month = invoice_month_for_purchase(purchase_date)
         fingerprint = import_hash(purchase_date, description, amount, current, total, row_invoice_month)
+        manual_duplicate = any(
+            normalize(item.description) == normalized_description
+            and item.total_installments == total
+            and (
+                item.total_amount == (amount * total).quantize(Decimal('0.01'))
+                or (total == 1 and item.amount == amount)
+            )
+            for item in CreditCardExpense.objects.filter(
+                Q(purchase_date=purchase_date) | Q(date=purchase_date),
+                total_installments=total,
+            )
+        )
         legacy_duplicate = CreditCardExpense.objects.filter(
             invoice_month=row_invoice_month, description=description, amount=amount,
         ).exists() or CreditCardExpense.objects.filter(
             date=row_invoice_month, description=description, amount=amount,
-        ).exists()
+        ).exists() or manual_duplicate
         fixed_duplicate = fixed_card_duplicate(description, amount)
         duplicate = bool(
             fingerprint in seen_hashes

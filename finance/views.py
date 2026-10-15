@@ -6,6 +6,9 @@ from datetime import date, datetime
 from decimal import Decimal
 
 from django.contrib import messages
+from django.contrib.auth import update_session_auth_hash
+from django.contrib.auth.forms import PasswordChangeForm
+from django.db import transaction as db_transaction
 from django.db.models import Q, Sum
 from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
@@ -31,8 +34,8 @@ from .forms import (
     TransactionForm,
     VRMovementForm,
 )
-from .models import Category, CreditCardBill, CreditCardExpense, FinancialProfile, FixedExpense, Goal, Investment, Person, SalarySnapshot, Transaction, VRMovement
-from .importers import import_preview_rows, preview_csv
+from .models import Category, CreditCardBill, CreditCardExpense, FinancialProfile, FixedExpense, Goal, Investment, Person, SalarySnapshot, Transaction, UserSecurityProfile, VRMovement
+from .importers import import_preview_rows, normalize, preview_csv
 from .services import add_months, card_expenses_for_period, invoice_month_for_installment, invoice_month_for_purchase, month_bounds, monthly_summary, money_sum, split_installment_values, sync_card_vr, sync_transaction_vr, third_party_by_person, to_decimal
 
 
@@ -46,6 +49,17 @@ def selected_period(request):
     except (TypeError, ValueError):
         month, year = default_month, default_year
     return year, month
+
+
+def password_change(request):
+    form = PasswordChangeForm(request.user, request.POST or None)
+    if form.is_valid():
+        user = form.save()
+        UserSecurityProfile.objects.update_or_create(user=user, defaults={'must_change_password': False})
+        update_session_auth_hash(request, user)
+        messages.success(request, 'Senha alterada com sucesso.')
+        return redirect('finance:dashboard')
+    return render(request, 'registration/password_change.html', {'form': form})
 
 
 def posted_period(request, default_year, default_month):
@@ -102,6 +116,35 @@ def person_from_responsibility(data):
     return Person.objects.get_or_create(name=name, defaults={'active': True})[0]
 
 
+class DuplicateExpenseError(Exception):
+    """Raised when an identical expense already exists in the ledger."""
+
+
+def _same_description(left, right):
+    return normalize(left) == normalize(right)
+
+
+def _card_purchase_is_duplicate(data, first_date, person, values, purchase_total, count):
+    candidates = CreditCardExpense.objects.filter(
+        person=person,
+        total_installments=count,
+    ).filter(Q(purchase_date=first_date) | Q(date=first_date))
+    for item in candidates:
+        if not _same_description(item.description, data['description']):
+            continue
+        if item.total_amount == purchase_total or (count == 1 and item.amount == values[0]):
+            return True
+    return False
+
+
+def _transaction_is_duplicate(data, amount, person, payment_method):
+    candidates = Transaction.objects.filter(
+        date=data['date'], type=Transaction.Type.EXPENSE, amount=amount,
+        payment_method=payment_method, person=person,
+    )
+    return any(_same_description(item.description, data['description']) for item in candidates)
+
+
 def create_card_installments(data, amount_key='amount'):
     total = to_decimal(data[amount_key])
     vr_amount = to_decimal(data.get('vr_amount') or 0)
@@ -113,29 +156,32 @@ def create_card_installments(data, amount_key='amount'):
     last_date = add_months(first_date, count - 1)
     person = data.get('person') or person_from_responsibility(data)
     created = []
-    for number, value in enumerate(values, start=1):
-        expense = CreditCardExpense.objects.create(
-            date=add_months(first_date, number - 1),
-            purchase_date=first_date,
-            invoice_month=invoice_month_for_installment(first_date, number),
-            description=data['description'],
-            category=data['category'],
-            amount=value,
-            total_amount=purchase_total,
-            person=person,
-            current_installment=number,
-            total_installments=count,
-            first_installment=first_date,
-            last_installment=last_date,
-            reimbursable=data.get('reimbursable', False),
-            received=data.get('received', False),
-            paid=data.get('paid', False),
-            vr_amount=vr_amount if number == 1 else Decimal('0.00'),
-            notes=data.get('notes', ''),
-            series_id=series,
-        )
-        sync_card_vr(expense)
-        created.append(expense)
+    if _card_purchase_is_duplicate(data, first_date, person, values, purchase_total, count):
+        raise DuplicateExpenseError
+    with db_transaction.atomic():
+        for number, value in enumerate(values, start=1):
+            expense = CreditCardExpense.objects.create(
+                date=add_months(first_date, number - 1),
+                purchase_date=first_date,
+                invoice_month=invoice_month_for_installment(first_date, number),
+                description=data['description'],
+                category=data['category'],
+                amount=value,
+                total_amount=purchase_total,
+                person=person,
+                current_installment=number,
+                total_installments=count,
+                first_installment=first_date,
+                last_installment=last_date,
+                reimbursable=data.get('reimbursable', False),
+                received=data.get('received', False),
+                paid=data.get('paid', False),
+                vr_amount=vr_amount if number == 1 else Decimal('0.00'),
+                notes=data.get('notes', ''),
+                series_id=series,
+            )
+            sync_card_vr(expense)
+            created.append(expense)
     return created
 
 
@@ -146,6 +192,7 @@ def dashboard(request):
     category_id = request.GET.get('category', '')
     payment = request.GET.get('payment', '')
     person_filter = request.GET.get('person', '')
+    date_filter = request.GET.get('date', '').strip()
     tx_qs = Transaction.objects.select_related('category', 'person').filter(date__year=year, date__month=month)
     card_qs = card_expenses_for_period(year, month).select_related('category', 'person')
     if search:
@@ -154,6 +201,14 @@ def dashboard(request):
     if category_id:
         tx_qs = tx_qs.filter(category_id=category_id)
         card_qs = card_qs.filter(category_id=category_id)
+    if date_filter:
+        try:
+            movement_date = date.fromisoformat(date_filter)
+        except ValueError:
+            movement_date = None
+        if movement_date:
+            tx_qs = tx_qs.filter(date=movement_date)
+            card_qs = card_qs.filter(date=movement_date)
     if payment:
         tx_qs = tx_qs.filter(payment_method=payment)
         if payment == Transaction.PaymentMethod.CREDIT_CARD:
@@ -226,6 +281,7 @@ def dashboard(request):
         'category_id': category_id,
         'payment': payment,
         'person_filter': person_filter,
+        'date_filter': date_filter,
         'vr_movement_indexes': vr_movement_indexes,
         'purchase_form': QuickExpenseForm(initial={'date': purchase_initial_date(year, month), 'installment_total': 1, 'vr_amount': 0}),
         'revenue_form': RevenueForm(initial={'date': localdate(), 'paid': True, 'payment_method': Transaction.PaymentMethod.PIX}),
@@ -537,19 +593,26 @@ def transaction_create(request):
     form = TransactionForm(request.POST or None, initial={'date': date.today(), 'installment_total': 1})
     if form.is_valid():
         d = form.cleaned_data
-        if d['type'] == Transaction.Type.EXPENSE and d['payment_method'] == Transaction.PaymentMethod.CREDIT_CARD:
-            create_card_installments({**d, 'amount': d['amount'] - d.get('vr_amount', 0), 'purchase_total': d['amount'], 'total_installments': d.get('installment_total') or 1})
-            messages.success(request, 'Compra enviada ao cartão e parcelas criadas.')
-            return redirect('finance:card_list')
-        if d['type'] == Transaction.Type.EXPENSE and d['payment_method'] == Transaction.PaymentMethod.VR:
+        person = d.get('person')
+        try:
+            if d['type'] == Transaction.Type.EXPENSE and d['payment_method'] == Transaction.PaymentMethod.CREDIT_CARD:
+                create_card_installments({**d, 'amount': d['amount'] - d.get('vr_amount', 0), 'purchase_total': d['amount'], 'total_installments': d.get('installment_total') or 1})
+                messages.success(request, 'Compra enviada ao cartão e parcelas criadas.')
+                return redirect('finance:card_list')
+            if d['type'] == Transaction.Type.EXPENSE and _transaction_is_duplicate(d, d['amount'], person, d['payment_method']):
+                raise DuplicateExpenseError
+            if d['type'] == Transaction.Type.EXPENSE and d['payment_method'] == Transaction.PaymentMethod.VR:
+                tx = form.save()
+                sync_transaction_vr(tx)
+                messages.success(request, 'Gasto lançado no Vale Refeição.')
+                return redirect('finance:vr_list')
             tx = form.save()
             sync_transaction_vr(tx)
-            messages.success(request, 'Gasto lançado no Vale Refeição.')
-            return redirect('finance:vr_list')
-        tx = form.save()
-        sync_transaction_vr(tx)
-        messages.success(request, 'Lançamento salvo.')
-        return redirect('finance:transaction_list')
+            messages.success(request, 'Lançamento salvo.')
+            return redirect('finance:transaction_list')
+        except DuplicateExpenseError:
+            messages.warning(request, 'Este gasto já está cadastrado. Nenhum duplicado foi criado.')
+            return redirect('finance:transaction_list')
     return render(request, 'finance/form.html', {'form': form, 'title': 'Novo lançamento'})
 
 
@@ -633,43 +696,51 @@ def quick_expense(request):
         notes = d.get('notes') or ''
         person = person_from_responsibility(d)
         tx = None
-        if remaining > 0 and d['payment_method'] == Transaction.PaymentMethod.CREDIT_CARD:
-            create_card_installments({**d, 'person': person, 'amount': remaining, 'purchase_total': total, 'vr_amount': vr_amount, 'total_installments': d.get('installment_total') or 1})
-        elif remaining > 0:
-            tx = Transaction.objects.create(
-                date=d['date'],
-                description=d['description'],
-                category=d['category'],
-                type=Transaction.Type.EXPENSE,
-                payment_method=d['payment_method'],
-                amount=remaining,
-                vr_amount=vr_amount,
-                paid=d['paid'],
-                person=person,
-                reimbursable=d['reimbursable'],
-                received=d['received'],
-                installment_total=1,
-                notes=f'Compra total R$ {total}. VR R$ {vr_amount}. {notes}'.strip(),
-            )
-        elif vr_amount > 0:
-            # Keep a visible ledger entry for purchases made entirely with VR.
-            # The linked VR movement remains the source of the debit; this
-            # transaction is excluded from bank expenses by monthly_summary.
-            tx = Transaction.objects.create(
-                date=d['date'],
-                description=d['description'],
-                category=d['category'],
-                type=Transaction.Type.EXPENSE,
-                payment_method=Transaction.PaymentMethod.VR,
-                amount=vr_amount,
-                vr_amount=vr_amount,
-                paid=d['paid'],
-                person=person,
-                reimbursable=d['reimbursable'],
-                received=d['received'],
-                installment_total=1,
-                notes=f'Compra paga integralmente com VR. {notes}'.strip(),
-            )
+        try:
+            if remaining > 0 and d['payment_method'] == Transaction.PaymentMethod.CREDIT_CARD:
+                create_card_installments({**d, 'person': person, 'amount': remaining, 'purchase_total': total, 'vr_amount': vr_amount, 'total_installments': d.get('installment_total') or 1})
+            elif remaining > 0:
+                if _transaction_is_duplicate(d, remaining, person, d['payment_method']):
+                    raise DuplicateExpenseError
+                tx = Transaction.objects.create(
+                    date=d['date'],
+                    description=d['description'],
+                    category=d['category'],
+                    type=Transaction.Type.EXPENSE,
+                    payment_method=d['payment_method'],
+                    amount=remaining,
+                    vr_amount=vr_amount,
+                    paid=d['paid'],
+                    person=person,
+                    reimbursable=d['reimbursable'],
+                    received=d['received'],
+                    installment_total=1,
+                    notes=f'Compra total R$ {total}. VR R$ {vr_amount}. {notes}'.strip(),
+                )
+            elif vr_amount > 0:
+                # Keep a visible ledger entry for purchases made entirely with VR.
+                # The linked VR movement remains the source of the debit; this
+                # transaction is excluded from bank expenses by monthly_summary.
+                if _transaction_is_duplicate(d, vr_amount, person, Transaction.PaymentMethod.VR):
+                    raise DuplicateExpenseError
+                tx = Transaction.objects.create(
+                    date=d['date'],
+                    description=d['description'],
+                    category=d['category'],
+                    type=Transaction.Type.EXPENSE,
+                    payment_method=Transaction.PaymentMethod.VR,
+                    amount=vr_amount,
+                    vr_amount=vr_amount,
+                    paid=d['paid'],
+                    person=person,
+                    reimbursable=d['reimbursable'],
+                    received=d['received'],
+                    installment_total=1,
+                    notes=f'Compra paga integralmente com VR. {notes}'.strip(),
+                )
+        except DuplicateExpenseError:
+            messages.warning(request, 'Este gasto já está cadastrado. Nenhum duplicado foi criado.')
+            return redirect(f"{reverse('finance:dashboard')}?year={d['date'].year}&month={d['date'].month}")
         if tx:
             sync_transaction_vr(tx)
         messages.success(request, 'Gasto salvo.')
@@ -758,7 +829,11 @@ def card_list(request):
 def card_create(request):
     form = CardPurchaseForm(request.POST or None, initial={'date': date.today(), 'total_installments': 1})
     if form.is_valid():
-        create_card_installments({**form.cleaned_data, 'person': person_from_responsibility(form.cleaned_data)})
+        try:
+            create_card_installments({**form.cleaned_data, 'person': person_from_responsibility(form.cleaned_data)})
+        except DuplicateExpenseError:
+            messages.warning(request, 'Esta compra já está cadastrada. Nenhum duplicado foi criado.')
+            return redirect('finance:card_list')
         messages.success(request, 'Compra e parcelas criadas.')
         return redirect('finance:card_list')
     return render(request, 'finance/form.html', {'form': form, 'title': 'Nova compra no cartão'})

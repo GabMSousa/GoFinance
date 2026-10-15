@@ -5,7 +5,7 @@ import os
 from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
 
-from finance.models import Category, FixedExpense, Person, Transaction, VRMovement
+from finance.models import Category, FixedExpense, Person, Transaction, UserSecurityProfile, VRMovement
 from finance.services import monthly_credit_setting
 
 
@@ -65,6 +65,10 @@ class Command(BaseCommand):
             user.is_superuser = True
             user.set_password(password)
             user.save(update_fields=['password', 'is_staff', 'is_superuser'])
+            profile, profile_created = UserSecurityProfile.objects.get_or_create(user=user)
+            if created or profile_created:
+                profile.must_change_password = True
+                profile.save(update_fields=['must_change_password', 'updated_at'])
             self.stdout.write(self.style.SUCCESS(f'Usuário administrador {user.username} configurado.'))
         else:
             self.stdout.write('DJANGO_ADMIN_PASSWORD não definida; usuário inicial não foi criado/alterado.')
