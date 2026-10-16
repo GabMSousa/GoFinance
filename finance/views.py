@@ -28,6 +28,8 @@ from .forms import (
     InvestmentForm,
     PaymentDateForm,
     PersonForm,
+    ProfileForm,
+    ProfilePasswordForm,
     QuickExpenseForm,
     ReimbursementForm,
     RevenueForm,
@@ -60,6 +62,33 @@ def password_change(request):
         messages.success(request, 'Senha alterada com sucesso.')
         return redirect('finance:dashboard')
     return render(request, 'registration/password_change.html', {'form': form})
+
+
+def profile(request):
+    profile_obj, _ = UserSecurityProfile.objects.get_or_create(user=request.user)
+    form = ProfileForm(request.user, request.POST or None, request.FILES or None)
+    password_form = ProfilePasswordForm(request.user)
+    if request.method == 'POST' and request.POST.get('action') == 'profile':
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Perfil atualizado com sucesso.')
+            return redirect('finance:profile')
+    return render(request, 'finance/profile.html', {'form': form, 'password_form': password_form, 'profile': profile_obj})
+
+
+def profile_password_change(request):
+    if request.method != 'POST':
+        return redirect('finance:profile')
+    form = ProfilePasswordForm(request.user, request.POST)
+    if form.is_valid():
+        user = form.save()
+        UserSecurityProfile.objects.update_or_create(user=user, defaults={'must_change_password': False})
+        update_session_auth_hash(request, user)
+        messages.success(request, 'Senha alterada com sucesso.')
+        return redirect('finance:profile')
+    profile_obj, _ = UserSecurityProfile.objects.get_or_create(user=request.user)
+    profile_form = ProfileForm(request.user)
+    return render(request, 'finance/profile.html', {'form': profile_form, 'password_form': form, 'profile': profile_obj})
 
 
 def posted_period(request, default_year, default_month):

@@ -1052,6 +1052,37 @@ class AuthenticationTests(TestCase):
         self.client.logout()
         self.assertTrue(self.client.login(username='first-login', password='New-password-456!'))
 
+    def test_profile_updates_user_data_and_avatar(self):
+        user = get_user_model().objects.create_user(username='profile-user', password='Strong-test-password-123!')
+        self.client.force_login(user)
+        response = self.client.get(reverse('finance:profile'))
+        self.assertEqual(response.status_code, 200)
+        image = SimpleUploadedFile('avatar.png', b'\x89PNG\r\n\x1a\nprofile', content_type='image/png')
+        response = self.client.post(reverse('finance:profile'), {
+            'action': 'profile',
+            'username': 'profile-updated',
+            'display_name': 'Gabriel',
+            'first_name': 'Gabriel',
+            'last_name': 'Sousa',
+            'avatar': image,
+        })
+        self.assertRedirects(response, reverse('finance:profile'))
+        user.refresh_from_db()
+        self.assertEqual(user.username, 'profile-updated')
+        self.assertEqual(user.security_profile.display_name, 'Gabriel')
+        self.assertTrue(user.security_profile.avatar.name.endswith('.png'))
+
+    def test_profile_password_can_change_without_old_password(self):
+        user = get_user_model().objects.create_user(username='profile-password', password='Old-password-123!')
+        self.client.force_login(user)
+        response = self.client.post(reverse('finance:profile_password_change'), {
+            'new_password1': 'NoOld@2026!',
+            'new_password2': 'NoOld@2026!',
+        })
+        self.assertRedirects(response, reverse('finance:profile'))
+        self.client.logout()
+        self.assertTrue(self.client.login(username='profile-password', password='NoOld@2026!'))
+
 
 class ReportingTests(BaseFinanceTest):
     def test_report_page_exposes_period_and_report_type_filters(self):
