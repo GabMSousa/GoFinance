@@ -8,6 +8,8 @@ from django.db import models
 
 class UserSecurityProfile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='security_profile')
+    display_name = models.CharField('Nome de exibição', max_length=120, blank=True)
+    avatar = models.FileField('Foto de perfil', upload_to='profile-avatars/', blank=True)
     must_change_password = models.BooleanField('Deve trocar a senha?', default=False)
     updated_at = models.DateTimeField('Atualizado em', auto_now=True)
 

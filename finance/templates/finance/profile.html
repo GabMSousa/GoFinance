@@ -1,0 +1,42 @@
+{% extends 'finance/base.html' %}
+{% load static %}
+{% block title %}Meu perfil{% endblock %}
+{% block content %}
+<div class="page-heading"><div><p class="eyebrow">Conta</p><h1>Meu perfil</h1><p class="page-subtitle">Atualize seus dados de acesso e a forma como seu nome aparece no GoFinance.</p></div></div>
+<div class="profile-grid">
+  <section class="data-panel profile-card profile-summary">
+    <div class="profile-avatar-wrap">
+      {% if profile.avatar %}<img class="profile-avatar" src="{{ profile.avatar.url }}" alt="Foto de {{ request.user.username }}">{% else %}<span class="profile-avatar profile-avatar-placeholder">{{ request.user.username|slice:':1'|upper }}</span>{% endif %}
+    </div>
+    <h2>{% if profile.display_name %}{{ profile.display_name }}{% else %}{{ request.user.username }}{% endif %}</h2>
+    <p>{{ request.user.username }}</p>
+    <span class="profile-badge">Sessão protegida</span>
+  </section>
+  <section class="data-panel profile-card">
+    <div class="panel-heading"><div><h2>Dados pessoais</h2><p>Essas informações aparecem somente no seu perfil.</p></div></div>
+    <form method="post" enctype="multipart/form-data" class="profile-form">
+      {% csrf_token %}<input type="hidden" name="action" value="profile">
+      {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors|striptags }}</div>{% endif %}
+      <div class="row g-3">
+        {% for field in form %}
+          <div class="{% if field.name == 'avatar' or field.name == 'remove_avatar' %}col-12{% else %}col-md-6{% endif %}">
+            {{ field.label_tag }}{{ field }}
+            {% if field.errors %}<div class="text-danger small mt-1">{{ field.errors|striptags }}</div>{% endif %}
+            {% if field.name == 'avatar' %}<div class="form-help">JPG, PNG ou WEBP, até 2 MB.</div>{% endif %}
+          </div>
+        {% endfor %}
+      </div>
+      <button class="btn btn-accent mt-4" type="submit">Salvar perfil</button>
+    </form>
+  </section>
+  <section class="data-panel profile-card profile-password-card">
+    <div class="panel-heading"><div><h2>Alterar senha</h2><p>Como você já está autenticado, não é necessário informar a senha anterior.</p></div></div>
+    <form method="post" action="{% url 'finance:profile_password_change' %}" class="profile-form">
+      {% csrf_token %}
+      {% if password_form.non_field_errors %}<div class="alert alert-danger">{{ password_form.non_field_errors|striptags }}</div>{% endif %}
+      {% for field in password_form %}<div class="mb-3">{{ field.label_tag }}{{ field }}{% if field.errors %}<div class="text-danger small mt-1">{{ field.errors|striptags }}</div>{% endif %}{% if field.help_text %}<div class="form-help">{{ field.help_text|safe }}</div>{% endif %}</div>{% endfor %}
+      <button class="btn btn-primary" type="submit">Atualizar senha</button>
+    </form>
+  </section>
+</div>
+{% endblock %}

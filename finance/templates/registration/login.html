@@ -3,22 +3,22 @@
 <html lang="pt-br">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Entrar &middot; GoFinance</title>
   <link rel="icon" href="{% static 'finance/img/gofinance-mark.svg' %}?v=20261006" type="image/svg+xml" sizes="any">
-  <link rel="stylesheet" href="{% static 'finance/css/app.css' %}">
+  <link rel="stylesheet" href="{% static 'finance/css/app.css' %}?v=20261015-auth">
 </head>
-<body class="login-page">
-  <main class="login-card">
-    <div class="brand justify-content-center mb-5"><span class="brand-mark">GF</span><span>GoFinance</span></div>
+<body class="login-page login-page--minimal">
+  <main class="login-card login-card--minimal">
+    <div class="login-brand"><span class="brand-mark">GF</span><span>GoFinance</span></div>
     <h1>Bem-vindo de volta</h1>
     <p class="login-intro">Entre para acompanhar o seu mês com clareza.</p>
     <form method="post">
       {% csrf_token %}
       {% if form.non_field_errors %}<div class="alert alert-danger">Usuário ou senha inválidos.</div>{% endif %}
-      <div class="field-group"><label for="id_username">Usuário</label>{{ form.username }}</div>
-      <div class="field-group"><label for="id_password">Senha</label>{{ form.password }}</div>
-      <button class="btn btn-primary w-100 mt-3" type="submit">Entrar no painel</button>
+      <div class="field-group login-field"><label for="id_username">Usuário</label>{{ form.username }}</div>
+      <div class="field-group login-field"><label for="id_password">Senha</label>{{ form.password }}</div>
+      <button class="btn btn-primary login-submit w-100 mt-3" type="submit">Entrar no painel</button>
     </form>
   </main>
 </body>

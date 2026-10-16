@@ -1,11 +1,89 @@
 from decimal import Decimal
 
 from django import forms
+from django.contrib.auth import get_user_model
+from django.contrib.auth.forms import SetPasswordForm
 
 from .models import Category, CreditCardBill, CreditCardExpense, FinancialProfile, FixedExpense, Goal, Investment, Person, Transaction, VRMovement
 from .services import invoice_month_for_purchase, monthly_summary, to_decimal
 
 RESPONSIBLE_CHOICES = (('SELF', 'Eu'), ('OTHER', 'Outro'))
+
+
+class ProfileForm(forms.Form):
+    username = forms.CharField(label='Nome de usuário', max_length=150)
+    display_name = forms.CharField(label='Nome de exibição', max_length=120, required=False)
+    first_name = forms.CharField(label='Primeiro nome', max_length=150, required=False)
+    last_name = forms.CharField(label='Sobrenome', max_length=150, required=False)
+    avatar = forms.FileField(label='Foto de perfil', required=False)
+    remove_avatar = forms.BooleanField(label='Remover foto atual', required=False)
+
+    def __init__(self, user, *args, **kwargs):
+        self.user = user
+        super().__init__(*args, **kwargs)
+        profile = getattr(user, 'security_profile', None)
+        self.initial.update({
+            'username': user.username,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'display_name': getattr(profile, 'display_name', ''),
+        })
+        for field in self.fields.values():
+            field.widget.attrs['class'] = 'form-check-input' if isinstance(field.widget, forms.CheckboxInput) else 'form-control'
+
+    def clean_username(self):
+        value = self.cleaned_data['username'].strip()
+        if not value:
+            raise forms.ValidationError('Informe um nome de usuário.')
+        User = get_user_model()
+        if User.objects.filter(username__iexact=value).exclude(pk=self.user.pk).exists():
+            raise forms.ValidationError('Este nome de usuário já está em uso.')
+        return value
+
+    def clean_avatar(self):
+        avatar = self.cleaned_data.get('avatar')
+        if not avatar:
+            return avatar
+        if avatar.size > 2 * 1024 * 1024:
+            raise forms.ValidationError('A foto deve ter no máximo 2 MB.')
+        name = avatar.name.lower()
+        if not name.endswith(('.jpg', '.jpeg', '.png', '.webp')):
+            raise forms.ValidationError('Use uma foto JPG, PNG ou WEBP.')
+        header = avatar.read(12)
+        avatar.seek(0)
+        valid = header.startswith(b'\xff\xd8\xff') or header.startswith(b'\x89PNG\r\n\x1a\n') or (header.startswith(b'RIFF') and header[8:12] == b'WEBP')
+        if not valid:
+            raise forms.ValidationError('O arquivo enviado não parece ser uma imagem válida.')
+        return avatar
+
+    def save(self):
+        user = self.user
+        user.username = self.cleaned_data['username']
+        user.first_name = self.cleaned_data['first_name'].strip()
+        user.last_name = self.cleaned_data['last_name'].strip()
+        user.save(update_fields=['username', 'first_name', 'last_name'])
+        from .models import UserSecurityProfile
+        profile, _ = UserSecurityProfile.objects.get_or_create(user=user)
+        if self.cleaned_data['remove_avatar'] and profile.avatar:
+            profile.avatar.delete(save=False)
+            profile.avatar = ''
+        if self.cleaned_data['avatar']:
+            if profile.avatar:
+                profile.avatar.delete(save=False)
+            profile.avatar = self.cleaned_data['avatar']
+        profile.display_name = self.cleaned_data['display_name'].strip()
+        profile.save()
+        return user
+
+
+class ProfilePasswordForm(SetPasswordForm):
+    new_password1 = forms.CharField(label='Nova senha', strip=False, widget=forms.PasswordInput(attrs={'autocomplete': 'new-password'}))
+    new_password2 = forms.CharField(label='Confirme a nova senha', strip=False, widget=forms.PasswordInput(attrs={'autocomplete': 'new-password'}))
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs['class'] = 'form-control'
 
 
 class BootstrapMixin:
