@@ -33,6 +33,11 @@ class SecurityHeadersMiddleware:
 
     def __call__(self, request):
         response = self.get_response(request)
+        if request.user.is_authenticated:
+            # Financial pages must never be reused by a shared browser/proxy cache.
+            response['Cache-Control'] = 'private, no-store, max-age=0'
+            response['Pragma'] = 'no-cache'
+            response['Expires'] = '0'
         response.setdefault('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()')
         if settings.CSP_POLICY:
             header = 'Content-Security-Policy-Report-Only' if settings.CSP_REPORT_ONLY else 'Content-Security-Policy'
