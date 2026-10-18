@@ -56,3 +56,36 @@
 @media(max-width:390px){.mobile-topbar{padding-inline:9px}.mobile-topbar .brand span{font-size:.84rem}.mobile-topbar .menu-button,.mobile-topbar .mobile-add-button,.mobile-topbar .mobile-exit-button{padding-inline:7px;font-size:.67rem}.mobile-topbar-actions{gap:4px}}
 
 @media(min-width:801px){.sidebar{position:sticky;top:0;height:100vh;align-self:flex-start}.sidebar-footer form{margin-top:10px}.sidebar-footer .logout-link{display:block;width:100%;padding:9px 10px;text-align:left;background:rgba(255,141,141,.08);border:1px solid rgba(255,141,141,.3);border-radius:8px;color:#ffadb1}.sidebar-footer .logout-link:hover,.sidebar-footer .logout-link:focus{background:#5b2935;border-color:#ffadb1;color:#fff}}
+/* Profile file picker: keep the native upload accessible while matching the app surface. */
+.profile-form input[type="file"] {
+  width: 100%;
+  min-height: 46px;
+  padding: 7px 9px;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+}
+.profile-form input[type="file"]::file-selector-button {
+  margin-right: 12px;
+  padding: 8px 13px;
+  border: 1px solid var(--accent-dark);
+  border-radius: 7px;
+  background: var(--accent-dark);
+  color: #fff;
+  font: inherit;
+  font-size: .76rem;
+  font-weight: 750;
+  cursor: pointer;
+  transition: filter .15s ease, transform .15s ease;
+}
+.profile-form input[type="file"]:hover::file-selector-button,
+.profile-form input[type="file"]:focus-visible::file-selector-button {
+  filter: brightness(1.12);
+  transform: translateY(-1px);
+}
+.profile-form input[type="file"]:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--accent-dark) 28%, transparent);
+  outline-offset: 2px;
+}
