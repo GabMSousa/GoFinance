@@ -321,17 +321,17 @@ html:not([data-theme="dark"]) .dashboard-calculator-key--operator {
 
 .btn-bill-pay,
 .btn-bill-paid {
-  background: #0be02f;
-  border-color: #0be02f;
-  color: #d9ffe7;
+  background: #4aba63;
+  border-color: #0fba3f;
+  color: #fff;
 }
 
 .btn-bill-pay:hover,
 .btn-bill-pay:focus-visible,
 .btn-bill-paid:hover,
 .btn-bill-paid:focus-visible {
-  background: #0be02f;
-  border-color: #0be02f;
+  background: #4aba63;
+  border-color: #0fba3f;
   color: #fff;
 }
 
@@ -538,7 +538,7 @@ html:not([data-theme="dark"]) .dashboard-summary .summary-icon-card { color: #11
 .dashboard-summary .summary-spark i:nth-child(2) { height: 28px; }
 .dashboard-summary .summary-spark i:nth-child(3) { height: 40px; }
 
-.dashboard-summary .summary-balance { background: #10251a; border-color: #0be02f; color: #0be02f; }
+.dashboard-summary .summary-balance { background: #4aba63; border-color: #0fba3f; color: #fff; }
 .dashboard-summary .summary-balance .summary-icon { background: #163e29; }
 .dashboard-summary .summary-receipts { background: #102236; border-color: #23628b; color: #49a3d5; }
 .dashboard-summary .summary-receipts .summary-icon { background: #163853; }
