@@ -23,6 +23,7 @@
 .login-card--minimal{width:min(100%,390px);padding:38px 36px 36px;background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.22);box-shadow:0 28px 90px rgba(0,0,0,.32);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);color:#fff}
 .login-card--minimal .login-brand{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:34px;font-weight:800;letter-spacing:-.02em;color:#fff}
 .login-card--minimal .brand-mark{width:42px;height:42px;flex-basis:42px}
+.login-card--minimal .login-brand .brand-mark{display:block;width:38px;height:38px;flex:0 0 38px;padding:0;border-radius:0;background:transparent;object-fit:contain}
 .login-card--minimal h1{color:#fff;font-size:1.72rem;letter-spacing:-.04em}
 .login-card--minimal .login-intro{color:rgba(255,255,255,.74);line-height:1.5}
 .login-card--minimal .field-group{margin-bottom:18px}.login-card--minimal .field-group label{color:rgba(255,255,255,.86);font-size:.75rem}
