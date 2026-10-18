@@ -513,6 +513,11 @@ html:not([data-theme="dark"]) .dashboard-summary .summary-icon-card { color: #11
   line-height: 1.1;
 }
 
+.dashboard-summary .summary-card .summary-label,
+.dashboard-summary .summary-card .summary-value {
+  color: #fff;
+}
+
 .dashboard-summary .summary-spark {
   display: flex;
   align-items: end;
