@@ -1,6 +1,8 @@
 import calendar
 import csv
 import io
+import string
+import secrets
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
@@ -143,6 +145,42 @@ def admin_users(request):
 
     users = get_user_model().objects.select_related('security_profile').order_by('username')
     return render(request, 'finance/admin_users.html', {'form': form, 'users': users})
+
+
+def _temporary_password(length=16):
+    alphabet = string.ascii_letters + string.digits + '!@#$%&*'
+    return ''.join(secrets.choice(alphabet) for _ in range(length))
+
+
+@staff_required
+@require_POST
+def admin_user_toggle_active(request, pk):
+    user = get_object_or_404(get_user_model(), pk=pk)
+    if user.pk == request.user.pk:
+        messages.error(request, 'Você não pode desativar o próprio acesso administrativo.')
+    elif user.is_active and user.is_staff and get_user_model().objects.filter(is_active=True, is_staff=True).count() <= 1:
+        messages.error(request, 'Mantenha pelo menos um administrador ativo no sistema.')
+    else:
+        user.is_active = not user.is_active
+        user.save(update_fields=['is_active'])
+        state = 'ativado' if user.is_active else 'desativado'
+        messages.success(request, f'Usuário {user.username} {state}.')
+    return redirect('finance:admin_users')
+
+
+@staff_required
+@require_POST
+def admin_user_reset_password(request, pk):
+    user = get_object_or_404(get_user_model(), pk=pk)
+    temporary_password = _temporary_password()
+    user.set_password(temporary_password)
+    user.save(update_fields=['password'])
+    UserSecurityProfile.objects.update_or_create(
+        user=user,
+        defaults={'must_change_password': True},
+    )
+    messages.success(request, f'Senha temporária de {user.username}: {temporary_password}')
+    return redirect('finance:admin_users')
 
 
 def posted_period(request, default_year, default_month):
