@@ -16,7 +16,7 @@
   const sourceNote = explorer.querySelector('[data-radar-source-note]');
   const refreshButton = explorer.querySelector('[data-radar-refresh]');
   const money = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
-  const text = (value, fallback = 'NÃ£o informado') => value === undefined || value === null || value === '' ? fallback : String(value);
+  const text = (value, fallback = 'Não informado') => value === undefined || value === null || value === '' ? fallback : String(value);
   const normalize = (value) => text(value, '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
   function updateIndicators() {
@@ -26,13 +26,13 @@
       if (!indicator) return;
       const value = element.querySelector('strong');
       const base = element.querySelector('small');
-      value.textContent = indicator.available ? text(indicator.formatted) : 'IndisponÃ­vel';
+      value.textContent = indicator.available ? text(indicator.formatted) : 'Indisponível';
       value.classList.toggle('is-unavailable', !indicator.available);
-      base.textContent = indicator.date ? `Base ${indicator.date}` : 'Fonte indisponÃ­vel';
+      base.textContent = indicator.date ? `Base ${indicator.date}` : 'Fonte indisponível';
     });
     const offersMessage = radar.querySelector('.radar-offers p');
     if (offersMessage && data.offers_message) offersMessage.textContent = data.offers_message;
-    if (sourceNote) sourceNote.textContent = Array.isArray(data.sources) && data.sources.length ? `Fontes: ${data.sources.map((source) => source.label).join(' · ')}` : 'Fonte oficial nÃ£o informada';
+    if (sourceNote) sourceNote.textContent = Array.isArray(data.sources) && data.sources.length ? `Fontes: ${data.sources.map((source) => source.label).join(' · ')}` : 'Fonte oficial não informada';
   }
 
   function matches(offer) {

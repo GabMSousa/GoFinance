@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Receita">
+  <defs>
+    <linearGradient id="income" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0bb6cf"/>
+      <stop offset="1" stop-color="#5361bd"/>
+    </linearGradient>
+  </defs>
+  <circle cx="150" cy="150" r="118" fill="url(#income)"/>
+  <path d="M150 72v156M112 130c0-29 22-51 46-51s45 22 45 51c0 28-20 42-48 52-29 10-47 24-47 53 0 30 22 53 49 53s49-23 49-53" fill="none" stroke="#111417" stroke-width="18" stroke-linecap="round"/>
+  <path d="M82 267 8 356h48v124h52V356h48z" fill="url(#income)"/>
+  <path d="M243 120h214M243 177h214M243 234h214M243 291h214M243 348h214M243 405h214" fill="none" stroke="url(#income)" stroke-width="39" stroke-linecap="round"/>
+  <path d="M242 315h119M242 372h119M242 429h119" fill="none" stroke="#5361bd" stroke-width="39" stroke-linecap="round"/>
+</svg>

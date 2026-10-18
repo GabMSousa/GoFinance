@@ -8,8 +8,11 @@ from decimal import Decimal
 from django.contrib import messages
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.forms import PasswordChangeForm
+from django.core.exceptions import PermissionDenied, ValidationError
+from django.core.paginator import Paginator
 from django.db import transaction as db_transaction
 from django.db.models import Q, Sum
+from django.db.models.deletion import ProtectedError
 from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -26,6 +29,7 @@ from .forms import (
     FinancialProfileForm,
     GoalForm,
     InvestmentForm,
+    InvestmentOperationForm,
     PaymentDateForm,
     PersonForm,
     ProfileForm,
@@ -37,10 +41,10 @@ from .forms import (
     VRMovementForm,
 )
 from .investment_radar import get_investment_radar
-from .models import Category, CreditCardBill, CreditCardExpense, FinancialProfile, FixedExpense, Goal, Investment, Person, SalarySnapshot, Transaction, UserSecurityProfile, VRMovement
+from .models import Category, CreditCardBill, CreditCardExpense, FinancialProfile, FixedExpense, Goal, Investment, InvestmentOperation, Person, SalarySnapshot, Transaction, UserSecurityProfile, VRMovement
 from .importers import import_preview_rows, normalize, preview_csv
 from .reporting import build_financial_pdf
-from .services import add_months, card_expenses_for_period, invoice_month_for_installment, invoice_month_for_purchase, month_bounds, monthly_summary, money_sum, split_installment_values, sync_card_vr, sync_transaction_vr, third_party_by_person, to_decimal, vr_balance_for_date
+from .services import add_months, apply_investment_operation, card_expenses_for_period, investment_scope, invoice_month_for_installment, invoice_month_for_purchase, month_bounds, monthly_summary, money_sum, split_installment_values, sync_card_vr, sync_transaction_vr, third_party_by_person, to_decimal, vr_balance_for_date
 
 
 def selected_period(request):
@@ -53,6 +57,30 @@ def selected_period(request):
     except (TypeError, ValueError):
         month, year = default_month, default_year
     return year, month
+
+
+def investment_selected_period(request):
+    """Resolve the investment period from explicit filters or the local date.
+
+    Investment competence is based on the effective operation date and must
+    not inherit the next open credit-card invoice period.
+    """
+    today = localdate()
+    try:
+        month = int(request.GET.get('month', today.month))
+        year = int(request.GET.get('year', today.year))
+        if year < 1 or month not in range(1, 13):
+            raise ValueError
+    except (TypeError, ValueError):
+        return today.year, today.month
+    return year, month
+
+
+def investment_period_redirect(request):
+    if 'year' not in request.GET and 'month' not in request.GET:
+        return redirect('finance:investment_list')
+    year, month = investment_selected_period(request)
+    return redirect(f"{reverse('finance:investment_list')}?year={year}&month={month}")
 
 
 def password_change(request):
@@ -218,6 +246,7 @@ def create_card_installments(data, amount_key='amount'):
 
 def dashboard(request, purchase_form=None, period=None):
     year, month = period or selected_period(request)
+    request.session['dashboard_period'] = [year, month]
     summary = monthly_summary(year, month)
     search = request.GET.get('q', '').strip()
     category_id = request.GET.get('category', '')
@@ -290,8 +319,12 @@ def dashboard(request, purchase_form=None, period=None):
         all_items.append((item.date, item.amount, item.type, item.payment_method))
     for item in card_expenses_for_period(year, month):
         all_items.append((item.invoice_month or item.date, item.amount, Transaction.Type.EXPENSE, Transaction.PaymentMethod.CREDIT_CARD))
-    for item in Investment.objects.filter(date__year=year, date__month=month):
-        all_items.append((item.date, item.amount, Transaction.Type.INVESTMENT, None))
+    for operation in InvestmentOperation.objects.filter(
+        occurred_at__date__range=(date(year, month, 1), date(year, month, calendar.monthrange(year, month)[1])),
+        operation_type=InvestmentOperation.OperationType.CONTRIBUTION,
+        status=InvestmentOperation.Status.POSTED,
+    ).order_by('occurred_at', 'id'):
+        all_items.append((operation.occurred_at.date(), operation.amount, Transaction.Type.INVESTMENT, None))
     for movement_date, amount, movement_type, payment_method in sorted(all_items, key=lambda row: row[0]):
         if movement_type == Transaction.Type.EXPENSE and payment_method == Transaction.PaymentMethod.VR:
             continue
@@ -305,7 +338,6 @@ def dashboard(request, purchase_form=None, period=None):
     context = period_context(year, month)
     context.update({
         'summary': summary,
-        'investment_radar': get_investment_radar(),
         'movements': movements,
         'categories': Category.objects.filter(active=True),
         'payment_choices': Transaction.PaymentMethod.choices,
@@ -325,6 +357,7 @@ def dashboard(request, purchase_form=None, period=None):
         'investment_items': Investment.objects.select_related('category').filter(date__year=year, date__month=month),
         'active_investments': Investment.objects.filter(active=True),
         'next_investment': Investment.objects.filter(active=True, date__gte=date(year, month, 1)).order_by('date', 'id').first(),
+        'investment_radar': get_investment_radar(),
         'bill_payment_form': CardBillPaymentForm(initial={'amount': to_decimal(summary['card_invoice']), 'paid_at': localdate()}),
         'csv_form': CsvImportForm(),
         'movement_details': [
@@ -334,7 +367,7 @@ def dashboard(request, purchase_form=None, period=None):
         'chart_data': {
             'revenues': float(summary['revenues']),
             'expenses': float(summary['expenses']),
-            'investments': float(summary['investment_month']),
+            'investments': float(summary['investment_chart_month']),
             'category_labels': summary['category_labels'],
             'category_values': summary['category_values'],
             'balance_labels': [point['label'] for point in balance_points],
@@ -767,6 +800,9 @@ def revenue_edit(request, pk):
 def quick_expense(request):
     year, month = selected_period(request)
     if request.method == 'POST':
+        remembered_period = request.session.get('dashboard_period')
+        if remembered_period and not request.POST.get('period_year') and not request.POST.get('period_month'):
+            year, month = remembered_period
         year, month = posted_period(request, year, month)
     form = QuickExpenseForm(request.POST or None, initial={'date': purchase_initial_date(year, month), 'installment_total': 1, 'vr_amount': 0})
     if form.is_valid():
@@ -824,11 +860,11 @@ def quick_expense(request):
                 )
         except DuplicateExpenseError:
             messages.warning(request, 'Este gasto já está cadastrado. Nenhum duplicado foi criado.')
-            return redirect(f"{reverse('finance:dashboard')}?year={d['date'].year}&month={d['date'].month}")
+            return redirect(f"{reverse('finance:dashboard')}?year={year}&month={month}")
         if tx:
             sync_transaction_vr(tx)
         messages.success(request, 'Gasto salvo.')
-        return redirect(f"{reverse('finance:dashboard')}?year={d['date'].year}&month={d['date'].month}")
+        return redirect(f"{reverse('finance:dashboard')}?year={year}&month={month}")
     return dashboard(request, purchase_form=form, period=(year, month))
 
 
@@ -1028,33 +1064,169 @@ def person_edit(request, pk):
 
 
 def investment_list(request):
-    year, month = selected_period(request)
-    items = Investment.objects.select_related('category').filter(date__year=year, date__month=month)
-    recurring_items = Investment.objects.filter(active=True).exclude(recurrence=Investment.Recurrence.ONE_TIME)
-    next_investment = Investment.objects.filter(active=True, date__gte=date.today()).order_by('date', 'id').first()
+    year, month = investment_selected_period(request)
+    visible = investment_scope(request.user, include_unassigned=request.user.is_staff)
+    start, end = month_bounds(year, month)
+    owned = Investment.objects.filter(user=request.user).select_related('category')
+    items = InvestmentOperation.objects.filter(
+        user=request.user,
+        occurred_at__date__range=(start, end),
+    ).select_related('investment', 'investment__category')
+    recurring_items = owned.filter(active=True).exclude(recurrence=Investment.Recurrence.ONE_TIME)
+    next_investment = owned.filter(active=True, date__gte=localdate()).order_by('date', 'id').first()
+    legacy_items = visible.filter(user__isnull=True)
     context = period_context(year, month)
     context.update({
         'items': items,
-        'month_total': money_sum(items, 'amount'),
-        'balance_total': Investment.objects.aggregate(total=Sum('current_balance'))['total'] or 0,
-        'applied_total': money_sum(Investment.objects.all(), 'amount'),
+        'month_total': money_sum(items.filter(operation_type=InvestmentOperation.OperationType.CONTRIBUTION), 'amount'),
+        'balance_total': owned.filter(active=True).aggregate(total=Sum('current_balance'))['total'] or 0,
+        'applied_total': owned.filter(active=True).aggregate(total=Sum('current_balance'))['total'] or 0,
+        'managed_positions': owned.order_by('-active', '-date', '-id'),
         'recurring_items': recurring_items,
-        'active_count': Investment.objects.filter(active=True).count(),
+        'active_count': owned.filter(active=True).count(),
         'next_investment': next_investment,
+        'legacy_items': legacy_items,
+        'investment_radar': get_investment_radar(),
     })
     return render(request, 'finance/investment_list.html', context)
 
 
 def investment_create(request):
-    return model_form_create(request, InvestmentForm, 'Novo investimento', 'finance:investment_list', {'date': date.today()})
+    form = InvestmentForm(request.POST or None, initial={'date': localdate()})
+    if form.is_valid():
+        investment = form.save(commit=False)
+        investment.user = request.user
+        if 'active' not in request.POST:
+            investment.active = True
+        initial_amount = investment.amount
+        investment.current_balance = Decimal('0.00')
+        with db_transaction.atomic():
+            investment.save()
+            apply_investment_operation(
+                user=request.user,
+                investment_id=investment.pk,
+                operation_type=InvestmentOperation.OperationType.CONTRIBUTION,
+                operation_key=uuid.uuid4(),
+                amount=initial_amount,
+                source=investment.get_payment_method_display(),
+                occurred_on=investment.date,
+                notes='Aporte inicial da posição.',
+            )
+        messages.success(request, 'Investimento cadastrado para o usuário autenticado.')
+        return investment_period_redirect(request)
+    return render(request, 'finance/form.html', {'form': form, 'title': 'Novo investimento'})
 
 
 def investment_edit(request, pk):
-    return model_form_edit(request, Investment, InvestmentForm, pk, 'Editar investimento', 'finance:investment_list')
+    investment = get_object_or_404(Investment, pk=pk, user=request.user)
+    return model_form_edit(request, Investment, InvestmentForm, investment.pk, 'Editar investimento', 'finance:investment_list')
 
 
 def investment_delete(request, pk):
-    return delete_object(request, get_object_or_404(Investment, pk=pk), 'finance:investment_list', 'investimento')
+    investment = get_object_or_404(Investment, pk=pk, user=request.user)
+    if request.method == 'POST':
+        try:
+            investment.delete()
+        except ProtectedError:
+            messages.error(
+                request,
+                'Este investimento possui movimentações históricas e não pode ser apagado. '
+                'Edite ou encerre a posição para preservar o histórico.',
+            )
+            return redirect('finance:investment_list')
+        messages.success(request, 'Investimento excluído.')
+        return redirect('finance:investment_list')
+    return render(request, 'finance/confirm_delete.html', {'object': investment, 'label': 'investimento'})
+
+
+INVESTMENT_OPERATION_LABELS = {
+    InvestmentOperation.OperationType.CONTRIBUTION: 'Aportar',
+    InvestmentOperation.OperationType.WITHDRAWAL: 'Resgatar',
+    InvestmentOperation.OperationType.ADJUSTMENT: 'Ajustar saldo',
+}
+
+WITHDRAWAL_REASON_LABELS = {
+    'EMERGENCY': 'Emergência',
+    'BILL': 'Pagamento de conta',
+    'PERSONAL': 'Compra pessoal',
+    'TRANSFER': 'Transferência',
+    'REORGANIZATION': 'Reorganização da carteira',
+}
+
+
+def investment_operation(request, pk, operation_type):
+    if operation_type not in INVESTMENT_OPERATION_LABELS:
+        return HttpResponse(status=404)
+    investment = get_object_or_404(Investment, pk=pk, user=request.user)
+    form = InvestmentOperationForm(
+        request.POST or None,
+        operation_type=operation_type,
+        initial={'operation_date': localdate()},
+    )
+    if request.method == 'POST' and form.is_valid():
+        try:
+            reason = form.cleaned_data.get('reason', '')
+            if operation_type == InvestmentOperation.OperationType.WITHDRAWAL:
+                reason_type = form.cleaned_data.get('reason_type')
+                reason = WITHDRAWAL_REASON_LABELS.get(reason_type, reason)
+                if reason_type == 'OTHER':
+                    reason = form.cleaned_data.get('reason_other', '')
+            operation = apply_investment_operation(
+                user=request.user,
+                investment_id=investment.pk,
+                operation_type=operation_type,
+                operation_key=form.cleaned_data['operation_key'],
+                amount=form.cleaned_data.get('amount'),
+                new_balance=form.cleaned_data.get('new_balance'),
+                source=form.cleaned_data.get('source'),
+                destination=form.cleaned_data.get('destination'),
+                reason=reason,
+                notes=form.cleaned_data.get('notes'),
+                occurred_on=form.cleaned_data.get('operation_date'),
+            )
+        except (ValidationError, PermissionDenied) as exc:
+            if isinstance(exc, ValidationError):
+                if hasattr(exc, 'message_dict'):
+                    for field, errors in exc.message_dict.items():
+                        for error in errors:
+                            form.add_error(field if field in form.fields else None, error)
+                else:
+                    form.add_error(None, str(exc))
+            else:
+                form.add_error(None, str(exc))
+        else:
+            messages.success(request, f'{operation.get_operation_type_display()} registrada com sucesso.')
+            return investment_period_redirect(request)
+    return render(request, 'finance/investment_operation_form.html', {
+        'form': form,
+        'investment': investment,
+        'operation_type': operation_type,
+        'operation_label': INVESTMENT_OPERATION_LABELS[operation_type],
+    })
+
+
+def investment_history(request):
+    operations = InvestmentOperation.objects.filter(user=request.user).select_related('investment')
+    operation_type = request.GET.get('type', '').strip()
+    investment_id = request.GET.get('investment', '').strip()
+    year, month = investment_selected_period(request)
+    start, end = month_bounds(year, month)
+    operations = operations.filter(occurred_at__date__range=(start, end))
+    if operation_type:
+        operations = operations.filter(operation_type=operation_type)
+    if investment_id.isdigit():
+        operations = operations.filter(investment_id=investment_id)
+    paginator = Paginator(operations, 25)
+    page = paginator.get_page(request.GET.get('page'))
+    return render(request, 'finance/investment_history.html', {
+        'page': page,
+        'operation_types': InvestmentOperation.OperationType.choices,
+        'selected_type': operation_type,
+        'selected_investment': investment_id,
+        'year': year,
+        'month': month,
+        'investments': Investment.objects.filter(user=request.user).order_by('description'),
+    })
 
 
 def monthly_report(request):
@@ -1076,7 +1248,7 @@ def monthly_report(request):
             'values': context['summary']['category_values'],
             'revenues': float(context['summary']['revenues']),
             'expenses': float(context['summary']['expenses']),
-            'investments': float(context['summary']['investment_month']),
+            'investments': float(context['summary']['investment_chart_month']),
         },
     })
     return render(request, 'finance/monthly_report.html', context)

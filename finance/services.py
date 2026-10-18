@@ -1,11 +1,15 @@
 import calendar
+from datetime import datetime, time
 from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
 
 from django.conf import settings
+from django.core.exceptions import PermissionDenied, ValidationError
+from django.db import transaction as db_transaction
 from django.db.models import Q, Sum
+from django.utils import timezone
 
-from .models import CreditCardExpense, FinancialProfile, FixedExpense, Investment, Person, SalarySnapshot, Transaction, VRMovement
+from .models import CreditCardExpense, FinancialProfile, FixedExpense, Investment, InvestmentOperation, Person, SalarySnapshot, Transaction, VRMovement
 
 ZERO = Decimal('0.00')
 
@@ -46,6 +50,90 @@ def add_months(source_date, months):
 
 def to_decimal(value):
     return Decimal(str(value or 0)).quantize(Decimal('0.01'))
+
+
+def investment_scope(user=None, include_unassigned=False):
+    queryset = Investment.objects.all()
+    if user is None:
+        return queryset
+    condition = Q(user=user)
+    if include_unassigned:
+        condition |= Q(user__isnull=True)
+    return queryset.filter(condition)
+
+
+def apply_investment_operation(*, user, investment_id, operation_type, operation_key, amount=None,
+                               new_balance=None, source='', destination='', reason='', notes='', occurred_on=None):
+    """Apply one auditable investment operation atomically and idempotently."""
+    with db_transaction.atomic():
+        existing = InvestmentOperation.objects.filter(operation_key=operation_key).first()
+        if existing:
+            if existing.user_id != user.id or existing.investment_id != investment_id or existing.operation_type != operation_type:
+                raise ValidationError({'operation_key': 'Esta chave já foi usada em outra operação.'})
+            return existing
+
+        investment = Investment.objects.select_for_update().get(pk=investment_id)
+        if investment.user_id != user.id:
+            raise PermissionDenied('Este investimento ainda não está associado ao usuário autenticado.')
+
+        before = to_decimal(investment.current_balance)
+        amount = to_decimal(amount)
+        new_balance = None if new_balance is None else to_decimal(new_balance)
+        reason = (reason or '').strip()
+        source = (source or '').strip()
+        destination = (destination or '').strip()
+        notes = (notes or '').strip()
+
+        if operation_type == InvestmentOperation.OperationType.CONTRIBUTION:
+            if amount <= 0:
+                raise ValidationError({'amount': 'Informe um valor maior que zero.'})
+            if not source:
+                raise ValidationError({'source': 'Informe a origem do aporte.'})
+            after = before + amount
+        elif operation_type == InvestmentOperation.OperationType.WITHDRAWAL:
+            if amount <= 0:
+                raise ValidationError({'amount': 'Informe um valor maior que zero.'})
+            if amount > before:
+                raise ValidationError({'amount': 'O resgate não pode ser maior que o saldo atual.'})
+            if not reason:
+                raise ValidationError({'reason': 'A justificativa é obrigatória para o resgate.'})
+            if not destination:
+                raise ValidationError({'destination': 'Informe o destino do resgate.'})
+            after = before - amount
+        elif operation_type == InvestmentOperation.OperationType.ADJUSTMENT:
+            if new_balance is None or new_balance < 0:
+                raise ValidationError({'new_balance': 'Informe um novo saldo válido.'})
+            if not reason:
+                raise ValidationError({'reason': 'A justificativa é obrigatória para o ajuste.'})
+            if new_balance == before:
+                raise ValidationError({'new_balance': 'O novo saldo deve ser diferente do saldo atual.'})
+            after = new_balance
+            amount = abs(after - before)
+        else:
+            raise ValidationError({'operation_type': 'Tipo de operação não permitido nesta etapa.'})
+
+        occurred_at = timezone.now()
+        if occurred_on:
+            occurred_at = timezone.make_aware(datetime.combine(occurred_on, time.min))
+        operation = InvestmentOperation(
+            operation_key=operation_key,
+            investment=investment,
+            user=user,
+            operation_type=operation_type,
+            amount=amount,
+            balance_before=before,
+            balance_after=after,
+            source=source,
+            destination=destination,
+            reason=reason,
+            notes=notes,
+            occurred_at=occurred_at,
+        )
+        operation.full_clean()
+        operation.save()
+        investment.current_balance = after
+        investment.save(update_fields=['current_balance', 'updated_at'])
+        return operation
 
 
 def sync_transaction_vr(transaction):
@@ -185,7 +273,11 @@ def monthly_summary(year, month):
     start, end = month_bounds(year, month)
     tx = Transaction.objects.filter(date__range=(start, end))
     card = card_expenses_for_period(year, month)
-    investments = Investment.objects.filter(date__range=(start, end))
+    investment_operations = InvestmentOperation.objects.filter(
+        occurred_at__date__range=(start, end),
+        operation_type=InvestmentOperation.OperationType.CONTRIBUTION,
+        status=InvestmentOperation.Status.POSTED,
+    )
     vr = VRMovement.objects.filter(date__range=(start, end))
 
     explicit_revenues = tx.filter(type=Transaction.Type.REVENUE)
@@ -245,8 +337,13 @@ def monthly_summary(year, month):
         vr_credit = to_decimal(profile.vr_monthly_credit if profile else monthly_credit_setting())
     vr_balance = vr_initial + vr_credit + vr_adjustments - vr_spent
 
-    investment_month = money_sum(investments, 'amount')
-    investment_total = Investment.objects.aggregate(total=Sum('current_balance'))['total'] or ZERO
+    investment_month = money_sum(investment_operations, 'amount')
+    legacy_initial_investments = Investment.objects.filter(
+        date__range=(start, end),
+        operations__isnull=True,
+    )
+    investment_chart_month = investment_month + money_sum(legacy_initial_investments, 'amount')
+    investment_total = Investment.objects.filter(active=True).aggregate(total=Sum('current_balance'))['total'] or ZERO
 
     expenses_total = fixed_non_card + variable_non_card + card_invoice
     bank_outflow = expenses_total + investment_month
@@ -297,6 +394,7 @@ def monthly_summary(year, month):
         'vr_spent': vr_spent,
         'vr_balance': vr_balance,
         'investment_month': investment_month,
+        'investment_chart_month': investment_chart_month,
         'investment_total': investment_total,
         'bank_outflow': bank_outflow,
         'final_balance': final_balance,

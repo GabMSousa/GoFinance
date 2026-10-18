@@ -8,5 +8,6 @@ db.sqlite3
 backup_*.sqlite3
 staticfiles/
 media/
+tmp/
 .idea/
 .vscode/

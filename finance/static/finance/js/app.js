@@ -136,21 +136,27 @@ function initTheme() {
   const root = document.documentElement;
   const buttons = document.querySelectorAll('[data-theme-toggle]');
   const labels = document.querySelectorAll('[data-theme-label]');
-  const saved = localStorage.getItem('sf-theme') || 'dark';
+  const storageKey = 'sf-theme';
+  const getSavedTheme = () => {
+    try { return localStorage.getItem(storageKey) || 'dark'; } catch (error) { return 'dark'; }
+  };
+  const saveTheme = (theme) => {
+    try { localStorage.setItem(storageKey, theme); } catch (error) { /* armazenamento indisponível */ }
+  };
   function apply(theme) {
     const resolved = theme === 'system' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme;
     root.dataset.theme = resolved;
     labels.forEach((label) => { label.textContent = theme === 'system' ? 'Sistema' : theme === 'dark' ? 'Escuro' : 'Claro'; });
-    localStorage.setItem('sf-theme', theme);
+    saveTheme(theme);
     window.dispatchEvent(new Event('sf-theme-change'));
   }
-  apply(saved);
+  apply(getSavedTheme());
   buttons.forEach((button) => button.addEventListener('click', () => {
-    const current = localStorage.getItem('sf-theme') || 'dark';
+    const current = getSavedTheme();
     apply(current === 'light' ? 'dark' : current === 'dark' ? 'system' : 'light');
   }));
   matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => {
-    if ((localStorage.getItem('sf-theme') || 'dark') === 'system') apply('system');
+    if (getSavedTheme() === 'system') apply('system');
   });
 }
 
@@ -207,12 +213,12 @@ function initCharts() {
     window.sfCharts.push(new Chart(canvas, { type: 'line', data: { labels, datasets: [{ label: 'Saldo', data: values, borderColor: dark ? '#c6f584' : '#42661a', backgroundColor: dark ? 'rgba(198,245,132,.15)' : 'rgba(66,102,26,.10)', fill: true, tension: .35, pointRadius: 3, pointHoverRadius: 8, pointHoverBackgroundColor: dark ? '#fff' : '#14213d', pointHoverBorderColor: dark ? '#c6f584' : '#b7f36b', pointHoverBorderWidth: 3, borderWidth: 3 }] }, options: { ...common, interaction: { mode: 'index', intersect: false }, plugins: { ...common.plugins, tooltip: { ...common.plugins.tooltip, callbacks: { title: (items) => `Período: ${items[0]?.label || ''}`, label: (context) => `Saldo: ${money.format(context.parsed.y)}` } } }, onHover: setCursor } }));
   };
   if (dashboard) {
-    makeBar(document.getElementById('chart-income-expense'), [dashboard.revenues, dashboard.expenses, dashboard.investments], ['Receitas', 'Despesas', 'Investimentos']);
+    makeBar(document.getElementById('chart-income-expense'), [dashboard.revenues, dashboard.expenses, dashboard.investments], ['Entradas', 'Saídas', 'Aplicações']);
     makeDonut(document.getElementById('chart-categories'), dashboard.category_labels, dashboard.category_values);
     makeLine(document.getElementById('chart-balance'), dashboard.balance_labels, dashboard.balance_values);
   }
   if (report) {
-    makeBar(document.getElementById('report-income-expense'), [report.revenues, report.expenses, report.investments], ['Receitas', 'Despesas', 'Investimentos']);
+    makeBar(document.getElementById('report-income-expense'), [report.revenues, report.expenses, report.investments], ['Entradas', 'Saídas', 'Aplicações']);
     makeDonut(document.getElementById('report-categories'), report.labels, report.values);
   }
 }
