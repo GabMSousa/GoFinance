@@ -2,7 +2,9 @@
 
 Sistema web pessoal de controle financeiro, feito com Django + MySQL/SQLite + Bootstrap 5 + Chart.js.
 
-Uso previsto: uma única pessoa, em servidor Linux interno. Não há cadastro de múltiplos usuários.
+**Instalação simples:** consulte o [Guia de instalação](GUIA_INSTALACAO.md) para configurar o sistema, criar o administrador, permitir acesso pela rede, copiar seus dados e importar CSVs.
+
+O sistema possui usuários, perfis e uma área Admin para criar acessos separados. Os dados financeiros continuam protegidos no banco de dados da instalação.
 
 ## Requisitos
 
