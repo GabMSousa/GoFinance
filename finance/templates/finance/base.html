@@ -24,7 +24,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{% static 'finance/css/app.css' %}?v=20261018-profile-upload-1">
+  <link rel="stylesheet" href="{% static 'finance/css/app.css' %}?v=20261018-profile-avatar-1">
     <link rel="stylesheet" href="{% static 'finance/css/home.css' %}?v=20261017-dashboard-layout-2">
   <link rel="stylesheet" href="{% static 'finance/css/movement-actions.css' %}?v=20261017-dashboard-layout">
   <link rel="stylesheet" href="{% static 'finance/css/dashboard-reference.css' %}?v=20261018-calculator-tab-76-1">
@@ -42,7 +42,7 @@
       </nav>
       <div class="sidebar-action"><a class="btn btn-accent w-100" href="#addModal" data-bs-toggle="modal">+ Adicionar</a></div>
       <div class="sidebar-footer">
-        {% with display_name=request.user.security_profile.display_name|default:request.user.get_full_name|default:request.user.username %}<a class="user-chip user-chip-link" href="{% url 'finance:profile' %}"><span class="avatar">{{ display_name|slice:':1'|upper }}</span><span class="text-truncate">{{ display_name }}</span></a>{% endwith %}
+        {% with display_name=request.user.security_profile.display_name|default:request.user.get_full_name|default:request.user.username %}<a class="user-chip user-chip-link" href="{% url 'finance:profile' %}">{% if request.user.security_profile.avatar %}<img class="avatar avatar-image" src="{{ request.user.security_profile.avatar.url }}" alt="Foto de {{ display_name }}">{% else %}<span class="avatar">{{ display_name|slice:':1'|upper }}</span>{% endif %}<span class="text-truncate">{{ display_name }}</span></a>{% endwith %}
         <button class="theme-button" type="button" data-theme-toggle>Tema: <span data-theme-label>Claro</span></button>
         <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="logout-link" type="submit">Sair</button></form>
       </div>
