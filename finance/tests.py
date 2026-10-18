@@ -1276,6 +1276,29 @@ class AuthenticationTests(TestCase):
         response = self.client.get(reverse('login'))
         self.assertEqual(response.status_code, 200)
 
+    def test_regular_user_cannot_open_user_administration(self):
+        user = get_user_model().objects.create_user(username='regular-user', password='Strong-test-password-123!')
+        self.client.force_login(user)
+        response = self.client.get(reverse('finance:admin_users'), follow=False)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response['Location'], '/login/?next=/usuarios/')
+
+    def test_staff_can_create_user_without_financial_records(self):
+        admin = get_user_model().objects.create_user(username='staff-user', password='Strong-test-password-123!', is_staff=True)
+        self.client.force_login(admin)
+        response = self.client.post(reverse('finance:admin_users'), {
+            'username': 'new-user',
+            'email': 'new@example.com',
+            'display_name': 'Novo Usuário',
+            'password1': 'New-user-password-456!',
+            'password2': 'New-user-password-456!',
+        })
+        self.assertRedirects(response, reverse('finance:admin_users'))
+        created = get_user_model().objects.get(username='new-user')
+        self.assertEqual(created.security_profile.display_name, 'Novo Usuário')
+        self.assertTrue(created.security_profile.must_change_password)
+        self.assertFalse(Transaction.objects.filter(person__name='Novo Usuário').exists())
+
     def test_fresh_login_ends_an_existing_session(self):
         user = get_user_model().objects.create_user(username='fresh-login', password='Strong-test-password-123!')
         self.client.force_login(user)

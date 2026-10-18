@@ -1,0 +1,50 @@
+{% extends 'finance/base.html' %}
+{% block title %}Administração de usuários{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">Administração</p>
+    <h1>Usuários</h1>
+    <p class="page-subtitle">Crie acessos para outras pessoas sem misturar os dados de cada conta financeira.</p>
+  </div>
+</div>
+
+<div class="admin-users-layout">
+  <section class="data-panel admin-user-form-panel">
+    <div class="panel-heading"><div><h2>Novo usuário</h2><p>O usuário deverá trocar a senha no primeiro acesso.</p></div></div>
+    <form method="post" class="admin-user-form">
+      {% csrf_token %}
+      {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors|striptags }}</div>{% endif %}
+      {% for field in form %}
+        <div class="admin-user-field">
+          {{ field.label_tag }}{{ field }}
+          {% if field.help_text %}<div class="form-help">{{ field.help_text|safe }}</div>{% endif %}
+          {% if field.errors %}<div class="text-danger small mt-1">{{ field.errors|striptags }}</div>{% endif %}
+        </div>
+      {% endfor %}
+      <button class="btn btn-accent" type="submit">Criar usuário</button>
+    </form>
+  </section>
+
+  <section class="data-panel admin-user-list-panel">
+    <div class="panel-heading"><div><h2>Acessos cadastrados</h2><p>{{ users|length }} usuário{{ users|length|pluralize }} no sistema.</p></div></div>
+    <div class="table-responsive">
+      <table class="table align-middle mb-0">
+        <thead><tr><th>Nome</th><th>Usuário</th><th>E-mail</th><th>Status</th></tr></thead>
+        <tbody>
+          {% for user in users %}
+            <tr>
+              <td><strong>{{ user.security_profile.display_name|default:user.get_full_name|default:user.username }}</strong></td>
+              <td>{{ user.username }}</td>
+              <td>{{ user.email|default:'—' }}</td>
+              <td>{% if user.is_active %}<span class="status status-positive">Ativo</span>{% else %}<span class="status status-muted">Inativo</span>{% endif %}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="4" class="empty-state">Nenhum usuário cadastrado.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+{% endblock %}

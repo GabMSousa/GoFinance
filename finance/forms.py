@@ -4,7 +4,7 @@ import uuid
 
 from django import forms
 from django.contrib.auth import get_user_model
-from django.contrib.auth.forms import SetPasswordForm
+from django.contrib.auth.forms import SetPasswordForm, UserCreationForm
 
 from .models import Category, CreditCardBill, CreditCardExpense, FinancialProfile, FixedExpense, Goal, Investment, InvestmentOperation, Person, Transaction, VRMovement
 from .services import invoice_month_for_purchase, to_decimal, vr_balance_for_date
@@ -86,6 +86,28 @@ class ProfilePasswordForm(SetPasswordForm):
         super().__init__(*args, **kwargs)
         for field in self.fields.values():
             field.widget.attrs['class'] = 'form-control'
+
+
+class AdminUserCreationForm(UserCreationForm):
+    display_name = forms.CharField(label='Nome de exibição', max_length=120)
+
+    class Meta:
+        model = get_user_model()
+        fields = ['username', 'email']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['username'].label = 'Usuário'
+        self.fields['email'].label = 'E-mail'
+        self.fields['email'].required = False
+        for field in self.fields.values():
+            field.widget.attrs['class'] = 'form-control'
+
+    def clean_display_name(self):
+        value = self.cleaned_data['display_name'].strip()
+        if not value:
+            raise forms.ValidationError('Informe o nome de exibição.')
+        return value
 
 
 class BootstrapMixin:

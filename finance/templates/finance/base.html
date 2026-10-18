@@ -24,7 +24,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{% static 'finance/css/app.css' %}?v=20261018-cat-contrast-1">
+  <link rel="stylesheet" href="{% static 'finance/css/app.css' %}?v=20261018-admin-users-1">
     <link rel="stylesheet" href="{% static 'finance/css/home.css' %}?v=20261018-cat-contrast-1">
   <link rel="stylesheet" href="{% static 'finance/css/movement-actions.css' %}?v=20261017-dashboard-layout">
   <link rel="stylesheet" href="{% static 'finance/css/dashboard-reference.css' %}?v=20261018-calculator-palette-1">
@@ -39,6 +39,7 @@
         <a class="nav-link {% if request.resolver_match.url_name == 'investment_list' %}active{% endif %}" href="{% url 'finance:investment_list' %}">Investimentos</a>
         <a class="nav-link {% if request.resolver_match.url_name == 'settings' %}active{% endif %}" href="{% url 'finance:settings' %}">Configurações</a>
         <a class="nav-link {% if request.resolver_match.url_name == 'profile' %}active{% endif %}" href="{% url 'finance:profile' %}">Meu perfil</a>
+        {% if request.user.is_staff %}<a class="nav-link {% if request.resolver_match.url_name == 'admin_users' %}active{% endif %}" href="{% url 'finance:admin_users' %}">Admin</a>{% endif %}
       </nav>
       <div class="sidebar-action"><a class="btn btn-accent w-100" href="#addModal" data-bs-toggle="modal">+ Adicionar</a></div>
       <div class="sidebar-footer">
@@ -67,6 +68,7 @@
           <a class="nav-link" href="{% url 'finance:investment_list' %}">Investimentos</a>
           <a class="nav-link" href="{% url 'finance:settings' %}">Configurações</a>
           <a class="nav-link" href="{% url 'finance:profile' %}">Meu perfil</a>
+          {% if request.user.is_staff %}<a class="nav-link" href="{% url 'finance:admin_users' %}">Admin</a>{% endif %}
           <button class="theme-button mt-3" type="button" data-theme-toggle>Tema: <span data-theme-label>Claro</span></button>
           <form class="mobile-logout-form" method="post" action="{% url 'logout' %}">
             {% csrf_token %}
