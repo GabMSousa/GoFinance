@@ -152,6 +152,20 @@ def vr_initial_setting():
     return to_decimal(getattr(settings, 'VR_INITIAL_BALANCE', 0))
 
 
+def vr_balance_for_date(target_date):
+    """Return the VR balance available for a purchase on target_date."""
+    start, _ = month_bounds(target_date.year, target_date.month)
+    movements = VRMovement.objects.filter(date__range=(start, target_date))
+    credits_qs = movements.filter(movement_type=VRMovement.Type.CREDIT)
+    profile = financial_profile_for_month(target_date.year, target_date.month)
+    credits = money_sum(credits_qs, 'amount') if credits_qs.exists() else to_decimal(
+        profile.vr_monthly_credit if profile else monthly_credit_setting()
+    )
+    adjustments = money_sum(movements.filter(movement_type=VRMovement.Type.ADJUSTMENT), 'amount')
+    spent = money_sum(movements.filter(movement_type=VRMovement.Type.DEBIT), 'amount')
+    return vr_initial_setting() + credits + adjustments - spent
+
+
 def vr_balance_before(target_date):
     movements = VRMovement.objects.filter(date__lt=target_date)
     credits = money_sum(movements.filter(movement_type=VRMovement.Type.CREDIT), 'amount')
@@ -198,6 +212,8 @@ def monthly_summary(year, month):
 
     fixed_all = FixedExpense.objects.filter(active=True)
     fixed_total = money_sum(fixed_all, 'amount')
+    fixed_pending = money_sum(fixed_all.filter(paid=False), 'amount')
+    fixed_paid = fixed_total - fixed_pending
     subscriptions_total = money_sum(fixed_all.filter(is_subscription=True), 'amount')
     fixed_card = money_sum(fixed_all.filter(included_in_credit_card=True), 'amount')
     fixed_non_card = fixed_total - fixed_card
@@ -260,6 +276,8 @@ def monthly_summary(year, month):
         'expenses': expenses_total,
         'reimbursements': reimbursements_tx + third_party_received,
         'fixed_total': fixed_total,
+        'fixed_pending': fixed_pending,
+        'fixed_paid': fixed_paid,
         'subscriptions_total': subscriptions_total,
         'fixed_non_card': fixed_non_card,
         'variable_total': variable_total,

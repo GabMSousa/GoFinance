@@ -113,6 +113,25 @@ function initPurchasePeriod() {
   });
 }
 
+function initQuickPurchaseFeedback() {
+  const errors = document.getElementById('quick-purchase-errors');
+  const form = document.querySelector('#purchaseFormPanel form');
+  if (!form) return;
+  const submit = form.querySelector('button[type="submit"]');
+  form.addEventListener('submit', () => {
+    if (!submit || form.dataset.submitting === 'true') return;
+    form.dataset.submitting = 'true';
+    submit.disabled = true;
+    submit.textContent = 'Salvando...';
+  });
+  if (!errors) return;
+  form.prepend(errors);
+  errors.classList.remove('d-none');
+  document.getElementById('purchaseFormPanel')?.classList.add('show');
+  const modal = document.getElementById('addModal');
+  if (modal && window.bootstrap) bootstrap.Modal.getOrCreateInstance(modal).show();
+}
+
 function initTheme() {
   const root = document.documentElement;
   const buttons = document.querySelectorAll('[data-theme-toggle]');
@@ -198,4 +217,4 @@ function initCharts() {
   }
 }
 
-document.addEventListener('DOMContentLoaded', () => { initPurchaseFields(); initPurchasePeriod(); initTheme(); initSecurityInteractions(); initCharts(); window.addEventListener('sf-theme-change', initCharts); });
+document.addEventListener('DOMContentLoaded', () => { initPurchaseFields(); initPurchasePeriod(); initQuickPurchaseFeedback(); initTheme(); initSecurityInteractions(); initCharts(); window.addEventListener('sf-theme-change', initCharts); });

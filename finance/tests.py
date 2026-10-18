@@ -1,5 +1,6 @@
 from datetime import date
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.core.exceptions import ValidationError
 from django.core.management import call_command
@@ -10,6 +11,7 @@ from django.urls import reverse
 
 from .models import Category, CreditCardBill, CreditCardExpense, FinancialProfile, FixedExpense, Investment, Person, SalarySnapshot, Transaction, UserSecurityProfile, VRMovement
 from .importers import preview_csv
+from .investment_radar import _annualize_daily, _compound_monthly
 from .services import invoice_month_for_installment, invoice_month_for_purchase, monthly_summary, split_installment_values
 from .views import DuplicateExpenseError, create_card_installments, default_open_period
 
@@ -294,6 +296,23 @@ class VRTests(BaseFinanceTest):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'O valor gasto no VR não pode ser maior que o total da compra.')
         self.assertFalse(CreditCardExpense.objects.filter(description='VR acima do total').exists())
+
+    def test_quick_expense_vr_error_stays_on_dashboard_and_preserves_form(self):
+        VRMovement.objects.create(
+            date=self.today, description='VR ja utilizado',
+            movement_type=VRMovement.Type.DEBIT, amount=Decimal('500.00'),
+        )
+        response = self.client.post(reverse('finance:quick_expense'), {
+            'date': self.today.isoformat(), 'description': 'Compra sem saldo',
+            'category': self.food.pk, 'payment_method': Transaction.PaymentMethod.VR,
+            'amount': '100.00', 'vr_amount': '100.00', 'responsible': 'SELF',
+            'paid': 'on', 'installment_total': '1',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Saldo de VR insuficiente')
+        self.assertContains(response, 'Compra sem saldo')
+        self.assertTrue(response.context['purchase_form_has_errors'])
+        self.assertFalse(Transaction.objects.filter(description='Compra sem saldo').exists())
 
     def test_partial_vr_with_legacy_vr_payment_selection_uses_card_for_remaining(self):
         response = self.client.post(reverse('finance:quick_expense'), {
@@ -753,6 +772,20 @@ class BalanceVrInvestmentTests(BaseFinanceTest):
         self.assertContains(response, 'Investimentos')
         self.assertEqual(response.context['summary']['investment_month'], Decimal('250.00'))
         self.assertEqual(Investment.objects.get(pk=investment.pk).recurrence, Investment.Recurrence.MONTHLY)
+
+    def test_investment_radar_compounds_reference_series(self):
+        daily = [{'date': '2026-10-01', 'value': Decimal('0.05')}] * 252
+        monthly = [{'date': f'2026-{index:02d}-01', 'value': Decimal('1.00')} for index in range(1, 13)]
+        self.assertAlmostEqual(float(_annualize_daily(daily)), 13.42, places=2)
+        self.assertAlmostEqual(float(_compound_monthly(monthly)), 12.68, places=2)
+
+    def test_dashboard_exposes_radar_without_changing_investment_summary(self):
+        radar = {'updated_at': '17/10/2026 20:00', 'available': False, 'indicators': [], 'offers': [], 'offers_message': 'Indisponível', 'source_url': '', 'base_rate': None}
+        with patch('finance.views.get_investment_radar', return_value=radar):
+            response = self.client.get(reverse('finance:dashboard'), {'year': 2026, 'month': 9})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Radar de Investimentos')
+        self.assertEqual(response.context['summary']['investment_month'], Decimal('0.00'))
 
     def test_paid_invoice_blocks_csv_preview_in_backend(self):
         CreditCardBill.objects.create(invoice_month=date(2026, 10, 1), amount=Decimal('100.00'), status=CreditCardBill.Status.PAID, paid_at=date(2026, 10, 5))

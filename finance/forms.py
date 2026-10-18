@@ -5,7 +5,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.forms import SetPasswordForm
 
 from .models import Category, CreditCardBill, CreditCardExpense, FinancialProfile, FixedExpense, Goal, Investment, Person, Transaction, VRMovement
-from .services import invoice_month_for_purchase, monthly_summary, to_decimal
+from .services import invoice_month_for_purchase, to_decimal, vr_balance_for_date
 
 RESPONSIBLE_CHOICES = (('SELF', 'Eu'), ('OTHER', 'Outro'))
 
@@ -201,6 +201,9 @@ class TransactionForm(BootstrapModelForm):
             invoice_month = invoice_month_for_purchase(data['date'])
             if CreditCardBill.objects.filter(invoice_month=invoice_month, status=CreditCardBill.Status.PAID).exists():
                 self.add_error('date', f'A fatura de {invoice_month:%m/%Y} já foi paga. Escolha outra data de compra.')
+        if tx_type == Transaction.Type.EXPENSE and vr_amount > 0 and data.get('date'):
+            if vr_amount > vr_balance_for_date(data['date']):
+                self.add_error('vr_amount', 'Saldo de VR insuficiente. Informe um ajuste de crÃ©dito antes de consumir acima do saldo.')
         if tx_type == Transaction.Type.EXPENSE and amount is not None and vr_amount >= amount:
             data['payment_method'] = Transaction.PaymentMethod.VR
         return data
@@ -416,8 +419,7 @@ class VRMovementForm(BootstrapModelForm):
         amount = data.get('amount')
         movement_date = data.get('date')
         if movement_type == VRMovement.Type.DEBIT and amount and movement_date:
-            summary = monthly_summary(movement_date.year, movement_date.month)
-            if amount > summary['vr_balance']:
+            if amount > vr_balance_for_date(movement_date):
                 self.add_error('amount', 'Saldo de VR insuficiente. Informe um ajuste de crédito antes de consumir acima do saldo.')
         return data
 
@@ -475,8 +477,7 @@ class QuickExpenseForm(BootstrapMixin, forms.Form):
             if CreditCardBill.objects.filter(invoice_month=invoice_month, status=CreditCardBill.Status.PAID).exists():
                 self.add_error('date', f'A fatura de {invoice_month:%m/%Y} já foi paga. Escolha outra data de compra.')
         if vr_amount > 0 and movement_date:
-            summary = monthly_summary(movement_date.year, movement_date.month)
-            if vr_amount > summary['vr_balance']:
+            if vr_amount > vr_balance_for_date(movement_date):
                 self.add_error('vr_amount', 'Saldo de VR insuficiente. Informe um ajuste de crédito antes de consumir acima do saldo.')
         installment_total = data.get('installment_total') or 1
         if installment_total < 1:

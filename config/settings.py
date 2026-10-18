@@ -139,6 +139,13 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = []
+RADAR_CACHE_TIMEOUT = int(os.environ.get('RADAR_CACHE_TIMEOUT', '21600'))
+CACHES = {
+    'default': {
+        'BACKEND': os.environ.get('DJANGO_CACHE_BACKEND', 'django.core.cache.backends.locmem.LocMemCache'),
+        'LOCATION': os.environ.get('DJANGO_CACHE_LOCATION', 'gofinance-default'),
+    }
+}
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

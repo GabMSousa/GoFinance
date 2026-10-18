@@ -11,8 +11,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{% static 'finance/css/app.css' %}?v=20261015-layout">
-  <link rel="stylesheet" href="{% static 'finance/css/home.css' %}">
-  <link rel="stylesheet" href="{% static 'finance/css/movement-actions.css' %}">
+    <link rel="stylesheet" href="{% static 'finance/css/home.css' %}?v=20261017-dashboard-layout-2">
+  <link rel="stylesheet" href="{% static 'finance/css/movement-actions.css' %}?v=20261017-dashboard-layout">
+  <link rel="stylesheet" href="{% static 'finance/css/dashboard-reference.css' %}?v=20261017-reference-5">
 </head>
 <body>
   <div class="app-shell">
@@ -68,6 +69,7 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script src="{% static 'finance/js/app.js' %}?v=20261006-period"></script>
+  <script src="{% static 'finance/js/investment-radar.js' %}?v=20261017-radar-1"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>
