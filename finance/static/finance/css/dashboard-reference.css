@@ -860,4 +860,4 @@ html:not([data-theme="dark"]) .movement-account-summary .account-summary-card { 
   .csv-import-modal .modal-body { padding: 18px; }
   .csv-import-intro { padding: 12px; }
 }
- .brand-mark { background: transparent !important; border-radius: 0 !important; }
+ .brand-mark { background: #eef2f7 !important; border-radius: 50% !important; padding: 3px !important; }
