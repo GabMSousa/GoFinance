@@ -37,7 +37,7 @@
   </section>
   {% include 'finance/_fixed_dashboard_panel.html' %}
 </div><section class="home-side">
-  <div class="data-panel chart-panel"><div class="panel-heading"><div><h2>Entradas, saídas e aplicações</h2><p>Movimentação financeira do mês</p></div></div><div class="chart-frame"><canvas id="chart-income-expense"></canvas></div></div>
+  <div class="data-panel chart-panel"><div class="panel-heading"><div><h2>Dinâmica Financeira</h2><p>Movimentação financeira do mês</p></div></div><div class="chart-frame"><canvas id="chart-income-expense"></canvas></div></div>
   <div class="data-panel chart-panel"><div class="panel-heading"><div><h2>Gastos por categoria</h2><p>Distribuição das saídas</p></div></div><div class="chart-frame chart-donut"><canvas id="chart-categories"></canvas></div></div>
   <section class="data-panel chart-panel balance-panel"><div class="panel-heading"><div><h2>Evolução do saldo</h2><p>Movimentação acumulada no mês</p></div></div><div class="chart-frame"><canvas id="chart-balance"></canvas></div></section>
   {% include 'finance/_investment_radar.html' with radar_compact=True %}
