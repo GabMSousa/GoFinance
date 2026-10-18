@@ -367,7 +367,7 @@ def dashboard(request, purchase_form=None, period=None):
         'chart_data': {
             'revenues': float(summary['revenues']),
             'expenses': float(summary['expenses']),
-            'investments': float(summary['investment_chart_month']),
+            'investments': float(summary['investment_total']),
             'category_labels': summary['category_labels'],
             'category_values': summary['category_values'],
             'balance_labels': [point['label'] for point in balance_points],
