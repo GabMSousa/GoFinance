@@ -16,11 +16,11 @@
 {% if bill and bill.is_paid %}<div class="alert alert-success py-2">Fatura de {{ month_name }} paga em {{ bill.paid_at|date:'d/m/Y' }} · R$ {{ bill.amount|floatformat:2 }}</div>{% endif %}
 
 <section class="summary-grid home-summary dashboard-summary">
-  <article class="summary-card summary-balance"><div class="summary-card-content"><span class="summary-icon summary-icon-card" aria-hidden="true"></span><div><div class="summary-label">Saldo</div><div class="summary-value">R$ {{ summary.final_balance|floatformat:2 }}</div></div><span class="summary-spark" aria-hidden="true"><i></i><i></i><i></i></span></div></article>
-  <article class="summary-card summary-receipts"><div class="summary-card-content"><span class="summary-icon summary-icon-bars" aria-hidden="true"><i></i><i></i><i></i></span><div><div class="summary-label">Receitas</div><div class="summary-value">R$ {{ summary.revenues|floatformat:2 }}</div></div><span class="summary-spark" aria-hidden="true"><i></i><i></i><i></i></span></div></article>
-  <article class="summary-card summary-expenses"><div class="summary-card-content"><span class="summary-icon summary-icon-arrow summary-icon-down" aria-hidden="true"></span><div><div class="summary-label">Despesas</div><div class="summary-value">R$ {{ summary.expenses|floatformat:2 }}</div></div><span class="summary-spark" aria-hidden="true"><i></i><i></i><i></i></span></div></article>
-  <a class="summary-card summary-link summary-receivable" href="?person=other"><div class="summary-card-content"><span class="summary-icon summary-icon-arrow summary-icon-up" aria-hidden="true"></span><div><div class="summary-label">A receber</div><div class="summary-value">R$ {{ summary.third_party_pending|floatformat:2 }}</div></div><span class="summary-spark" aria-hidden="true"><i></i><i></i><i></i></span></div></a>
-  <a class="summary-card summary-link summary-vr" href="#vrModal" data-bs-toggle="modal"><div class="summary-card-content"><span class="summary-icon summary-icon-card" aria-hidden="true"></span><div><div class="summary-label">VR</div><div class="summary-value">R$ {{ summary.vr_balance|floatformat:2 }}</div></div><span class="summary-spark" aria-hidden="true"><i></i><i></i><i></i></span></div></a>
+  <article class="summary-card summary-balance"><div class="summary-card-content"><span class="summary-icon summary-icon-card" aria-hidden="true"></span><div><div class="summary-label">Saldo</div><div class="summary-value">R$ {{ summary.final_balance|floatformat:2 }}</div></div></div></article>
+  <article class="summary-card summary-receipts"><div class="summary-card-content"><span class="summary-icon summary-icon-income" aria-hidden="true"></span><div><div class="summary-label">Receitas</div><div class="summary-value">R$ {{ summary.revenues|floatformat:2 }}</div></div></div></article>
+  <article class="summary-card summary-expenses"><div class="summary-card-content"><span class="summary-icon summary-icon-expense" aria-hidden="true"></span><div><div class="summary-label">Despesas</div><div class="summary-value">R$ {{ summary.expenses|floatformat:2 }}</div></div></div></article>
+  <a class="summary-card summary-link summary-receivable" href="?person=other"><div class="summary-card-content"><span class="summary-icon summary-icon-receivable" aria-hidden="true"></span><div><div class="summary-label">A receber</div><div class="summary-value">R$ {{ summary.third_party_pending|floatformat:2 }}</div></div></div></a>
+  <a class="summary-card summary-link summary-vr" href="#vrModal" data-bs-toggle="modal"><div class="summary-card-content"><span class="summary-icon summary-icon-card" aria-hidden="true"></span><div><div class="summary-label">VR</div><div class="summary-value">R$ {{ summary.vr_balance|floatformat:2 }}</div></div></div></a>
 </section>
 
 <form class="dashboard-search-toolbar" method="get" role="search">
@@ -36,37 +36,17 @@
     <div class="movement-list">{% for item in movements %}<article class="movement-row"><div class="movement-date">{{ item.date|date:'d/m' }}</div><div class="movement-main"><strong>{{ item.description }}</strong><span>{{ item.category|default:'Sem categoria' }} · {{ item.person.name|default:item.payment }}</span><div class="movement-actions">{% if item.kind == 'card' %}<a class="movement-action" href="{% url 'finance:card_edit' item.pk %}">Editar</a><a class="movement-action movement-action-danger" href="{% url 'finance:card_delete' item.pk %}">Excluir</a>{% elif item.kind == 'transaction' %}<a class="movement-action" href="{% url 'finance:transaction_edit' item.pk %}">Editar</a><a class="movement-action movement-action-danger" href="{% url 'finance:transaction_delete' item.pk %}">Excluir</a>{% endif %}</div></div><div class="movement-extra"><span class="movement-payment">{{ item.payment }}</span></div><div class="movement-amount {% if item.type == 'Receita' %}positive{% endif %}">{% if item.type == 'Receita' %}+{% else %}-{% endif %} R$ {{ item.amount|floatformat:2 }}</div>{% if item.kind == 'card' %}<div class="movement-status">{% if item.paid %}<span class="status badge ok">Pago</span>{% else %}<span class="status badge caution">Pendente</span>{% endif %}</div>{% endif %}</article>{% empty %}<div class="empty-state">Nenhuma movimentação encontrada neste período.</div>{% endfor %}</div>
   </section>
   {% include 'finance/_fixed_dashboard_panel.html' %}
-  <section class="data-panel investment-dashboard-panel"><div class="panel-heading"><div><h2>Investimentos</h2><p>Aportes separados das despesas comuns.</p></div><span class="panel-kpi">R$ {{ summary.investment_month|floatformat:2 }}</span></div><div class="fixed-dashboard-footer"><span>{{ investment_items|length }} no mês - {{ active_investments|length }} ativos{% if next_investment %} - Próximo: {{ next_investment.description }}{% endif %}</span><a href="{% url 'finance:investment_list' %}">Gerenciar investimentos</a></div></section>
 </div><section class="home-side">
-  <div class="data-panel chart-panel"><div class="panel-heading"><div><h2>Receitas x despesas</h2><p>Decisão do mês</p></div></div><div class="chart-frame"><canvas id="chart-income-expense"></canvas></div></div>
+  <div class="data-panel chart-panel"><div class="panel-heading"><div><h2>Entradas, saídas e aplicações</h2><p>Movimentação financeira do mês</p></div></div><div class="chart-frame"><canvas id="chart-income-expense"></canvas></div></div>
   <div class="data-panel chart-panel"><div class="panel-heading"><div><h2>Gastos por categoria</h2><p>Distribuição das saídas</p></div></div><div class="chart-frame chart-donut"><canvas id="chart-categories"></canvas></div></div>
   <section class="data-panel chart-panel balance-panel"><div class="panel-heading"><div><h2>Evolução do saldo</h2><p>Movimentação acumulada no mês</p></div></div><div class="chart-frame"><canvas id="chart-balance"></canvas></div></section>
-  <section class="data-panel investment-radar" aria-labelledby="investment-radar-title" data-radar-refresh-url="{% url 'finance:investment_radar_data' %}">
-    <div class="panel-heading investment-radar-heading"><div><h2 id="investment-radar-title">Radar de Investimentos</h2><p>Indicadores e oportunidades para seu próximo investimento.</p></div><span class="radar-updated">Atualizado {{ investment_radar.updated_at }}</span></div>
-    <div class="radar-indicators">{% for indicator in investment_radar.indicators %}<div class="radar-indicator"><span>{{ indicator.label }}</span><strong class="{% if not indicator.available %}is-unavailable{% endif %}">{% if indicator.available %}{{ indicator.formatted }}{% else %}Indisponível{% endif %}</strong><small>{% if indicator.date %}Base {{ indicator.date }}{% else %}Fonte indisponível{% endif %}</small></div>{% endfor %}</div>
-    <div class="radar-explorer" data-radar-explorer>
-      <div class="radar-section-title"><strong>Pesquisar investimentos</strong><button type="button" class="radar-refresh" data-radar-refresh>Atualizar</button></div>
-      <div class="radar-filter-grid">
-        <label class="radar-filter-search">Nome<input type="search" placeholder="Buscar produto" data-radar-search></label>
-        <label>Instituicao<select data-radar-filter="institution"><option value="">Todas</option><option value="Nubank">Nubank</option><option value="Outras">Outras</option></select></label>
-        <label>Tipo<select data-radar-filter="type"><option value="">Todos</option><option>CDB</option><option>RDB</option><option>Tesouro Selic</option><option>Tesouro IPCA+</option><option>Tesouro Prefixado</option><option>Fundos</option><option>Acoes</option><option>ETFs</option><option>FIIs</option><option>Outros</option></select></label>
-        <label>Rentabilidade<select data-radar-filter="return_type"><option value="">Todas</option><option>Pos-fixada</option><option>Prefixada</option><option>Hibrida</option><option>% do CDI</option><option>IPCA + taxa</option></select></label>
-        <label>Liquidez<select data-radar-filter="liquidity"><option value="">Todas</option><option>Diaria</option><option>No vencimento</option><option>Com carencia</option></select></label>
-        <label>Ordenar por<select data-radar-sort><option value="name">Nome</option><option value="return">Rentabilidade</option><option value="liquidity">Liquidez</option><option value="term">Prazo</option><option value="minimum">Aplicacao minima</option></select></label>
-      </div>
-      <div class="radar-results-meta"><span data-radar-result-count>0 resultados</span><span data-radar-sync-status>{% if investment_radar.sync_state %}{{ investment_radar.sync_state }}{% else %}cache{% endif %}</span></div>
-      <p class="radar-source-note" data-radar-source-note></p>
-      <div class="radar-results-list" data-radar-results></div>
-    </div>
-    <div class="radar-offers"><div class="radar-section-title"><strong>Ofertas verificadas</strong><span>Renda fixa</span></div><p>{{ investment_radar.offers_message }}</p></div>
-    <div class="radar-simulator"><div class="radar-section-title"><strong>Simulador de rendimento</strong><span>Projeção, não garantia</span></div><div class="radar-form-grid"><label>Valor a investir<input type="number" min="0" step="0.01" value="1000" data-radar-principal></label><label>% do CDI<input type="number" min="0" step="0.1" value="100" data-radar-percent></label><label>Prazo (meses)<input type="number" min="1" step="1" value="12" data-radar-months></label></div><div class="radar-results"><div><span>Bruto estimado</span><strong data-radar-gross>Indisponível</strong></div><div><span>Líquido estimado</span><strong data-radar-net>Indisponível</strong></div><div><span>Valor final</span><strong data-radar-final>Indisponível</strong></div></div><p class="radar-disclaimer" data-radar-help>Informe os campos para calcular.</p></div>
-  </section>
+  {% include 'finance/_investment_radar.html' with radar_compact=True %}
 </section></div>
 
 {{ chart_data|json_script:"dashboard-chart-data" }}
-{{ investment_radar|json_script:"investment-radar-data" }}
 {{ movement_details|json_script:"movement-details" }}
 {% if purchase_form_has_errors %}<div id="quick-purchase-errors" class="alert alert-danger d-none" role="alert">{{ purchase_form.errors }}</div>{% endif %}
 {% include 'finance/_dashboard_modals.html' %}
+{% include 'finance/_dashboard_calculator.html' %}
 {{ vr_movement_indexes|json_script:"vr-movement-indexes" }}
 {% endblock %}

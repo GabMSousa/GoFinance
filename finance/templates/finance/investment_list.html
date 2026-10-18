@@ -1,29 +1,36 @@
 {% extends 'finance/base.html' %}
 {% block title %}Investimentos{% endblock %}
 {% block content %}
-<div class="page-heading"><div><p class="eyebrow">Aplicações</p><h1>Investimentos</h1><p class="page-subtitle">Registre aportes únicos ou recorrentes sem misturá-los às despesas comuns.</p></div><a class="btn btn-primary" href="{% url 'finance:investment_create' %}">+ Novo investimento</a></div>
+<div class="page-heading investment-page-heading"><div><p class="eyebrow">Aplicações</p><h1>Investimentos</h1><p class="page-subtitle">Registre aportes, resgates e ajustes sem misturá-los às despesas comuns.</p></div><div class="investment-page-actions"><a class="btn btn-outline-secondary" href="{% url 'finance:investment_history' %}?year={{ year }}&amp;month={{ month }}">Ver histórico</a><a class="btn btn-primary" href="{% url 'finance:investment_create' %}?year={{ year }}&amp;month={{ month }}">+ Novo investimento</a></div></div>
 {% include 'finance/_period.html' %}
-<div class="summary-strip"><div><span>Total no mês</span><strong>R$ {{ month_total|floatformat:2 }}</strong></div><div><span>Recorrentes ativos</span><strong>{{ recurring_items|length }}</strong></div><div><span>Saldo aplicado</span><strong>R$ {{ balance_total|floatformat:2 }}</strong></div></div>
-{% if next_investment %}<p class="form-help">Próximo investimento: <strong>{{ next_investment.description }}</strong> em {{ next_investment.date|date:'d/m/Y' }} — R$ {{ next_investment.amount|floatformat:2 }}.</p>{% endif %}
-<section class="data-panel investment-table-panel"><div class="table-responsive">
-  <table class="table">
-    <thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Tipo</th><th>Valor</th><th>Periodicidade</th><th>Status</th><th>Ações</th></tr></thead>
-    <tbody>
-      {% for x in items %}
-      <tr>
-        <td>{{ x.date|date:'d/m/Y' }}</td>
-        <td><strong>{{ x.description }}</strong><div class="muted-cell">{{ x.payment_method|default:'Conta não informada' }}</div></td>
-        <td>{{ x.category|default:'—' }}</td>
-        <td>{{ x.get_type_display }}</td>
-        <td>R$ {{ x.amount|floatformat:2 }}</td>
-        <td>{{ x.get_recurrence_display }}{% if x.due_day %} · dia {{ x.due_day }}{% endif %}</td>
-        <td><span class="badge {% if x.active %}ok{% else %}muted{% endif %}">{% if x.active %}Ativo{% else %}Inativo{% endif %}</span></td>
-        <td><a class="btn btn-sm btn-outline-primary" href="{% url 'finance:investment_edit' x.id %}">Editar</a> <a class="btn btn-sm btn-outline-danger" href="{% url 'finance:investment_delete' x.id %}">Excluir</a></td>
-      </tr>
-      {% empty %}
-      <tr><td colspan="8">Nenhum investimento no período.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div></section>
+<div class="summary-strip investment-summary-strip"><div><span>Total aportado no mês</span><strong>R$ {{ month_total|floatformat:2 }}</strong></div><div><span>Posições ativas</span><strong>{{ active_count }}</strong></div><div><span>Saldo aplicado</span><strong>R$ {{ balance_total|floatformat:2 }}</strong></div></div>
+<section class="data-panel investment-positions-panel">
+  <div class="panel-heading"><div><h2>Posições e ações</h2><p>O saldo aplicado soma somente posições ativas pertencentes ao usuário.</p></div></div>
+  <div class="investment-position-list">
+    {% for position in managed_positions %}
+    <article class="investment-position-row">
+      <div class="investment-position-main"><strong>{{ position.description }}</strong><span class="investment-position-meta"><span>{{ position.get_type_display }}</span><span>{{ position.date|date:'d/m/Y' }}</span></span></div>
+      <div class="investment-position-balance"><span>Saldo atual</span><strong>R$ {{ position.current_balance|floatformat:2 }}</strong></div>
+      <span class="badge {% if position.active %}ok{% else %}muted{% endif %}">{% if position.active %}Ativa{% else %}Encerrada{% endif %}</span>
+      <div class="investment-row-actions">
+        {% if position.active %}<a class="btn btn-sm btn-outline-success" href="{% url 'finance:investment_operation' position.id 'CONTRIBUTION' %}?year={{ year }}&amp;month={{ month }}">Aportar</a><a class="btn btn-sm btn-outline-warning" href="{% url 'finance:investment_operation' position.id 'WITHDRAWAL' %}?year={{ year }}&amp;month={{ month }}">Resgatar</a><a class="btn btn-sm btn-outline-secondary" href="{% url 'finance:investment_operation' position.id 'ADJUSTMENT' %}?year={{ year }}&amp;month={{ month }}">Ajustar saldo</a>{% endif %}
+        <a class="btn btn-sm btn-outline-primary" href="{% url 'finance:investment_edit' position.id %}?year={{ year }}&amp;month={{ month }}">Editar</a>
+        <form method="post" action="{% url 'finance:investment_delete' position.id %}" data-confirm-submit="Apagar este investimento? Esta ação só será concluída se não houver movimentações históricas associadas.">
+          {% csrf_token %}
+          <button class="btn btn-sm btn-outline-danger" type="submit" aria-label="Apagar {{ position.description }}">Apagar</button>
+        </form>
+      </div>
+    </article>
+    {% empty %}<p class="empty-state investment-empty-state">Nenhuma posição associada ao usuário. Cadastre uma nova posição para começar.</p>{% endfor %}
+  </div>
+</section>
+<section class="data-panel investment-table-panel investment-operations-panel">
+  <div class="panel-heading"><div><h2>Movimentações de investimentos</h2><p>Aportes, resgates e ajustes registrados no período selecionado.</p></div><a class="btn btn-sm btn-outline-secondary" href="{% url 'finance:investment_history' %}?year={{ year }}&amp;month={{ month }}">Filtros e histórico</a></div>
+  <div class="table-responsive"><table class="table"><thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Tipo</th><th>Valor</th><th>Periodicidade</th><th>Status</th><th>Ações</th></tr></thead><tbody>
+    {% for operation in items %}<tr><td>{{ operation.occurred_at|date:'d/m/Y' }}</td><td><strong>{{ operation.investment.description }}</strong><div class="muted-cell">{% if operation.reason %}{{ operation.reason }}{% else %}Operação registrada{% endif %}</div></td><td>{{ operation.investment.get_type_display }}</td><td>{{ operation.get_operation_type_display }}</td><td>R$ {{ operation.amount|floatformat:2 }}</td><td>Saldo: R$ {{ operation.balance_after|floatformat:2 }}</td><td><span class="badge {% if operation.status == 'POSTED' %}ok{% else %}muted{% endif %}">{{ operation.get_status_display }}</span></td><td><a class="table-action" href="{% url 'finance:investment_history' %}?investment={{ operation.investment_id }}">Histórico</a></td></tr>
+    {% empty %}<tr><td colspan="8" class="empty-state">Nenhuma movimentação de investimento no período.</td></tr>{% endfor %}
+  </tbody></table></div>
+</section>
+{% if legacy_items %}<div class="investment-legacy-notice"><strong>Posições legadas não associadas</strong><span>Existem registros antigos sem proprietário confirmado. Eles não entram no seu saldo e não podem ser movimentados até a reconciliação.</span></div>{% endif %}
+{% include 'finance/_investment_radar.html' with radar_compact=False %}
 {% endblock %}

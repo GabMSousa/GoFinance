@@ -29,7 +29,7 @@
     const grossGain = ending - amount;
     const days = term * 30;
     const tax = days <= 180 ? .225 : days <= 360 ? .20 : days <= 720 ? .175 : .15;
-    gross.textContent = format(grossGain);
+    if (gross) gross.textContent = format(grossGain);
     net.textContent = format(grossGain * (1 - tax));
     finalValue.textContent = format(amount + grossGain * (1 - tax));
     help.textContent = `Estimativa com IR regressivo de ${(tax * 100).toFixed(1).replace('.', ',')}% para renda fixa tributável; não é garantia.`;

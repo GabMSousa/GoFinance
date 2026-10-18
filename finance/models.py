@@ -3,6 +3,7 @@ from decimal import Decimal
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
+from django.utils import timezone
 from django.db import models
 
 
@@ -385,9 +386,18 @@ class Investment(models.Model):
         FII = 'FII', 'FIIs'
         CRYPTO = 'CRYPTO', 'Cripto'
         SAVINGS = 'SAVINGS', 'Poupança'
+        CAIXINHA = 'CAIXINHA', 'Caixinha'
         OTHER = 'OTHER', 'Outros'
 
     date = models.DateField('Data')
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name='investments',
+        verbose_name='Usuário proprietário',
+        null=True,
+        blank=True,
+    )
     description = models.CharField('Descrição', max_length=180)
     category = models.ForeignKey(
         Category,
@@ -431,6 +441,79 @@ class Investment(models.Model):
             raise ValidationError({'amount': 'Informe um valor maior que zero.'})
         if self.due_day is not None and not 1 <= self.due_day <= 31:
             raise ValidationError({'due_day': 'Dia deve estar entre 1 e 31.'})
+
+
+class InvestmentOperation(models.Model):
+    class OperationType(models.TextChoices):
+        CONTRIBUTION = 'CONTRIBUTION', 'Aporte'
+        WITHDRAWAL = 'WITHDRAWAL', 'Resgate'
+        ADJUSTMENT = 'ADJUSTMENT', 'Ajuste de saldo'
+        REVERSAL = 'REVERSAL', 'Estorno'
+
+    class Status(models.TextChoices):
+        POSTED = 'POSTED', 'Registrada'
+        REVERSED = 'REVERSED', 'Estornada'
+
+    operation_key = models.UUIDField('Chave da operação', unique=True)
+    investment = models.ForeignKey(
+        Investment,
+        on_delete=models.PROTECT,
+        related_name='operations',
+        verbose_name='Investimento',
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name='investment_operations',
+        verbose_name='Responsável',
+    )
+    operation_type = models.CharField('Operação', max_length=20, choices=OperationType.choices)
+    amount = models.DecimalField(
+        'Valor da operação',
+        max_digits=12,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal('0.01'))],
+    )
+    balance_before = models.DecimalField('Saldo anterior', max_digits=12, decimal_places=2)
+    balance_after = models.DecimalField('Saldo posterior', max_digits=12, decimal_places=2)
+    source = models.CharField('Origem', max_length=180, blank=True)
+    destination = models.CharField('Destino', max_length=180, blank=True)
+    reason = models.TextField('Justificativa', blank=True)
+    notes = models.TextField('Observações', blank=True)
+    occurred_at = models.DateTimeField('Data e hora', default=timezone.now)
+    status = models.CharField('Status', max_length=12, choices=Status.choices, default=Status.POSTED)
+    reverses = models.OneToOneField(
+        'self',
+        on_delete=models.PROTECT,
+        related_name='reversal',
+        null=True,
+        blank=True,
+    )
+
+    class Meta:
+        ordering = ['-occurred_at', '-id']
+        indexes = [
+            models.Index(fields=['user', '-occurred_at']),
+            models.Index(fields=['investment', '-occurred_at']),
+        ]
+        verbose_name = 'Operação de investimento'
+        verbose_name_plural = 'Operações de investimento'
+
+    def __str__(self):
+        return f'{self.get_operation_type_display()} - {self.investment}'
+
+    def clean(self):
+        errors = {}
+        if self.amount is not None and self.amount <= 0:
+            errors['amount'] = 'Informe um valor maior que zero.'
+        if self.balance_before is not None and self.balance_before < 0:
+            errors['balance_before'] = 'O saldo anterior não pode ser negativo.'
+        if self.balance_after is not None and self.balance_after < 0:
+            errors['balance_after'] = 'O saldo posterior não pode ser negativo.'
+        if self.operation_type in {self.OperationType.WITHDRAWAL, self.OperationType.ADJUSTMENT} and not self.reason.strip():
+            errors['reason'] = 'A justificativa é obrigatória para esta operação.'
+        if errors:
+            raise ValidationError(errors)
 
 
 class VRMovement(models.Model):

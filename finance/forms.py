@@ -1,10 +1,12 @@
 from decimal import Decimal
 
+import uuid
+
 from django import forms
 from django.contrib.auth import get_user_model
 from django.contrib.auth.forms import SetPasswordForm
 
-from .models import Category, CreditCardBill, CreditCardExpense, FinancialProfile, FixedExpense, Goal, Investment, Person, Transaction, VRMovement
+from .models import Category, CreditCardBill, CreditCardExpense, FinancialProfile, FixedExpense, Goal, Investment, InvestmentOperation, Person, Transaction, VRMovement
 from .services import invoice_month_for_purchase, to_decimal, vr_balance_for_date
 
 RESPONSIBLE_CHOICES = (('SELF', 'Eu'), ('OTHER', 'Outro'))
@@ -181,7 +183,7 @@ class TransactionForm(BootstrapModelForm):
         if amount is not None and vr_amount > amount:
             self.add_error('vr_amount', 'O valor de VR não pode ser maior que o total do lançamento.')
         if vr_amount < 0:
-            self.add_error('vr_amount', 'O valor de VR nÃ£o pode ser negativo.')
+            self.add_error('vr_amount', 'O valor de VR não pode ser negativo.')
         if (
             tx_type == Transaction.Type.EXPENSE
             and data.get('payment_method') == Transaction.PaymentMethod.VR
@@ -203,7 +205,7 @@ class TransactionForm(BootstrapModelForm):
                 self.add_error('date', f'A fatura de {invoice_month:%m/%Y} já foi paga. Escolha outra data de compra.')
         if tx_type == Transaction.Type.EXPENSE and vr_amount > 0 and data.get('date'):
             if vr_amount > vr_balance_for_date(data['date']):
-                self.add_error('vr_amount', 'Saldo de VR insuficiente. Informe um ajuste de crÃ©dito antes de consumir acima do saldo.')
+                self.add_error('vr_amount', 'Saldo de VR insuficiente. Informe um ajuste de crédito antes de consumir acima do saldo.')
         if tx_type == Transaction.Type.EXPENSE and amount is not None and vr_amount >= amount:
             data['payment_method'] = Transaction.PaymentMethod.VR
         return data
@@ -391,7 +393,7 @@ class InvestmentForm(BootstrapModelForm):
     class Meta:
         model = Investment
         fields = [
-            'date', 'description', 'category', 'type', 'amount', 'current_balance',
+            'date', 'description', 'type', 'amount', 'current_balance',
             'payment_method', 'recurrence', 'due_day', 'active', 'notes',
         ]
         widgets = {
@@ -401,7 +403,108 @@ class InvestmentForm(BootstrapModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['category'].queryset = Category.objects.filter(active=True)
+        self.fields['type'].label = 'Tipo de investimento'
+        self.fields['amount'].label = 'Valor inicial aplicado'
+        self.fields['current_balance'].label = 'Saldo atual'
+        self.fields['payment_method'].label = 'Conta de origem'
+        self.fields['recurrence'].label = 'Periodicidade do aporte'
+        self.fields['due_day'].label = 'Dia do aporte'
+        self.fields['notes'].label = 'Observações do investimento'
+        self.fields['current_balance'].help_text = 'Saldo acumulado desta posição.'
+
+
+class InvestmentOperationForm(BootstrapMixin, forms.Form):
+    operation_type = forms.ChoiceField(
+        label='Operação',
+        choices=InvestmentOperation.OperationType.choices,
+        widget=forms.HiddenInput(),
+    )
+    amount = forms.DecimalField(
+        label='Valor',
+        min_value=Decimal('0.01'),
+        max_digits=12,
+        decimal_places=2,
+        required=False,
+    )
+    operation_date = forms.DateField(
+        label='Data',
+        required=False,
+        widget=forms.DateInput(attrs={'type': 'date'}),
+    )
+    new_balance = forms.DecimalField(
+        label='Novo saldo',
+        min_value=Decimal('0.00'),
+        max_digits=12,
+        decimal_places=2,
+        required=False,
+    )
+    source = forms.CharField(label='Origem', max_length=180, required=False)
+    destination = forms.CharField(label='Destino', max_length=180, required=False)
+    reason_type = forms.ChoiceField(
+        label='Motivo',
+        choices=(
+            ('EMERGENCY', 'Emergência'),
+            ('BILL', 'Pagamento de conta'),
+            ('PERSONAL', 'Compra pessoal'),
+            ('TRANSFER', 'Transferência'),
+            ('REORGANIZATION', 'Reorganização da carteira'),
+            ('OTHER', 'Outro'),
+        ),
+        required=False,
+    )
+    reason_other = forms.CharField(label='Descrição do motivo', max_length=180, required=False)
+    reason = forms.CharField(
+        label='Justificativa',
+        required=False,
+        widget=forms.Textarea(attrs={'rows': 3}),
+    )
+    notes = forms.CharField(
+        label='Observações',
+        required=False,
+        widget=forms.Textarea(attrs={'rows': 3}),
+    )
+    operation_key = forms.UUIDField(
+        label='',
+        initial=uuid.uuid4,
+        widget=forms.HiddenInput(),
+    )
+
+    def __init__(self, *args, operation_type=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.apply_bootstrap()
+        if operation_type:
+            self.initial['operation_type'] = operation_type
+            self.fields['operation_type'].initial = operation_type
+
+    def clean(self):
+        data = super().clean()
+        operation_type = data.get('operation_type')
+        amount = data.get('amount')
+        new_balance = data.get('new_balance')
+        reason = (data.get('reason') or '').strip()
+        reason_type = data.get('reason_type')
+        reason_other = (data.get('reason_other') or '').strip()
+        if operation_type in {
+            InvestmentOperation.OperationType.CONTRIBUTION,
+            InvestmentOperation.OperationType.WITHDRAWAL,
+        } and amount is None:
+            self.add_error('amount', 'Informe o valor da operação.')
+        if operation_type == InvestmentOperation.OperationType.ADJUSTMENT and new_balance is None:
+            self.add_error('new_balance', 'Informe o novo saldo.')
+        if operation_type in {
+            InvestmentOperation.OperationType.WITHDRAWAL,
+            InvestmentOperation.OperationType.ADJUSTMENT,
+        } and not reason:
+            self.add_error('reason', 'A justificativa é obrigatória para esta operação.')
+        if operation_type == InvestmentOperation.OperationType.WITHDRAWAL and not (data.get('destination') or '').strip():
+            self.add_error('destination', 'Informe o destino do resgate.')
+        if operation_type == InvestmentOperation.OperationType.WITHDRAWAL and reason_type:
+            self.errors.pop('reason', None)
+        if operation_type == InvestmentOperation.OperationType.WITHDRAWAL and reason_type == 'OTHER' and not reason_other:
+            self.add_error('reason_other', 'Descreva o motivo do resgate.')
+        if operation_type == InvestmentOperation.OperationType.CONTRIBUTION and not (data.get('source') or '').strip():
+            self.add_error('source', 'Informe a origem do aporte.')
+        return data
 
 
 class VRMovementForm(BootstrapModelForm):

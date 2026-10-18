@@ -1,0 +1,28 @@
+{% extends 'finance/base.html' %}
+{% block title %}{{ operation_label }}{% endblock %}
+{% block content %}
+<div class="page-heading"><div><p class="eyebrow">Investimentos</p><h1>{{ operation_label }}</h1><p class="page-subtitle">{{ investment.description }} · Saldo atual: R$ {{ investment.current_balance|floatformat:2 }}</p></div></div>
+<section class="data-panel investment-operation-panel">
+  <div class="panel-heading"><div><h2>Confirmar operação</h2><p>A operação será registrada com saldo anterior e posterior.</p></div></div>
+  <div class="p-3">
+    <form method="post">
+      {% csrf_token %}
+      {{ form.operation_type }}{{ form.operation_key }}
+      {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+      <div class="row g-3">
+        <div class="col-12 col-md-6">{{ form.operation_date.label_tag }}{{ form.operation_date }}{% if form.operation_date.errors %}<div class="text-danger small">{{ form.operation_date.errors|striptags }}</div>{% endif %}</div>
+        {% if operation_type == 'ADJUSTMENT' %}
+          <div class="col-12 col-md-6">{{ form.new_balance.label_tag }}{{ form.new_balance }}{% if form.new_balance.errors %}<div class="text-danger small">{{ form.new_balance.errors|striptags }}</div>{% endif %}</div>
+        {% else %}
+          <div class="col-12 col-md-6">{{ form.amount.label_tag }}{{ form.amount }}{% if form.amount.errors %}<div class="text-danger small">{{ form.amount.errors|striptags }}</div>{% endif %}</div>
+        {% endif %}
+        {% if operation_type == 'CONTRIBUTION' %}<div class="col-12 col-md-6">{{ form.source.label_tag }}{{ form.source }}{% if form.source.errors %}<div class="text-danger small">{{ form.source.errors|striptags }}</div>{% endif %}</div>{% endif %}
+        {% if operation_type == 'WITHDRAWAL' %}<div class="col-12 col-md-6">{{ form.destination.label_tag }}{{ form.destination }}{% if form.destination.errors %}<div class="text-danger small">{{ form.destination.errors|striptags }}</div>{% endif %}</div><div class="col-12 col-md-6">{{ form.reason_type.label_tag }}{{ form.reason_type }}{% if form.reason_type.errors %}<div class="text-danger small">{{ form.reason_type.errors|striptags }}</div>{% endif %}</div><div class="col-12 col-md-6">{{ form.reason_other.label_tag }}{{ form.reason_other }}{% if form.reason_other.errors %}<div class="text-danger small">{{ form.reason_other.errors|striptags }}</div>{% endif %}</div><div class="visually-hidden">{{ form.reason.errors }}</div>{% endif %}
+        {% if operation_type == 'ADJUSTMENT' %}<div class="col-12">{{ form.reason.label_tag }}{{ form.reason }}{% if form.reason.errors %}<div class="text-danger small">{{ form.reason.errors|striptags }}</div>{% endif %}</div>{% endif %}
+        <div class="col-12">{{ form.notes.label_tag }}{{ form.notes }}{% if form.notes.errors %}<div class="text-danger small">{{ form.notes.errors|striptags }}</div>{% endif %}</div>
+      </div>
+      <div class="mt-4"><button class="btn btn-primary" type="submit">Confirmar {{ operation_label|lower }}</button> <a class="btn btn-outline-secondary" href="{% url 'finance:investment_list' %}?year={{ request.GET.year }}&amp;month={{ request.GET.month }}">Cancelar</a></div>
+    </form>
+  </div>
+</section>
+{% endblock %}

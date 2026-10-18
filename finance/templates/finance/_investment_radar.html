@@ -1,0 +1,39 @@
+<section class="data-panel investment-radar {% if radar_compact %}investment-radar--compact{% else %}investment-radar--full{% endif %}" aria-labelledby="investment-radar-title" data-radar-refresh-url="{% url 'finance:investment_radar_data' %}">
+  <div class="panel-heading investment-radar-heading">
+    <div>
+      <h2 id="investment-radar-title">Radar de Investimentos</h2>
+      <p>{% if radar_compact %}Indicadores de mercado e consulta rápida.{% else %}Indicadores, oportunidades e simulações para seus próximos investimentos.{% endif %}</p>
+    </div>
+    <span class="radar-updated">Atualizado {{ investment_radar.updated_at }}</span>
+  </div>
+  <div class="radar-indicators">
+    {% for indicator in investment_radar.indicators %}
+    <div class="radar-indicator"><span>{{ indicator.label }}</span><strong class="{% if not indicator.available %}is-unavailable{% endif %}">{% if indicator.available %}{{ indicator.formatted }}{% else %}Indisponível{% endif %}</strong><small>{% if indicator.date %}Base {{ indicator.date }}{% else %}Fonte indisponível{% endif %}</small></div>
+    {% endfor %}
+  </div>
+  {% if not radar_compact %}
+  <div class="radar-explorer" data-radar-explorer>
+    <div class="radar-section-title"><strong>Explorar oportunidades</strong><button type="button" class="radar-refresh" data-radar-refresh>Atualizar</button></div>
+    <div class="radar-filter-grid">
+      <label class="radar-filter-search">Nome<input type="search" placeholder="Buscar produto" data-radar-search></label>
+      <label>Instituição<select data-radar-filter="institution"><option value="">Todas</option><option value="Nubank">Nubank</option><option value="Outras">Outras</option></select></label>
+      <label>Tipo<select data-radar-filter="type"><option value="">Todos</option><option>CDB</option><option>RDB</option><option>Tesouro Selic</option><option>Tesouro IPCA+</option><option>Tesouro Prefixado</option><option>Fundos</option><option>Ações</option><option>ETFs</option><option>FIIs</option><option>Outros</option></select></label>
+      <label>Rentabilidade<select data-radar-filter="return_type"><option value="">Todas</option><option>Pós-fixada</option><option>Prefixada</option><option>Híbrida</option><option>% do CDI</option><option>IPCA + taxa</option></select></label>
+      <label>Liquidez<select data-radar-filter="liquidity"><option value="">Todas</option><option>Diária</option><option>No vencimento</option><option>Com carência</option></select></label>
+      <label>Ordenar por<select data-radar-sort><option value="name">Nome</option><option value="return">Rentabilidade</option><option value="liquidity">Liquidez</option><option value="term">Prazo</option><option value="minimum">Aplicação mínima</option></select></label>
+    </div>
+    <div class="radar-results-meta"><span data-radar-result-count>0 resultados</span><span data-radar-sync-status>{% if investment_radar.sync_state %}{{ investment_radar.sync_state }}{% else %}cache{% endif %}</span></div>
+    <p class="radar-source-note" data-radar-source-note></p>
+    <div class="radar-results-list" data-radar-results></div>
+  </div>
+  <div class="radar-offers"><div class="radar-section-title"><strong>Ofertas verificadas</strong><span>Renda fixa</span></div><p>{{ investment_radar.offers_message }}</p></div>
+  {% endif %}
+  <div class="radar-simulator">
+    <div class="radar-section-title"><strong>{% if radar_compact %}Simulador rápido{% else %}Simulador de rendimento{% endif %}</strong><span>Projeção, não garantia</span></div>
+    <div class="radar-form-grid"><label>Valor a investir<input type="number" min="0" step="0.01" value="1000" data-radar-principal></label><label>% do CDI<input type="number" min="0" step="0.1" value="100" data-radar-percent></label><label>Prazo (meses)<input type="number" min="1" step="1" value="12" data-radar-months></label></div>
+    <div class="radar-results radar-results--simulator"><div><span>Rendimento líquido estimado</span><strong data-radar-net>Indisponível</strong></div><div><span>Valor final estimado</span><strong data-radar-final>Indisponível</strong></div>{% if not radar_compact %}<div><span>Bruto estimado</span><strong data-radar-gross>Indisponível</strong></div>{% endif %}</div>
+    <p class="radar-disclaimer" data-radar-help>Informe os campos para calcular.</p>
+  </div>
+  {% if radar_compact %}<a class="radar-explore-link" href="{% url 'finance:investment_list' %}">Explorar investimentos <span aria-hidden="true">→</span></a>{% endif %}
+</section>
+{{ investment_radar|json_script:"investment-radar-data" }}

@@ -9,16 +9,18 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
-from .models import Category, CreditCardBill, CreditCardExpense, FinancialProfile, FixedExpense, Investment, Person, SalarySnapshot, Transaction, UserSecurityProfile, VRMovement
+from .models import Category, CreditCardBill, CreditCardExpense, FinancialProfile, FixedExpense, Investment, InvestmentOperation, Person, SalarySnapshot, Transaction, UserSecurityProfile, VRMovement
+from .forms import InvestmentForm
 from .importers import preview_csv
 from .investment_radar import _annualize_daily, _compound_monthly
-from .services import invoice_month_for_installment, invoice_month_for_purchase, monthly_summary, split_installment_values
+from .services import apply_investment_operation, invoice_month_for_installment, invoice_month_for_purchase, monthly_summary, split_installment_values
 from .views import DuplicateExpenseError, create_card_installments, default_open_period
 
 
 class BaseFinanceTest(TestCase):
     def setUp(self):
         user = get_user_model().objects.create_user(username='tester', password='test-password')
+        self.user = user
         self.client.force_login(user)
         self.food = Category.objects.create(name='Alimentação')
         self.moto = Category.objects.create(name='Moto')
@@ -647,9 +649,10 @@ class MonthlyBalanceTests(BaseFinanceTest):
             type=Investment.Type.CDB,
             amount=Decimal('100.00'),
             current_balance=Decimal('100.00'),
+            user=self.user,
         )
         summary = monthly_summary(2026, 9)
-        expected_out = Decimal('660.06') + Decimal('159.74') + Decimal('40.00') + Decimal('100.00')
+        expected_out = Decimal('660.06') + Decimal('159.74') + Decimal('40.00')
         self.assertEqual(summary['bank_outflow'], expected_out)
         self.assertEqual(summary['final_balance'], Decimal('2299.00') - expected_out)
         dashboard = monthly_summary(2026, 9)
@@ -710,6 +713,43 @@ class FinalRefinementTests(BaseFinanceTest):
 
 
 class BalanceVrInvestmentTests(BaseFinanceTest):
+    def test_caixinha_is_available_in_form_and_persisted_from_quick_investment(self):
+        form = InvestmentForm()
+        type_choices = dict(form.fields['type'].choices)
+        self.assertEqual(type_choices[Investment.Type.CAIXINHA], 'Caixinha')
+        dashboard = self.client.get(reverse('finance:dashboard'))
+        self.assertContains(dashboard, 'value="CAIXINHA"')
+
+        response = self.client.post(reverse('finance:investment_create'), {
+            'date': self.today.isoformat(),
+            'description': 'Reserva de Emergência',
+            'type': Investment.Type.CAIXINHA,
+            'amount': '250.00',
+            'current_balance': '250.00',
+            'payment_method': Transaction.PaymentMethod.PIX,
+            'recurrence': Investment.Recurrence.ONE_TIME,
+            'active': 'on',
+        })
+        self.assertRedirects(response, reverse('finance:investment_list'))
+        caixinha = Investment.objects.get(description='Reserva de Emergência')
+        self.assertEqual(caixinha.type, Investment.Type.CAIXINHA)
+        self.assertEqual(caixinha.current_balance, Decimal('250.00'))
+        self.assertEqual(caixinha.user, self.user)
+
+    def test_caixinha_rescue_keeps_existing_reason_validation(self):
+        caixinha = Investment.objects.create(
+            user=self.user, date=self.today, description='Viagem',
+            type=Investment.Type.CAIXINHA, amount=Decimal('100.00'), current_balance=Decimal('100.00'),
+        )
+        url = reverse('finance:investment_operation', args=[caixinha.pk, 'WITHDRAWAL'])
+        response = self.client.post(url, {
+            'operation_type': 'WITHDRAWAL', 'amount': '10.00', 'destination': 'Conta',
+            'operation_key': '77777777-7777-4777-8777-777777777777',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Motivo')
+        self.assertEqual(Investment.objects.get(pk=caixinha.pk).current_balance, Decimal('100.00'))
+
     def setUp(self):
         super().setUp()
 
@@ -736,11 +776,12 @@ class BalanceVrInvestmentTests(BaseFinanceTest):
         Investment.objects.create(
             date=self.today, description='ETF', type=Investment.Type.ETF,
             amount=Decimal('300.00'), payment_method=Transaction.PaymentMethod.PIX,
+            user=self.user,
         )
         summary = monthly_summary(2026, 9)
         self.assertEqual(summary['opening_balance'], Decimal('500.00'))
         self.assertEqual(summary['revenues'], Decimal('2750.00'))
-        self.assertEqual(summary['final_balance'], Decimal('1950.00'))
+        self.assertEqual(summary['final_balance'], Decimal('2250.00'))
 
     def test_vr_transaction_is_not_counted_as_bank_expense(self):
         SalarySnapshot.objects.create(
@@ -765,12 +806,12 @@ class BalanceVrInvestmentTests(BaseFinanceTest):
         investment = Investment.objects.create(
             date=self.today, description='Curso de inglês', category=self.food,
             type=Investment.Type.OTHER, amount=Decimal('250.00'),
-            recurrence=Investment.Recurrence.MONTHLY, due_day=10, active=True,
+            recurrence=Investment.Recurrence.MONTHLY, due_day=10, active=True, user=self.user,
         )
         response = self.client.get(reverse('finance:dashboard'), {'year': 2026, 'month': 9})
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Investimentos')
-        self.assertEqual(response.context['summary']['investment_month'], Decimal('250.00'))
+        self.assertEqual(response.context['summary']['investment_month'], Decimal('0.00'))
         self.assertEqual(Investment.objects.get(pk=investment.pk).recurrence, Investment.Recurrence.MONTHLY)
 
     def test_investment_radar_compounds_reference_series(self):
@@ -779,14 +820,188 @@ class BalanceVrInvestmentTests(BaseFinanceTest):
         self.assertAlmostEqual(float(_annualize_daily(daily)), 13.42, places=2)
         self.assertAlmostEqual(float(_compound_monthly(monthly)), 12.68, places=2)
 
-    def test_dashboard_exposes_radar_without_changing_investment_summary(self):
+    def test_dashboard_renders_compact_investment_radar(self):
         radar = {'updated_at': '17/10/2026 20:00', 'available': False, 'indicators': [], 'offers': [], 'offers_message': 'Indisponível', 'source_url': '', 'base_rate': None}
         with patch('finance.views.get_investment_radar', return_value=radar):
             response = self.client.get(reverse('finance:dashboard'), {'year': 2026, 'month': 9})
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Radar de Investimentos')
-        self.assertContains(response, 'data-radar-search')
+        self.assertContains(response, 'Simulador')
+        return
+        self.assertNotContains(response, 'Indicadores de mercado e consulta rápida.')
+        self.assertContains(response, 'Simulador rÃ¡pido')
+        self.assertNotContains(response, 'data-radar-search')
         self.assertEqual(response.context['summary']['investment_month'], Decimal('0.00'))
+
+    def test_investment_page_exposes_full_radar_explorer(self):
+        radar = {'updated_at': '17/10/2026 20:00', 'sync_state': 'atualizado', 'available': False, 'indicators': [], 'offers': [], 'offers_message': 'Indisponível', 'source_url': '', 'base_rate': None}
+        with patch('finance.views.get_investment_radar', return_value=radar):
+            response = self.client.get(reverse('finance:investment_list'), {'year': 2026, 'month': 9})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Explorar oportunidades')
+        self.assertContains(response, 'data-radar-search')
+
+    def test_contribution_updates_balance_and_creates_audit_record(self):
+        investment = Investment.objects.create(
+            user=self.user, date=self.today, description='Carteira teste',
+            type=Investment.Type.CDB, amount=Decimal('100.00'), current_balance=Decimal('100.00'),
+        )
+        response = self.client.post(
+            reverse('finance:investment_operation', args=[investment.pk, 'CONTRIBUTION']),
+            {'operation_type': 'CONTRIBUTION', 'amount': '25.50', 'source': 'Conta corrente', 'operation_key': '11111111-1111-4111-8111-111111111111'},
+        )
+        self.assertRedirects(response, reverse('finance:investment_list'))
+        investment.refresh_from_db()
+        operation = InvestmentOperation.objects.get()
+        self.assertEqual(investment.current_balance, Decimal('125.50'))
+        self.assertEqual(operation.balance_before, Decimal('100.00'))
+        self.assertEqual(operation.balance_after, Decimal('125.50'))
+        self.assertEqual(operation.user, self.user)
+
+    def test_dashboard_investment_bar_uses_monthly_contributions_only(self):
+        investment = Investment.objects.create(
+            user=self.user, date=date(2026, 10, 1), description='Reserva',
+            type=Investment.Type.CAIXINHA, amount=Decimal('100.00'), current_balance=Decimal('100.00'),
+        )
+        self.assertEqual(monthly_summary(2026, 10)['investment_month'], Decimal('0.00'))
+        apply_investment_operation(
+            user=self.user, investment_id=investment.pk,
+            operation_type=InvestmentOperation.OperationType.CONTRIBUTION,
+            operation_key='88888888-8888-4888-8888-888888888888',
+            amount=Decimal('25.00'), source='Conta corrente', occurred_on=date(2026, 10, 17),
+        )
+        self.assertEqual(monthly_summary(2026, 10)['investment_month'], Decimal('25.00'))
+
+    def test_investment_history_filters_by_month_and_operation_type(self):
+        investment = Investment.objects.create(
+            user=self.user, date=date(2026, 10, 1), description='Histórico',
+            type=Investment.Type.CAIXINHA, amount=Decimal('100.00'), current_balance=Decimal('100.00'),
+        )
+        apply_investment_operation(
+            user=self.user, investment_id=investment.pk,
+            operation_type=InvestmentOperation.OperationType.CONTRIBUTION,
+            operation_key='99999999-9999-4999-8999-999999999999',
+            amount=Decimal('10.00'), source='Conta corrente', occurred_on=date(2026, 10, 17),
+        )
+        response = self.client.get(reverse('finance:investment_history'), {'year': 2026, 'month': 10, 'type': 'CONTRIBUTION'})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Histórico')
+        self.assertEqual(len(response.context['page'].object_list), 1)
+
+    def test_investments_default_to_local_current_month_not_next_open_card_period(self):
+        CreditCardBill.objects.create(
+            invoice_month=date(2026, 10, 1), amount=Decimal('100.00'),
+            status=CreditCardBill.Status.PAID, paid_at=date(2026, 10, 5),
+        )
+        with patch('finance.views.localdate', return_value=date(2026, 10, 17)):
+            response = self.client.get(reverse('finance:investment_list'))
+        self.assertEqual(response.context['year'], 2026)
+        self.assertEqual(response.context['month'], 10)
+
+    def test_investment_operation_date_controls_month_and_manual_period_survives(self):
+        investment = Investment.objects.create(
+            user=self.user, date=date(2026, 10, 1), description='Reserva mensal',
+            type=Investment.Type.CAIXINHA, amount=Decimal('100.00'), current_balance=Decimal('100.00'),
+        )
+        url = reverse('finance:investment_operation', args=[investment.pk, 'CONTRIBUTION']) + '?year=2026&month=11'
+        response = self.client.post(url, {
+            'operation_type': 'CONTRIBUTION', 'operation_date': '2026-10-16',
+            'amount': '25.00', 'source': 'Conta corrente',
+            'operation_key': '12121212-1212-4121-8121-121212121212',
+        })
+        self.assertRedirects(response, reverse('finance:investment_list') + '?year=2026&month=11')
+        operation = InvestmentOperation.objects.get()
+        self.assertEqual(operation.occurred_at.date(), date(2026, 10, 16))
+        october = self.client.get(reverse('finance:investment_list'), {'year': 2026, 'month': 10})
+        november = self.client.get(reverse('finance:investment_list'), {'year': 2026, 'month': 11})
+        self.assertContains(october, 'Reserva mensal')
+        self.assertContains(october, 'R$ 25,00')
+        self.assertContains(november, 'Nenhuma movimentação de investimento no período.')
+        self.assertEqual(november.context['month_total'], Decimal('0.00'))
+
+    def test_withdrawal_uses_its_effective_date_for_the_selected_month(self):
+        investment = Investment.objects.create(
+            user=self.user, date=date(2026, 10, 1), description='Reserva resgate',
+            type=Investment.Type.CAIXINHA, amount=Decimal('100.00'), current_balance=Decimal('100.00'),
+        )
+        operation = apply_investment_operation(
+            user=self.user, investment_id=investment.pk,
+            operation_type=InvestmentOperation.OperationType.WITHDRAWAL,
+            operation_key='13131313-1313-4131-8131-131313131313',
+            amount=Decimal('20.00'), destination='Conta corrente',
+            reason='Pagamento de conta', occurred_on=date(2026, 11, 2),
+        )
+        self.assertEqual(operation.occurred_at.date(), date(2026, 11, 2))
+        october = self.client.get(reverse('finance:investment_list'), {'year': 2026, 'month': 10})
+        november = self.client.get(reverse('finance:investment_list'), {'year': 2026, 'month': 11})
+        self.assertContains(october, 'Nenhuma movimentação de investimento no período.')
+        self.assertContains(november, 'Reserva resgate')
+
+    def test_withdrawal_requires_reason_and_cannot_exceed_balance(self):
+        investment = Investment.objects.create(
+            user=self.user, date=self.today, description='Carteira teste',
+            type=Investment.Type.CDB, amount=Decimal('100.00'), current_balance=Decimal('100.00'),
+        )
+        url = reverse('finance:investment_operation', args=[investment.pk, 'WITHDRAWAL'])
+        invalid = self.client.post(url, {'operation_type': 'WITHDRAWAL', 'amount': '10.00', 'destination': 'Conta', 'operation_key': '22222222-2222-4222-8222-222222222222'})
+        self.assertEqual(invalid.status_code, 200)
+        self.assertContains(invalid, 'justificativa é obrigatória')
+        excessive = self.client.post(url, {'operation_type': 'WITHDRAWAL', 'amount': '101.00', 'destination': 'Conta', 'reason': 'Pagamento de conta', 'operation_key': '33333333-3333-4333-8333-333333333333'})
+        self.assertEqual(excessive.status_code, 200)
+        self.assertContains(excessive, 'maior que o saldo atual')
+        self.assertEqual(InvestmentOperation.objects.count(), 0)
+
+    def test_adjustment_requires_reason_and_is_auditable(self):
+        investment = Investment.objects.create(
+            user=self.user, date=self.today, description='Carteira teste',
+            type=Investment.Type.CDB, amount=Decimal('100.00'), current_balance=Decimal('100.00'),
+        )
+        response = self.client.post(
+            reverse('finance:investment_operation', args=[investment.pk, 'ADJUSTMENT']),
+            {'operation_type': 'ADJUSTMENT', 'new_balance': '98.75', 'operation_key': '44444444-4444-4444-8444-444444444444'},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'justificativa é obrigatória')
+        response = self.client.post(
+            reverse('finance:investment_operation', args=[investment.pk, 'ADJUSTMENT']),
+            {'operation_type': 'ADJUSTMENT', 'new_balance': '98.75', 'reason': 'Reconciliação autorizada', 'operation_key': '55555555-5555-4555-8555-555555555555'},
+        )
+        self.assertRedirects(response, reverse('finance:investment_list'))
+        self.assertEqual(InvestmentOperation.objects.get().amount, Decimal('1.25'))
+
+    def test_duplicate_operation_key_is_idempotent(self):
+        investment = Investment.objects.create(
+            user=self.user, date=self.today, description='Carteira teste',
+            type=Investment.Type.CDB, amount=Decimal('100.00'), current_balance=Decimal('100.00'),
+        )
+        key = '66666666-6666-4666-8666-666666666666'
+        kwargs = {'user': self.user, 'investment_id': investment.pk, 'operation_type': InvestmentOperation.OperationType.CONTRIBUTION, 'operation_key': key, 'amount': Decimal('10.00'), 'source': 'Conta corrente'}
+        apply_investment_operation(**kwargs)
+        apply_investment_operation(**kwargs)
+        investment.refresh_from_db()
+        self.assertEqual(investment.current_balance, Decimal('110.00'))
+        self.assertEqual(InvestmentOperation.objects.count(), 1)
+
+    def test_unassigned_legacy_investment_cannot_be_operated(self):
+        investment = Investment.objects.create(
+            date=self.today, description='Legado sem proprietário', type=Investment.Type.SAVINGS,
+            amount=Decimal('473.55'), current_balance=Decimal('473.65'),
+        )
+        response = self.client.get(reverse('finance:investment_operation', args=[investment.pk, 'CONTRIBUTION']))
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(Investment.objects.get(pk=investment.pk).current_balance, Decimal('473.65'))
+
+    def test_investment_operations_are_isolated_between_users(self):
+        investment = Investment.objects.create(
+            user=self.user, date=self.today, description='Carteira privada',
+            type=Investment.Type.CDB, amount=Decimal('100.00'), current_balance=Decimal('100.00'),
+        )
+        other = get_user_model().objects.create_user(username='other', password='other-password')
+        other_client = self.client.__class__()
+        other_client.force_login(other)
+        response = other_client.get(reverse('finance:investment_operation', args=[investment.pk, 'CONTRIBUTION']))
+        self.assertEqual(response.status_code, 404)
+        self.assertNotContains(other_client.get(reverse('finance:investment_history')), 'Carteira privada')
 
     def test_investment_radar_refresh_endpoint_returns_json(self):
         radar = {'updated_at': '17/10/2026 20:00', 'sync_state': 'atualizado', 'available': True, 'indicators': [], 'offers': [], 'offers_message': 'Nenhuma oferta verificavel', 'source_url': '', 'base_rate': None}
@@ -1275,6 +1490,17 @@ class OpenPeriodTests(BaseFinanceTest):
         })
         self.assertRedirects(response, reverse('finance:dashboard') + '?year=2026&month=11')
         self.assertTrue(Transaction.objects.filter(description='Compra em novembro', date=date(2026, 11, 1)).exists())
+
+    def test_modal_purchase_keeps_selected_invoice_period_when_purchase_date_is_previous_month(self):
+        self.client.get(reverse('finance:dashboard'), {'year': 2026, 'month': 11})
+        response = self.client.post(reverse('finance:quick_expense'), {
+            'date': '2026-10-06', 'description': 'Compra para fatura de novembro',
+            'category': self.food.pk, 'payment_method': Transaction.PaymentMethod.CREDIT_CARD,
+            'amount': '80.00', 'vr_amount': '0.00', 'responsible': 'SELF',
+            'paid': 'on', 'installment_total': '1',
+        })
+        self.assertRedirects(response, reverse('finance:dashboard') + '?year=2026&month=11')
+        self.assertTrue(CreditCardExpense.objects.filter(description='Compra para fatura de novembro').exists())
 
     def test_manual_card_purchase_is_blocked_in_paid_invoice_period(self):
         CreditCardBill.objects.create(

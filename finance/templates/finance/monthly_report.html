@@ -13,7 +13,7 @@
   </form>
   <div class="report-actions"><a class="btn btn-accent" href="{% url 'finance:report_csv' %}?report_type={{ report_type }}&start={{ report_start|date:'Y-m-d' }}&end={{ report_end|date:'Y-m-d' }}&category={{ report_category }}&payment={{ report_payment }}">Exportar CSV</a><a class="btn btn-outline-secondary" href="{% url 'finance:report_pdf' %}?report_type={{ report_type }}&start={{ report_start|date:'Y-m-d' }}&end={{ report_end|date:'Y-m-d' }}&category={{ report_category }}&payment={{ report_payment }}">Exportar PDF</a></div>
 </section>
-{% if report_type == 'visual' %}<section class="report-chart-grid"><div class="data-panel chart-panel"><div class="panel-heading"><div><h2>Receitas x despesas</h2><p>Resumo do mês selecionado</p></div></div><div class="chart-frame"><canvas id="report-income-expense"></canvas></div></div><div class="data-panel chart-panel"><div class="panel-heading"><div><h2>Gastos por categoria</h2><p>Distribuição das saídas</p></div></div><div class="chart-frame chart-donut"><canvas id="report-categories"></canvas></div></div></section>{% endif %}
+{% if report_type == 'visual' %}<section class="report-chart-grid"><div class="data-panel chart-panel"><div class="panel-heading"><div><h2>Entradas, saídas e aplicações</h2><p>Resumo do mês selecionado</p></div></div><div class="chart-frame"><canvas id="report-income-expense"></canvas></div></div><div class="data-panel chart-panel"><div class="panel-heading"><div><h2>Gastos por categoria</h2><p>Distribuição das saídas</p></div></div><div class="chart-frame chart-donut"><canvas id="report-categories"></canvas></div></div></section>{% endif %}
 <div class="card">
   <div class="card-body">
     <table class="table mb-0">
