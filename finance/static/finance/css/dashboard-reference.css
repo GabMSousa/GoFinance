@@ -321,8 +321,8 @@ html:not([data-theme="dark"]) .dashboard-calculator-key--operator {
 
 .btn-bill-pay,
 .btn-bill-paid {
-  background: #4aba63;
-  border-color: #0fba3f;
+  background: #0c7128;
+  border-color: #0ce93e;
   color: #fff;
 }
 
@@ -330,8 +330,8 @@ html:not([data-theme="dark"]) .dashboard-calculator-key--operator {
 .btn-bill-pay:focus-visible,
 .btn-bill-paid:hover,
 .btn-bill-paid:focus-visible {
-  background: #4aba63;
-  border-color: #0fba3f;
+  background: #0c7128;
+  border-color: #0ce93e;
   color: #fff;
 }
 
@@ -538,7 +538,7 @@ html:not([data-theme="dark"]) .dashboard-summary .summary-icon-card { color: #11
 .dashboard-summary .summary-spark i:nth-child(2) { height: 28px; }
 .dashboard-summary .summary-spark i:nth-child(3) { height: 40px; }
 
-.dashboard-summary .summary-balance { background: #4aba63; border-color: #0fba3f; color: #fff; }
+.dashboard-summary .summary-balance { background: #0c7128; border-color: #0ce93e; color: #fff; }
 .dashboard-summary .summary-balance .summary-icon { background: #163e29; }
 .dashboard-summary .summary-receipts { background: #102236; border-color: #23628b; color: #49a3d5; }
 .dashboard-summary .summary-receipts .summary-icon { background: #163853; }
@@ -754,11 +754,11 @@ html:not([data-theme="dark"]) .movement-account-summary .account-summary-card { 
 .radar-indicators { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .radar-indicator { min-width: 0; padding: 10px; border: 1px solid var(--dashboard-divider); border-radius: 9px; background: var(--dashboard-field); }
 .radar-indicator span, .radar-indicator small, .radar-section-title span, .radar-results span { display: block; color: var(--dashboard-muted); font-size: .68rem; }
-.radar-indicator strong { display: block; margin: 4px 0 2px; color: #0be02f; font-size: 1rem; }
+.radar-indicator strong { display: block; margin: 4px 0 2px; color: #0ce93e; font-size: 1rem; }
 .radar-indicator strong.is-unavailable { color: var(--dashboard-muted); }
 .radar-indicator small { font-size: .62rem; }
 .radar-explorer { margin-top: 12px; padding-top: 11px; border-top: 1px solid var(--dashboard-divider); }
-.radar-refresh { border: 0; padding: 0; background: transparent; color: #0be02f; font: inherit; font-size: .68rem; cursor: pointer; }
+.radar-refresh { border: 0; padding: 0; background: transparent; color: #0ce93e; font: inherit; font-size: .68rem; cursor: pointer; }
 .radar-refresh:disabled { opacity: .55; cursor: wait; }
 .radar-filter-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin-top: 9px; }
 .radar-filter-grid label { color: var(--dashboard-muted); font-size: .64rem; }
@@ -778,10 +778,10 @@ html:not([data-theme="dark"]) .movement-account-summary .account-summary-card { 
 .radar-offer-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin-top: 8px; }
 .radar-offer-summary div { min-width: 0; }
 .radar-offer-summary span, .radar-offer-details span { display: block; color: var(--dashboard-muted); font-size: .6rem; }
-.radar-offer-summary strong { display: block; margin-top: 2px; color: #0be02f; font-size: .68rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.radar-offer-summary strong { display: block; margin-top: 2px; color: #0ce93e; font-size: .68rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .radar-offer-actions { flex-wrap: wrap; justify-content: flex-start; margin-top: 8px; }
 .radar-offer-actions details { flex: 1 1 auto; }
-.radar-offer-actions summary, .radar-source-link, .radar-select-offer { color: #0be02f; font-size: .62rem; cursor: pointer; }
+.radar-offer-actions summary, .radar-source-link, .radar-select-offer { color: #0ce93e; font-size: .62rem; cursor: pointer; }
 .radar-source-link { text-decoration: none; }
 .radar-select-offer { border: 1px solid rgba(116,214,154,.35); border-radius: 6px; padding: 4px 7px; background: transparent; }
 .radar-offer-details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 8px; margin-top: 7px; }
@@ -796,10 +796,10 @@ html:not([data-theme="dark"]) .movement-account-summary .account-summary-card { 
 .radar-form-grid input { width: 100%; margin-top: 4px; padding: 7px 8px; border: 1px solid var(--dashboard-divider); border-radius: 7px; background: var(--dashboard-field); color: var(--dashboard-text); }
 .radar-results { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
 .radar-results > div { padding: 8px; border-radius: 8px; background: rgba(35, 131, 76, .1); }
-.radar-results strong { display: block; margin-top: 3px; color: #0be02f; font-size: .78rem; }
+.radar-results strong { display: block; margin-top: 3px; color: #0ce93e; font-size: .78rem; }
 .radar-results--simulator > div { min-width: 0; }
 .radar-results--simulator span { line-height: 1.25; }
-.radar-explore-link { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--dashboard-divider); color: #0be02f; font-size: .76rem; font-weight: 600; text-decoration: none; }
+.radar-explore-link { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--dashboard-divider); color: #0ce93e; font-size: .76rem; font-weight: 600; text-decoration: none; }
 .radar-explore-link:hover, .radar-explore-link:focus { color: var(--dashboard-text); }
 .investment-radar--full .radar-results-list { max-height: none; overflow: visible; }
 .investment-radar--full .radar-form-grid, .investment-radar--full .radar-results { max-width: 720px; }
@@ -808,16 +808,16 @@ html:not([data-theme="dark"]) .movement-account-summary .account-summary-card { 
 .csv-import-modal .modal-content { overflow: hidden; background: #11161d; border-color: #40506b; box-shadow: 0 24px 70px rgba(0,0,0,.48); }
 .csv-import-modal .modal-header { padding: 20px 22px 17px; background: #151c26; border-bottom-color: #34445e; }
 .csv-import-modal .modal-title { color: #f1f3f5; font-size: 1.08rem; }
-.csv-import-kicker { margin: 0 0 5px; color: #0be02f; font-size: .62rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.csv-import-kicker { margin: 0 0 5px; color: #0ce93e; font-size: .62rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
 .csv-import-modal .btn-close { opacity: .8; }
 .csv-import-modal .modal-body { padding: 22px; }
 .csv-import-intro { display: flex; align-items: flex-start; gap: 12px; padding: 13px 14px; border: 1px solid #2e4056; border-radius: 10px; background: #172231; }
-.csv-import-icon { display: grid; flex: 0 0 30px; place-items: center; width: 30px; height: 30px; border-radius: 8px; background: rgba(11,224,47,.12); color: #0be02f; font-size: 1.2rem; font-weight: 800; }
+.csv-import-icon { display: grid; flex: 0 0 30px; place-items: center; width: 30px; height: 30px; border-radius: 8px; background: rgba(12,113,40,.18); color: #0ce93e; font-size: 1.2rem; font-weight: 800; }
 .csv-import-intro p { margin: 0; color: #f1f3f5; font-size: .78rem; line-height: 1.45; }
 .csv-import-intro small { display: block; margin-top: 4px; color: #a5b0c1; font-size: .68rem; line-height: 1.4; }
 .csv-import-form { display: grid; gap: 14px; margin-top: 18px; }
 .csv-file-picker { position: relative; display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 3px 12px; align-items: center; min-height: 74px; padding: 13px 14px; border: 1px dashed #526681; border-radius: 10px; background: #0e141c; cursor: pointer; transition: border-color .15s ease, background .15s ease; }
-.csv-file-picker:hover, .csv-file-picker:focus-within { border-color: #0be02f; background: #121d28; }
+.csv-file-picker:hover, .csv-file-picker:focus-within { border-color: #0ce93e; background: #121d28; }
 .csv-file-picker-title { color: #f1f3f5; font-size: .8rem; font-weight: 750; }
 .csv-file-picker-subtitle { grid-column: 1; color: #8e9caf; font-size: .67rem; }
 .csv-file-picker-button { grid-column: 2; grid-row: 1 / span 2; padding: 8px 11px; border: 1px solid #526681; border-radius: 7px; color: #d9e2ef; font-size: .7rem; font-weight: 750; }
