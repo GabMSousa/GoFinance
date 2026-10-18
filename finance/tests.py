@@ -15,6 +15,7 @@ from .importers import preview_csv
 from .investment_radar import _annualize_daily, _compound_monthly
 from .services import apply_investment_operation, invoice_month_for_installment, invoice_month_for_purchase, monthly_summary, split_installment_values
 from .views import DuplicateExpenseError, create_card_installments, default_open_period
+from .ownership import reset_current_user, set_current_user
 
 
 class BaseFinanceTest(TestCase):
@@ -22,13 +23,43 @@ class BaseFinanceTest(TestCase):
         user = get_user_model().objects.create_user(username='tester', password='test-password')
         self.user = user
         self.client.force_login(user)
-        self.food = Category.objects.create(name='Alimentação')
-        self.moto = Category.objects.create(name='Moto')
-        self.subs = Category.objects.create(name='Assinaturas')
-        self.me = Person.objects.create(name='Eu')
-        self.vitoria = Person.objects.create(name='Vitória')
-        self.other = Person.objects.create(name='Outro')
+        self._ownership_token = set_current_user(user)
+        self.food = Category.objects.create(owner=self.user, name='Alimentação')
+        self.moto = Category.objects.create(owner=self.user, name='Moto')
+        self.subs = Category.objects.create(owner=self.user, name='Assinaturas')
+        self.me = Person.objects.create(owner=self.user, name='Eu')
+        self.vitoria = Person.objects.create(owner=self.user, name='Vitória')
+        self.other = Person.objects.create(owner=self.user, name='Outro')
         self.today = date(2026, 9, 10)
+
+    def tearDown(self):
+        reset_current_user(self._ownership_token)
+        super().tearDown()
+
+
+class UserDataIsolationTests(TestCase):
+    def test_new_user_cannot_see_existing_financial_data(self):
+        owner = get_user_model().objects.create_user(username='gabriel-owner', password='test-password')
+        other = get_user_model().objects.create_user(username='new-user', password='test-password')
+        category = Category.objects.create(name='Privada', owner=owner)
+        person = Person.objects.create(name='Eu', owner=owner)
+        Transaction.objects.create(
+            owner=owner,
+            date=date(2026, 9, 10),
+            description='DADO EXCLUSIVO DO GABRIEL',
+            type=Transaction.Type.EXPENSE,
+            payment_method=Transaction.PaymentMethod.PIX,
+            amount=Decimal('10.00'),
+            category=category,
+            person=person,
+        )
+
+        self.client.force_login(other)
+        response = self.client.get(reverse('finance:dashboard'), {'year': 2026, 'month': 9})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'DADO EXCLUSIVO DO GABRIEL')
+        self.assertFalse(Transaction.objects.filter(owner=other).exists())
 
 
 class RevenueExpenseTests(BaseFinanceTest):
@@ -984,7 +1015,7 @@ class BalanceVrInvestmentTests(BaseFinanceTest):
 
     def test_unassigned_legacy_investment_cannot_be_operated(self):
         investment = Investment.objects.create(
-            date=self.today, description='Legado sem proprietário', type=Investment.Type.SAVINGS,
+            user=None, date=self.today, description='Legado sem proprietário', type=Investment.Type.SAVINGS,
             amount=Decimal('473.55'), current_balance=Decimal('473.65'),
         )
         response = self.client.get(reverse('finance:investment_operation', args=[investment.pk, 'CONTRIBUTION']))

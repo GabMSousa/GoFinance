@@ -1,5 +1,7 @@
 from django.conf import settings
 
+from .ownership import reset_current_user, set_current_user
+
 
 class LoginRequiredMiddleware:
     """Require an authenticated session for every application URL."""
@@ -10,19 +12,23 @@ class LoginRequiredMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        if not request.user.is_authenticated and not request.path.startswith(self.public_prefixes):
-            from django.shortcuts import redirect
-            from django.urls import reverse
-
-            return redirect(f'{reverse("login")}?next={request.get_full_path()}')
-        if request.user.is_authenticated and request.path not in {'/login/', '/senha/alterar/', '/logout/'}:
-            from .models import UserSecurityProfile
-
-            if UserSecurityProfile.objects.filter(user=request.user, must_change_password=True).exists():
+        token = set_current_user(request.user)
+        try:
+            if not request.user.is_authenticated and not request.path.startswith(self.public_prefixes):
                 from django.shortcuts import redirect
+                from django.urls import reverse
 
-                return redirect('/senha/alterar/')
-        return self.get_response(request)
+                return redirect(f'{reverse("login")}?next={request.get_full_path()}')
+            if request.user.is_authenticated and request.path not in {'/login/', '/senha/alterar/', '/logout/'}:
+                from .models import UserSecurityProfile
+
+                if UserSecurityProfile.objects.filter(user=request.user, must_change_password=True).exists():
+                    from django.shortcuts import redirect
+
+                    return redirect('/senha/alterar/')
+            return self.get_response(request)
+        finally:
+            reset_current_user(token)
 
 
 class SecurityHeadersMiddleware:

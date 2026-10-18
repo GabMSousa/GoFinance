@@ -6,6 +6,55 @@ from django.core.validators import MinValueValidator
 from django.utils import timezone
 from django.db import models
 
+from .ownership import UserOwnedManagerMixin, get_current_user
+
+
+class UserOwnedManager(UserOwnedManagerMixin, models.Manager):
+    pass
+
+
+class UserRelationManager(models.Manager):
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        user = get_current_user()
+        return queryset.filter(user=user) if user else queryset
+
+    def create(self, **kwargs):
+        user = get_current_user()
+        if user and 'user' not in kwargs:
+            kwargs['user'] = user
+        return super().create(**kwargs)
+
+
+class UserOwnedModel(models.Model):
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='+',
+        null=True,
+        blank=True,
+        db_index=True,
+        verbose_name='Usuário proprietário',
+    )
+    objects = UserOwnedManager()
+
+    class Meta:
+        abstract = True
+
+    def save(self, *args, **kwargs):
+        if self.owner_id is None:
+            user = get_current_user()
+            if user:
+                self.owner = user
+            else:
+                for relation_name in ('category', 'person', 'transaction', 'card_expense'):
+                    related = getattr(self, relation_name, None)
+                    related_owner_id = getattr(related, 'owner_id', None)
+                    if related_owner_id:
+                        self.owner_id = related_owner_id
+                        break
+        return super().save(*args, **kwargs)
+
 
 class UserSecurityProfile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='security_profile')
@@ -18,8 +67,8 @@ class UserSecurityProfile(models.Model):
         return f'Segurança de {self.user.username}'
 
 
-class Category(models.Model):
-    name = models.CharField('Nome', max_length=100, unique=True)
+class Category(UserOwnedModel):
+    name = models.CharField('Nome', max_length=100)
     active = models.BooleanField('Ativa?', default=True)
     created_at = models.DateTimeField('Criado em', auto_now_add=True)
 
@@ -32,8 +81,8 @@ class Category(models.Model):
         return self.name
 
 
-class Person(models.Model):
-    name = models.CharField('Nome', max_length=100, unique=True)
+class Person(UserOwnedModel):
+    name = models.CharField('Nome', max_length=100)
     active = models.BooleanField('Ativo?', default=True)
     created_at = models.DateTimeField('Criado em', auto_now_add=True)
 
@@ -50,7 +99,7 @@ class Person(models.Model):
         return self.name.strip().lower() == 'eu'
 
 
-class Transaction(models.Model):
+class Transaction(UserOwnedModel):
     class Type(models.TextChoices):
         REVENUE = 'REVENUE', 'Receita'
         EXPENSE = 'EXPENSE', 'Despesa'
@@ -121,6 +170,7 @@ class Transaction(models.Model):
     )
     created_at = models.DateTimeField('Criado em', auto_now_add=True)
     updated_at = models.DateTimeField('Atualizado em', auto_now=True)
+    objects = UserOwnedManager()
 
     class Meta:
         ordering = ['-date', '-id']
@@ -149,7 +199,7 @@ class Transaction(models.Model):
             raise ValidationError({'person': 'Responsável é obrigatório para gastos de terceiros.'})
 
 
-class FixedExpense(models.Model):
+class FixedExpense(UserOwnedModel):
     class Recurrence(models.TextChoices):
         MONTHLY = 'MONTHLY', 'Mensal'
         YEARLY = 'YEARLY', 'Anual'
@@ -198,7 +248,7 @@ class FixedExpense(models.Model):
             raise ValidationError({'due_day': 'Dia de vencimento deve estar entre 1 e 31.'})
 
 
-class Goal(models.Model):
+class Goal(UserOwnedModel):
     name = models.CharField('Nome', max_length=160)
     target_amount = models.DecimalField('Valor objetivo', max_digits=12, decimal_places=2, validators=[MinValueValidator(Decimal('0.01'))])
     current_amount = models.DecimalField('Valor acumulado', max_digits=12, decimal_places=2, default=0, validators=[MinValueValidator(Decimal('0.00'))])
@@ -223,7 +273,7 @@ class Goal(models.Model):
         return min(float(self.current_amount / self.target_amount * 100), 100)
 
 
-class FinancialProfile(models.Model):
+class FinancialProfile(UserOwnedModel):
     salary_gross = models.DecimalField('Salário bruto', max_digits=12, decimal_places=2, default=3000)
     salary_net = models.DecimalField('Salário líquido', max_digits=12, decimal_places=2, default=2751.20)
     previous_net_salary = models.DecimalField('Salário líquido anterior', max_digits=12, decimal_places=2, default=2299)
@@ -238,13 +288,17 @@ class FinancialProfile(models.Model):
         return 'Dados financeiros'
 
     @classmethod
-    def current(cls):
-        profile, _ = cls.objects.get_or_create(pk=1)
+    def current(cls, user=None):
+        profile = cls.objects.filter(owner=user).first() if user else cls.objects.first()
+        if profile:
+            return profile
+        profile = cls(owner=user)
+        profile.save()
         return profile
 
 
-class SalarySnapshot(models.Model):
-    month = models.DateField('Mês', unique=True)
+class SalarySnapshot(UserOwnedModel):
+    month = models.DateField('Mês')
     salary_gross = models.DecimalField('Salário bruto', max_digits=12, decimal_places=2, default=3000)
     salary_net = models.DecimalField('Salário líquido', max_digits=12, decimal_places=2, default=2751.20)
     vr_monthly_credit = models.DecimalField('VR mensal', max_digits=12, decimal_places=2, default=500)
@@ -255,12 +309,12 @@ class SalarySnapshot(models.Model):
         ordering = ['-month']
 
 
-class CreditCardBill(models.Model):
+class CreditCardBill(UserOwnedModel):
     class Status(models.TextChoices):
         PENDING = 'PENDING', 'Pendente'
         PAID = 'PAID', 'Pago'
 
-    invoice_month = models.DateField('Mês da fatura', unique=True)
+    invoice_month = models.DateField('Mês da fatura')
     amount = models.DecimalField('Valor', max_digits=12, decimal_places=2, validators=[MinValueValidator(Decimal('0.00'))])
     paid_at = models.DateField('Pago em', null=True, blank=True)
     status = models.CharField('Status', max_length=10, choices=Status.choices, default=Status.PENDING)
@@ -275,7 +329,7 @@ class CreditCardBill(models.Model):
         return self.status == self.Status.PAID
 
 
-class CreditCardExpense(models.Model):
+class CreditCardExpense(UserOwnedModel):
     date = models.DateField('Data da parcela')
     purchase_date = models.DateField('Data da compra', null=True, blank=True)
     invoice_month = models.DateField('Mês da fatura', null=True, blank=True, db_index=True)
@@ -324,7 +378,7 @@ class CreditCardExpense(models.Model):
     first_installment = models.DateField('Primeira parcela', null=True, blank=True)
     last_installment = models.DateField('Última parcela', null=True, blank=True)
     series_id = models.UUIDField('Série', null=True, blank=True, db_index=True)
-    import_hash = models.CharField('Identificador da importação', max_length=64, unique=True, null=True, blank=True)
+    import_hash = models.CharField('Identificador da importação', max_length=64, null=True, blank=True)
     created_at = models.DateTimeField('Criado em', auto_now_add=True)
     updated_at = models.DateTimeField('Atualizado em', auto_now=True)
 
@@ -427,6 +481,7 @@ class Investment(models.Model):
     notes = models.TextField('Observações', blank=True)
     created_at = models.DateTimeField('Criado em', auto_now_add=True)
     updated_at = models.DateTimeField('Atualizado em', auto_now=True)
+    objects = UserRelationManager()
 
     class Meta:
         ordering = ['-date', '-id']
@@ -489,6 +544,7 @@ class InvestmentOperation(models.Model):
         null=True,
         blank=True,
     )
+    objects = UserRelationManager()
 
     class Meta:
         ordering = ['-occurred_at', '-id']
@@ -516,7 +572,7 @@ class InvestmentOperation(models.Model):
             raise ValidationError(errors)
 
 
-class VRMovement(models.Model):
+class VRMovement(UserOwnedModel):
     class Type(models.TextChoices):
         CREDIT = 'CREDIT', 'Crédito'
         DEBIT = 'DEBIT', 'Gasto'
