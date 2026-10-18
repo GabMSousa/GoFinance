@@ -6,6 +6,8 @@ from datetime import date, datetime
 from decimal import Decimal
 
 from django.contrib import messages
+from django.contrib.auth import get_user_model
+from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.forms import PasswordChangeForm
 from django.core.exceptions import PermissionDenied, ValidationError
@@ -34,6 +36,7 @@ from .forms import (
     PersonForm,
     ProfileForm,
     ProfilePasswordForm,
+    AdminUserCreationForm,
     QuickExpenseForm,
     ReimbursementForm,
     RevenueForm,
@@ -119,6 +122,27 @@ def profile_password_change(request):
     profile_obj, _ = UserSecurityProfile.objects.get_or_create(user=request.user)
     profile_form = ProfileForm(request.user)
     return render(request, 'finance/profile.html', {'form': profile_form, 'password_form': form, 'profile': profile_obj})
+
+
+staff_required = user_passes_test(lambda user: user.is_active and user.is_staff, login_url='login')
+
+
+@staff_required
+def admin_users(request):
+    form = AdminUserCreationForm(request.POST or None)
+    if request.method == 'POST' and form.is_valid():
+        with db_transaction.atomic():
+            user = form.save()
+            UserSecurityProfile.objects.create(
+                user=user,
+                display_name=form.cleaned_data['display_name'],
+                must_change_password=True,
+            )
+        messages.success(request, f'Usuário {user.username} criado com sucesso.')
+        return redirect('finance:admin_users')
+
+    users = get_user_model().objects.select_related('security_profile').order_by('username')
+    return render(request, 'finance/admin_users.html', {'form': form, 'users': users})
 
 
 def posted_period(request, default_year, default_month):
