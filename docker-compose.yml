@@ -1,0 +1,50 @@
+services:
+  db:
+    image: mariadb:11.4
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: ${MYSQL_DATABASE:-saas_finance}
+      MARIADB_USER: ${MYSQL_USER:-saas_finance}
+      MARIADB_PASSWORD: ${MYSQL_PASSWORD:?Defina MYSQL_PASSWORD no .env}
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:?Defina MARIADB_ROOT_PASSWORD no .env}
+    volumes:
+      - gofinance_db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  web:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DJANGO_DB_ENGINE: mysql
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-0}
+      MYSQL_HOST: db
+      MYSQL_PORT: 3306
+    volumes:
+      - gofinance_static:/app/staticfiles
+      - gofinance_media:/app/media
+    depends_on:
+      db:
+        condition: service_healthy
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "${GOFINANCE_HTTP_PORT:-8000}:80"
+    volumes:
+      - gofinance_static:/staticfiles:ro
+      - gofinance_media:/media:ro
+      - ./deploy/nginx-docker.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - web
+
+volumes:
+  gofinance_db:
+  gofinance_static:
+  gofinance_media:
