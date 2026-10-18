@@ -785,7 +785,16 @@ class BalanceVrInvestmentTests(BaseFinanceTest):
             response = self.client.get(reverse('finance:dashboard'), {'year': 2026, 'month': 9})
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Radar de Investimentos')
+        self.assertContains(response, 'data-radar-search')
         self.assertEqual(response.context['summary']['investment_month'], Decimal('0.00'))
+
+    def test_investment_radar_refresh_endpoint_returns_json(self):
+        radar = {'updated_at': '17/10/2026 20:00', 'sync_state': 'atualizado', 'available': True, 'indicators': [], 'offers': [], 'offers_message': 'Nenhuma oferta verificavel', 'source_url': '', 'base_rate': None}
+        with patch('finance.views.get_investment_radar', return_value=radar) as loader:
+            response = self.client.get(reverse('finance:investment_radar_data'), {'refresh': '1'})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['sync_state'], 'atualizado')
+        loader.assert_called_once_with(force=True)
 
     def test_paid_invoice_blocks_csv_preview_in_backend(self):
         CreditCardBill.objects.create(invoice_month=date(2026, 10, 1), amount=Decimal('100.00'), status=CreditCardBill.Status.PAID, paid_at=date(2026, 10, 5))

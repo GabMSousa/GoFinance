@@ -7,6 +7,7 @@ app_name = 'finance'
 
 urlpatterns = [
     path('', login_required(views.dashboard), name='dashboard'),
+    path('investimentos/radar/', login_required(views.investment_radar_data), name='investment_radar_data'),
     path('senha/alterar/', login_required(views.password_change), name='password_change'),
     path('perfil/', login_required(views.profile), name='profile'),
     path('perfil/senha/', login_required(views.profile_password_change), name='profile_password_change'),
