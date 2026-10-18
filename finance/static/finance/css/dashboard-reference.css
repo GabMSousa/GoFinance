@@ -574,6 +574,12 @@ html:not([data-theme="dark"]) .dashboard-summary.home-summary .summary-receivabl
 html:not([data-theme="dark"]) .dashboard-summary.home-summary .summary-vr { background: #f2eafd; border-color: #bba0e5; color: #5d3b91; }
 html:not([data-theme="dark"]) .dashboard-summary.home-summary .summary-vr .summary-icon { background: #e8dafb; }
 
+/* Os textos dos cards precisam manter contraste independentemente do tema base. */
+.dashboard-summary.home-summary .summary-card .summary-label,
+.dashboard-summary.home-summary .summary-card .summary-value {
+  color: #fff !important;
+}
+
 .dashboard-search-toolbar {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto auto 56px;
