@@ -2,10 +2,11 @@ from datetime import date
 from decimal import Decimal
 import os
 
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.contrib.auth import get_user_model
 
 from finance.models import Category, FixedExpense, Person, Transaction, UserSecurityProfile, VRMovement
+from finance.ownership import get_current_user
 from finance.services import monthly_credit_setting
 
 
@@ -13,15 +14,41 @@ class Command(BaseCommand):
     help = 'Cria categorias, responsáveis, gastos fixos e crédito mensal de VR sem duplicar.'
 
     def handle(self, *args, **options):
+        password = os.environ.get('DJANGO_ADMIN_PASSWORD', '')
+        user_model = get_user_model()
+        current_user = get_current_user()
+        owner_user = current_user or user_model.objects.order_by('id').first()
+        if password:
+            admin_user, created = user_model.objects.get_or_create(
+                username=os.environ.get('DJANGO_ADMIN_USERNAME', 'gabriel.sousa'),
+                defaults={'is_staff': True, 'is_superuser': True, 'email': ''},
+            )
+            admin_user.is_staff = True
+            admin_user.is_superuser = True
+            admin_user.set_password(password)
+            admin_user.save(update_fields=['password', 'is_staff', 'is_superuser'])
+            profile, profile_created = UserSecurityProfile.objects.get_or_create(user=admin_user)
+            if created or profile_created:
+                profile.must_change_password = True
+                profile.save(update_fields=['must_change_password', 'updated_at'])
+            owner_user = current_user or admin_user
+        if owner_user is None:
+            raise CommandError('Crie o primeiro usuário administrador antes de inicializar os dados financeiros.')
+
         categories = [
             'Alimentação', 'Restaurante', 'Mercado', 'Moto', 'Combustível',
             'Transporte', 'Internet', 'Faculdade', 'Academia', 'Assinaturas',
             'Compras', 'Lazer', 'Saúde', 'Investimentos', 'Outros',
         ]
+        category_map = {}
         for name in categories:
-            Category.objects.get_or_create(name=name, defaults={'active': True})
+            category_map[name], _ = Category.objects.get_or_create(
+                owner=owner_user,
+                name=name,
+                defaults={'active': True},
+            )
 
-        Person.objects.get_or_create(name='Eu', defaults={'active': True})
+        Person.objects.get_or_create(owner=owner_user, name='Eu', defaults={'active': True})
 
         initial_fixed = [
             ('Moto', 'Moto', Decimal('660.06'), False, '', False),
@@ -32,8 +59,9 @@ class Command(BaseCommand):
             ('Academia', 'Academia', Decimal('70.00'), False, '', False),
         ]
         for description, category_name, amount, included, payment_method, is_subscription in initial_fixed:
-            category = Category.objects.get(name=category_name)
+            category = category_map[category_name]
             FixedExpense.objects.update_or_create(
+                owner=owner_user,
                 description=description,
                 defaults={
                     'category': category,
@@ -48,6 +76,7 @@ class Command(BaseCommand):
         today = date.today()
         credit = monthly_credit_setting()
         VRMovement.objects.get_or_create(
+            owner=owner_user,
             date=date(today.year, today.month, 1),
             description=f'Crédito mensal VR {today.month:02d}/{today.year}',
             movement_type=VRMovement.Type.CREDIT,
