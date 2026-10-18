@@ -9,6 +9,12 @@
   --dashboard-text: #f1f3f5;
   --dashboard-muted: #a5adb8;
   --dashboard-dim: #788391;
+  --dashboard-amber: #876717;
+  --dashboard-amber-rgb: 135,103,23;
+  --dashboard-amber-surface: rgba(var(--dashboard-amber-rgb),.18);
+  --dashboard-amber-soft: rgba(var(--dashboard-amber-rgb),.12);
+  --dashboard-amber-icon: rgba(var(--dashboard-amber-rgb),.22);
+  --dashboard-amber-icon-soft: rgba(var(--dashboard-amber-rgb),.16);
 }
 
 html:not([data-theme="dark"]) {
@@ -349,15 +355,15 @@ html:not([data-theme="dark"]) .dashboard-calculator-key--operator {
 }
 
 .btn-add-header {
-  background: #876717;
-  border-color: #876717;
+  background: var(--dashboard-amber);
+  border-color: var(--dashboard-amber);
   color: #fff;
 }
 
 .btn-add-header:hover,
 .btn-add-header:focus-visible {
-  background: #876717;
-  border-color: #876717;
+  background: var(--dashboard-amber);
+  border-color: var(--dashboard-amber);
   color: #fff;
 }
 
@@ -539,8 +545,8 @@ html:not([data-theme="dark"]) .dashboard-summary .summary-icon-card { color: #11
 .dashboard-summary .summary-receipts .summary-icon { background: #163853; }
 .dashboard-summary .summary-expenses { background: #4A2227; border-color: #4A2227; color: #4A2227; }
 .dashboard-summary .summary-expenses .summary-icon { background: rgba(74,34,39,.28); }
-.dashboard-summary.home-summary .summary-receivable { background: rgba(135,103,23,.18); border-color: #876717; color: #876717; }
-.dashboard-summary.home-summary .summary-receivable .summary-icon { background: rgba(135,103,23,.22); }
+.dashboard-summary.home-summary .summary-receivable { background: var(--dashboard-amber-surface); border-color: var(--dashboard-amber); color: var(--dashboard-amber); }
+.dashboard-summary.home-summary .summary-receivable .summary-icon { background: var(--dashboard-amber-icon); }
 .dashboard-summary.home-summary .summary-vr { background: #21172f; border-color: #6846a0; color: #9675ce; }
 .dashboard-summary.home-summary .summary-vr .summary-icon { background: #352452; }
 .dashboard-summary .summary-receipts .summary-icon-income {
@@ -564,8 +570,8 @@ html:not([data-theme="dark"]) .dashboard-summary .summary-icon-card { color: #11
 .dashboard-summary .summary-icon-card::after { content: none; }
 html[data-theme="dark"] .dashboard-summary.home-summary .summary-vr { background: #21172f; border-color: #6846a0; color: #9675ce; }
 html[data-theme="dark"] .dashboard-summary.home-summary .summary-vr .summary-icon { background: #352452; }
-html:not([data-theme="dark"]) .dashboard-summary.home-summary .summary-receivable { background: rgba(135,103,23,.12); border-color: #e8c76d; color: #876717; }
-html:not([data-theme="dark"]) .dashboard-summary.home-summary .summary-receivable .summary-icon { background: rgba(135,103,23,.16); }
+html:not([data-theme="dark"]) .dashboard-summary.home-summary .summary-receivable { background: var(--dashboard-amber-soft); border-color: var(--dashboard-amber); color: var(--dashboard-amber); }
+html:not([data-theme="dark"]) .dashboard-summary.home-summary .summary-receivable .summary-icon { background: var(--dashboard-amber-icon-soft); }
 html:not([data-theme="dark"]) .dashboard-summary.home-summary .summary-vr { background: #f2eafd; border-color: #bba0e5; color: #5d3b91; }
 html:not([data-theme="dark"]) .dashboard-summary.home-summary .summary-vr .summary-icon { background: #e8dafb; }
 
@@ -726,8 +732,8 @@ html:not([data-theme="dark"]) .movement-account-summary .account-summary-card { 
 .investment-position-balance strong { font-variant-numeric: tabular-nums; }
 .investment-empty-state { padding: 28px 16px !important; }
 .investment-operations-panel .table th, .investment-operations-panel .table td { padding: 11px 14px; }
-.investment-legacy-notice { display: flex; flex-direction: column; gap: 4px; margin: 0 0 14px; padding: 11px 16px; border: 1px solid rgba(135,103,23,.45); border-radius: 9px; background: rgba(135,103,23,.08); color: var(--dashboard-muted); font-size: .75rem; }
-.investment-legacy-notice strong { color: #876717; }
+.investment-legacy-notice { display: flex; flex-direction: column; gap: 4px; margin: 0 0 14px; padding: 11px 16px; border: 1px solid rgba(var(--dashboard-amber-rgb),.45); border-radius: 9px; background: rgba(var(--dashboard-amber-rgb),.08); color: var(--dashboard-muted); font-size: .75rem; }
+.investment-legacy-notice strong { color: var(--dashboard-amber); }
 .investment-operation-panel, .investment-history-panel { margin-top: 18px; }
 .investment-operation-panel form label { display: block; margin-bottom: 6px; color: var(--dashboard-text); font-size: .76rem; font-weight: 700; }
 .investment-operation-panel form .form-control,
