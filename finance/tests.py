@@ -1339,6 +1339,32 @@ class AuthenticationTests(TestCase):
         self.assertTrue(created.security_profile.must_change_password)
         self.assertFalse(Transaction.objects.filter(person__name='Novo Usuário').exists())
 
+    def test_staff_can_toggle_user_status_without_disabling_self(self):
+        admin = get_user_model().objects.create_user(username='status-admin', password='Strong-test-password-123!', is_staff=True)
+        target = get_user_model().objects.create_user(username='status-target', password='Strong-test-password-123!')
+        self.client.force_login(admin)
+        response = self.client.post(reverse('finance:admin_user_toggle_active', args=[target.pk]))
+        self.assertRedirects(response, reverse('finance:admin_users'))
+        target.refresh_from_db()
+        self.assertFalse(target.is_active)
+
+        response = self.client.post(reverse('finance:admin_user_toggle_active', args=[admin.pk]))
+        self.assertRedirects(response, reverse('finance:admin_users'))
+        admin.refresh_from_db()
+        self.assertTrue(admin.is_active)
+
+    def test_staff_can_reset_password_and_force_change(self):
+        admin = get_user_model().objects.create_user(username='reset-admin', password='Strong-test-password-123!', is_staff=True)
+        target = get_user_model().objects.create_user(username='reset-target', password='Old-password-123!')
+        UserSecurityProfile.objects.create(user=target, must_change_password=False)
+        self.client.force_login(admin)
+        response = self.client.post(reverse('finance:admin_user_reset_password', args=[target.pk]))
+        self.assertRedirects(response, reverse('finance:admin_users'))
+        target.refresh_from_db()
+        self.assertFalse(target.check_password('Old-password-123!'))
+        self.assertTrue(target.security_profile.must_change_password)
+        self.assertFalse(self.client.login(username='reset-target', password='Old-password-123!'))
+
     def test_fresh_login_ends_an_existing_session(self):
         user = get_user_model().objects.create_user(username='fresh-login', password='Strong-test-password-123!')
         self.client.force_login(user)

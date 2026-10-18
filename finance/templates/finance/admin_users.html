@@ -30,7 +30,7 @@
     <div class="panel-heading"><div><h2>Acessos cadastrados</h2><p>{{ users|length }} usuário{{ users|length|pluralize }} no sistema.</p></div></div>
     <div class="table-responsive">
       <table class="table align-middle mb-0">
-        <thead><tr><th>Nome</th><th>Usuário</th><th>E-mail</th><th>Status</th></tr></thead>
+        <thead><tr><th>Nome</th><th>Usuário</th><th>E-mail</th><th>Status</th><th class="text-end">Ações</th></tr></thead>
         <tbody>
           {% for user in users %}
             <tr>
@@ -38,9 +38,25 @@
               <td>{{ user.username }}</td>
               <td>{{ user.email|default:'—' }}</td>
               <td>{% if user.is_active %}<span class="status status-positive">Ativo</span>{% else %}<span class="status status-muted">Inativo</span>{% endif %}</td>
+              <td>
+                {% if user.pk == request.user.pk %}
+                  <span class="admin-action-note">Sessão atual</span>
+                {% else %}
+                  <div class="admin-user-actions">
+                    <form method="post" action="{% url 'finance:admin_user_toggle_active' user.pk %}" data-confirm-submit="{% if user.is_active %}Desativar este usuário? Ele não conseguirá mais entrar no sistema.{% else %}Ativar este usuário novamente?{% endif %}">
+                      {% csrf_token %}
+                      <button class="admin-action {% if user.is_active %}admin-action-danger{% else %}admin-action-positive{% endif %}" type="submit">{% if user.is_active %}Desativar{% else %}Ativar{% endif %}</button>
+                    </form>
+                    <form method="post" action="{% url 'finance:admin_user_reset_password' user.pk %}" data-confirm-submit="Gerar uma nova senha temporária para este usuário? A senha atual deixará de funcionar.">
+                      {% csrf_token %}
+                      <button class="admin-action admin-action-reset" type="submit">Resetar senha</button>
+                    </form>
+                  </div>
+                {% endif %}
+              </td>
             </tr>
           {% empty %}
-            <tr><td colspan="4" class="empty-state">Nenhum usuário cadastrado.</td></tr>
+            <tr><td colspan="5" class="empty-state">Nenhum usuário cadastrado.</td></tr>
           {% endfor %}
         </tbody>
       </table>
