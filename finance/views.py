@@ -10,11 +10,11 @@ from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.forms import PasswordChangeForm
 from django.db import transaction as db_transaction
 from django.db.models import Q, Sum
-from django.http import HttpResponse, HttpResponseRedirect
+from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.timezone import localdate
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 
 from .forms import (
     CardPurchaseForm,
@@ -342,6 +342,11 @@ def dashboard(request, purchase_form=None, period=None):
         },
     })
     return render(request, 'finance/dashboard.html', context)
+
+
+@require_GET
+def investment_radar_data(request):
+    return JsonResponse(get_investment_radar(force=request.GET.get('refresh') == '1'))
 
 
 def settings_page(request):

@@ -293,7 +293,7 @@ html[data-theme="dark"] .dashboard-summary.home-summary .summary-vr .summary-ico
 .dashboard-search-toolbar .movement-filter-menu summary { height: 46px; display: inline-flex; align-items: center; padding: 0 16px; border-radius: 7px; }
 
 .dashboard-layout {
-  grid-template-columns: minmax(0, 65.5%) minmax(0, 34.5%);
+  grid-template-columns: minmax(0, 1.9fr) minmax(300px, 1fr);
   gap: 12px;
 }
 
@@ -378,9 +378,9 @@ html[data-theme="dark"] .dashboard-summary.home-summary .summary-vr .summary-ico
 .dashboard-layout .fixed-dashboard-footer { padding: 10px 16px; border-color: var(--dashboard-divider); }
 
 .dashboard-layout .chart-panel { min-height: 0; }
+.dashboard-layout .chart-panel:has(#chart-categories) { display: none; }
 .dashboard-layout .chart-panel .panel-heading { padding: 14px 16px 8px; }
 .dashboard-layout .chart-frame { height: 205px; margin: 0 16px 14px; }
-.dashboard-layout .chart-donut { height: 220px; }
 .dashboard-layout .balance-panel { margin-top: 0; }
 .investment-radar { padding: 0 16px 16px; }
 .investment-radar .investment-radar-heading { padding: 14px 0 10px; align-items: flex-start; }
@@ -391,6 +391,36 @@ html[data-theme="dark"] .dashboard-summary.home-summary .summary-vr .summary-ico
 .radar-indicator strong { display: block; margin: 4px 0 2px; color: #74d69a; font-size: 1rem; }
 .radar-indicator strong.is-unavailable { color: var(--dashboard-muted); }
 .radar-indicator small { font-size: .62rem; }
+.radar-explorer { margin-top: 12px; padding-top: 11px; border-top: 1px solid var(--dashboard-divider); }
+.radar-refresh { border: 0; padding: 0; background: transparent; color: #74d69a; font: inherit; font-size: .68rem; cursor: pointer; }
+.radar-refresh:disabled { opacity: .55; cursor: wait; }
+.radar-filter-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin-top: 9px; }
+.radar-filter-grid label { color: var(--dashboard-muted); font-size: .64rem; }
+.radar-filter-grid .radar-filter-search { grid-column: 1 / -1; }
+.radar-filter-grid input, .radar-filter-grid select { width: 100%; margin-top: 4px; padding: 7px 8px; border: 1px solid var(--dashboard-divider); border-radius: 7px; background: var(--dashboard-field); color: var(--dashboard-text); font: inherit; font-size: .68rem; }
+.radar-filter-grid select { appearance: auto; }
+.radar-results-meta { display: flex; justify-content: space-between; gap: 8px; margin-top: 9px; color: var(--dashboard-muted); font-size: .62rem; }
+.radar-source-note { margin: 5px 0 0; color: var(--dashboard-dim); font-size: .6rem; line-height: 1.35; }
+.radar-results-list { display: grid; gap: 7px; margin-top: 7px; max-height: 260px; overflow-y: auto; scrollbar-width: thin; }
+.radar-empty { padding: 10px; border: 1px solid var(--dashboard-divider); border-radius: 8px; background: var(--dashboard-field); }
+.radar-empty strong { display: block; color: var(--dashboard-text); font-size: .7rem; }
+.radar-empty p { margin: 4px 0 0; color: var(--dashboard-muted); font-size: .64rem; line-height: 1.4; }
+.radar-offer-card { padding: 9px; border: 1px solid var(--dashboard-divider); border-radius: 8px; background: var(--dashboard-field); }
+.radar-offer-heading, .radar-offer-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.radar-offer-heading strong { color: var(--dashboard-text); font-size: .72rem; }
+.radar-offer-heading span { color: var(--dashboard-muted); font-size: .62rem; }
+.radar-offer-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin-top: 8px; }
+.radar-offer-summary div { min-width: 0; }
+.radar-offer-summary span, .radar-offer-details span { display: block; color: var(--dashboard-muted); font-size: .6rem; }
+.radar-offer-summary strong { display: block; margin-top: 2px; color: #74d69a; font-size: .68rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.radar-offer-actions { flex-wrap: wrap; justify-content: flex-start; margin-top: 8px; }
+.radar-offer-actions details { flex: 1 1 auto; }
+.radar-offer-actions summary, .radar-source-link, .radar-select-offer { color: #74d69a; font-size: .62rem; cursor: pointer; }
+.radar-source-link { text-decoration: none; }
+.radar-select-offer { border: 1px solid rgba(116,214,154,.35); border-radius: 6px; padding: 4px 7px; background: transparent; }
+.radar-offer-details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 8px; margin-top: 7px; }
+.radar-offer-details p { margin: 0; }
+.radar-offer-details strong { display: block; color: var(--dashboard-text); font-size: .62rem; font-weight: 600; }
 .radar-offers, .radar-simulator { margin-top: 12px; padding-top: 11px; border-top: 1px solid var(--dashboard-divider); }
 .radar-section-title { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .radar-section-title strong { color: var(--dashboard-text); font-size: .82rem; }
@@ -429,6 +459,7 @@ html[data-theme="dark"] .dashboard-summary.home-summary .summary-vr .summary-ico
   .dashboard-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .dashboard-search-toolbar { width: 100%; }
   .dashboard-layout { grid-template-columns: 1fr; }
+  .dashboard-layout .home-side { grid-template-columns: 1fr; }
 }
 
 @media(max-width:800px){
@@ -467,7 +498,8 @@ html[data-theme="dark"] .dashboard-summary.home-summary .summary-vr .summary-ico
   .dashboard-search-toolbar .search-icon { grid-column: 1; grid-row: 1; display: none; }
   .movement-account-summary { flex-direction: column; }
   .movement-account-summary > div { width: 100%; }
-  .radar-indicators, .radar-form-grid, .radar-results { grid-template-columns: 1fr; }
+  .radar-indicators, .radar-form-grid, .radar-results, .radar-filter-grid, .radar-offer-summary { grid-template-columns: 1fr; }
+  .radar-filter-grid .radar-filter-search { grid-column: auto; }
   .csv-import-modal .modal-body { padding: 18px; }
   .csv-import-intro { padding: 12px; }
 }

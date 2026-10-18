@@ -139,7 +139,7 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = []
-RADAR_CACHE_TIMEOUT = int(os.environ.get('RADAR_CACHE_TIMEOUT', '21600'))
+RADAR_CACHE_TIMEOUT = int(os.environ.get('RADAR_CACHE_TIMEOUT', '300'))
 CACHES = {
     'default': {
         'BACKEND': os.environ.get('DJANGO_CACHE_BACKEND', 'django.core.cache.backends.locmem.LocMemCache'),

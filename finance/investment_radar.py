@@ -99,9 +99,21 @@ def get_investment_radar(force=False):
     ]
     result = {
         'updated_at': localtime(now()).strftime('%d/%m/%Y %H:%M'),
+        'sync_state': 'atualizado',
         'available': any(item['available'] for item in indicators),
         'indicators': indicators,
         'offers': [],
+        'offer_filters': {
+            'institutions': ['Todas', 'Nubank', 'Outras'],
+            'types': ['Todos', 'CDB', 'RDB', 'Tesouro Selic', 'Tesouro IPCA+', 'Tesouro Prefixado', 'Fundos', 'Acoes', 'ETFs', 'FIIs', 'Outros'],
+            'returns': ['Todas', 'Pos-fixada', 'Prefixada', 'Hibrida', '% do CDI', 'IPCA + taxa'],
+            'liquidity': ['Todas', 'Diaria', 'No vencimento', 'Com carencia'],
+            'terms': ['Todos', 'Ate 30 dias', 'Ate 90 dias', 'Ate 1 ano', 'Acima de 1 ano', 'Personalizado'],
+        },
+        'sources': [
+            {'label': 'Banco Central do Brasil', 'url': 'https://dadosabertos.bcb.gov.br/'},
+            {'label': 'Nubank - investimentos', 'url': 'https://nubank.com.br/nu/investimentos/tesouro-direto'},
+        ],
         'offers_message': 'Nenhuma oferta pública foi incluída: não há uma fonte oficial verificável configurada para comparar produtos neste momento.',
         'source_url': 'https://dadosabertos.bcb.gov.br/',
         'base_rate': float(cdi) if cdi is not None else None,
