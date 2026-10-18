@@ -4,9 +4,11 @@ from django.contrib.auth import views as auth_views
 from django.http import HttpRequest, HttpResponse
 from django.conf import settings
 from django.conf.urls.static import static
+from django.views.decorators.csrf import ensure_csrf_cookie
 from django.urls import include, path
 
 
+@ensure_csrf_cookie
 def login_view(request: HttpRequest) -> HttpResponse:
     if request.method == 'GET' and request.GET.get('fresh') == '1' and request.user.is_authenticated:
         logout(request)
