@@ -227,6 +227,18 @@ html[data-theme="dark"] .dashboard-calculator-key {
   color: #f5f5f7;
 }
 
+/* A calculadora mantém a identidade visual própria em qualquer tema do sistema. */
+html[data-theme="dark"] .dashboard-calculator-key--function {
+  background: #a5a5a7 !important;
+  color: #101012 !important;
+}
+
+html[data-theme="dark"] .dashboard-calculator-key--operator,
+html[data-theme="dark"] .dashboard-calculator-key--equals {
+  background: #ff9f0a !important;
+  color: #fff !important;
+}
+
 html:not([data-theme="dark"]) .dashboard-calculator-tab {
   border-color: #cbd5e1 !important;
   background: #f7f9fc !important;
