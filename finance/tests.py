@@ -1276,6 +1276,15 @@ class AuthenticationTests(TestCase):
         response = self.client.get(reverse('login'))
         self.assertEqual(response.status_code, 200)
 
+    def test_authenticated_responses_are_not_cacheable(self):
+        user = get_user_model().objects.create_user(username='cache-user', password='Strong-test-password-123!')
+        self.client.force_login(user)
+        response = self.client.get(reverse('finance:dashboard'))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Cache-Control'], 'private, no-store, max-age=0')
+        self.assertEqual(response['Pragma'], 'no-cache')
+        self.assertEqual(response['Expires'], '0')
+
     def test_regular_user_cannot_open_user_administration(self):
         user = get_user_model().objects.create_user(username='regular-user', password='Strong-test-password-123!')
         self.client.force_login(user)

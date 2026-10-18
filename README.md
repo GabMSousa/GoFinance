@@ -4,7 +4,7 @@ Sistema web pessoal de controle financeiro, feito com Django + MySQL/SQLite + Bo
 
 **Instalação simples:** consulte o [Guia de instalação](GUIA_INSTALACAO.md) para configurar o sistema, criar o administrador, permitir acesso pela rede, copiar seus dados e importar CSVs.
 
-O sistema possui usuários, perfis e uma área Admin para criar acessos separados. Os dados financeiros continuam protegidos no banco de dados da instalação.
+O sistema possui usuários, perfis e uma área Admin para criar acessos separados. Consulte também a [política de segurança](SECURITY.md): antes de usar uma única base com dados de pessoas diferentes, conclua a migração de isolamento financeiro por usuário.
 
 ## Requisitos
 
