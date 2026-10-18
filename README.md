@@ -1,8 +1,8 @@
 # GoFinance
 
-Sistema web pessoal de controle financeiro, feito com Django + MySQL/SQLite + Bootstrap 5 + Chart.js.
+Sistema web pessoal de controle financeiro, feito com Django + MariaDB/MySQL + Bootstrap 5 + Chart.js.
 
-**Instalação simples:** consulte o [Guia de instalação](GUIA_INSTALACAO.md) para configurar o sistema, criar o administrador, permitir acesso pela rede, copiar seus dados e importar CSVs.
+**Instalação:** consulte o [Guia de instalação](GUIA_INSTALACAO.md) para configurar Python, MariaDB/MySQL, o administrador, acesso pela rede, migração de dados e importação de CSVs.
 
 O sistema possui usuários, perfis e uma área Admin para criar acessos separados. Consulte também a [política de segurança](SECURITY.md): antes de usar uma única base com dados de pessoas diferentes, conclua a migração de isolamento financeiro por usuário.
 
@@ -11,27 +11,7 @@ O sistema possui usuários, perfis e uma área Admin para criar acessos separado
 - Python 3.10 ou superior
 - pip
 
-## Instalação no Ubuntu/Debian
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env
-python manage.py migrate
-python manage.py seed_initial_data
-python manage.py createsuperuser
-python manage.py collectstatic --noinput
-python manage.py runserver 0.0.0.0:8000
-```
-
-Acesse `http://IP_DO_SERVIDOR:8000`.
-
-Admin: `http://IP_DO_SERVIDOR:8000/admin/`.
-
-Copie `.env.example` para `.env` e altere `DJANGO_SECRET_KEY`, `DJANGO_DEBUG`, `DJANGO_ALLOWED_HOSTS` e as credenciais do banco.
-
-## MySQL no Raspberry Pi
+## MariaDB/MySQL no servidor
 
 Em Debian/Raspberry Pi OS, instale o servidor e as dependências do driver:
 
@@ -49,7 +29,7 @@ sudo mysql < deploy/mysql-init.sql
 
 No `.env`, use `DJANGO_DB_ENGINE=mysql`, uma senha forte em `MYSQL_PASSWORD` e `DJANGO_DEBUG=0`. Para uma instalação atrás de HTTPS, ative também `DJANGO_SECURE_SSL_REDIRECT=1`, `DJANGO_SESSION_COOKIE_SECURE=1`, `DJANGO_CSRF_COOKIE_SECURE=1` e defina `DJANGO_SECURE_HSTS_SECONDS=31536000`.
 
-Para migrar os dados existentes do SQLite sem apagar o arquivo original:
+Para migrar os dados existentes de uma instalação antiga que usava SQLite, sem apagar o arquivo original:
 
 ```bash
 cp db.sqlite3 backup_before_mysql_$(date +%Y-%m-%d).sqlite3
@@ -94,13 +74,13 @@ Referências de salário (não calculam líquido novo):
 
 O fluxo diário fica concentrado em `Início`: use `+ Adicionar` para Compra, Receita ou Investimento. Cartão, VR e movimentações aparecem em filtros, cards e modais no próprio início. `Configurações` concentra salário, VR mensal, gastos fixos, categorias, pessoas legadas e tema claro/escuro/sistema.
 
-## Backup do SQLite
+## Backup do MariaDB/MySQL
 
 ```bash
-cp db.sqlite3 backup_$(date +%Y-%m-%d).sqlite3
+mysqldump --single-transaction --routines --triggers -h 127.0.0.1 -P 3306 -u saas_finance -p saas_finance > backup_$(date +%Y-%m-%d).sql
 ```
 
-Com o serviço parado, ou usando uma cópia consistente, preserve o arquivo `db.sqlite3`.
+No Windows, use `mysqldump.exe` e informe a senha quando solicitado. Preserve também `media/` e o `.env` em local protegido. O procedimento completo de restauração está em [GUIA_INSTALACAO.md](GUIA_INSTALACAO.md).
 
 ## Importação de fatura Nubank
 

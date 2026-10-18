@@ -1,15 +1,16 @@
-# Guia rápido de instalação do GoFinance
+# Guia de instalação do GoFinance
 
-Este guia prepara o GoFinance para uso local ou em uma máquina da sua rede.
+Este é o procedimento recomendado para instalar o GoFinance em uma máquina Windows ou em um servidor Linux. A instalação oficial usa **MariaDB/MySQL**. O SQLite não deve ser usado em produção ou quando mais de uma pessoa acessará o sistema.
 
-## 1. O que você precisa
+## 1. Requisitos
 
-- Windows 10/11 ou Ubuntu/Debian;
 - Python 3.10 ou superior;
 - Git;
-- acesso à rede, se outras pessoas forem usar o sistema.
+- MariaDB ou MySQL 8;
+- acesso administrativo à máquina para instalar serviços;
+- no servidor Linux: Nginx e systemd.
 
-Para uma instalação simples, use SQLite. O sistema também suporta MySQL/MariaDB para uso com várias pessoas ao mesmo tempo.
+O projeto usa Django, MariaDB/MySQL, Gunicorn, Nginx e Chart.js. O arquivo `requirements.txt` instala as dependências Python, inclusive o driver `mysqlclient`.
 
 ## 2. Baixar o projeto
 
@@ -18,23 +19,29 @@ git clone https://github.com/ExampleMaintainer/GoFinance.git
 cd GoFinance
 ```
 
-Se quiser instalar exatamente uma versão específica, consulte o commit desejado no GitHub e execute:
+Para instalar exatamente uma versão já validada:
 
 ```bash
 git checkout ID_DO_COMMIT
 ```
 
-## 3. Criar o ambiente Python
+Não copie o `.env` para o GitHub. Ele contém senhas e configurações específicas da máquina.
+
+## 3. Instalar Python e criar o ambiente
 
 ### Windows PowerShell
 
+Instale o Python pelo instalador oficial, marque **Add Python to PATH** e confirme:
+
 ```powershell
+python --version
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-Se o PowerShell bloquear a ativação, abra o terminal como usuário e execute uma vez:
+Se a ativação for bloqueada:
 
 ```powershell
 Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
@@ -44,15 +51,46 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 
 ```bash
 sudo apt update
-sudo apt install -y python3 python3-venv python3-pip git
+sudo apt install -y python3 python3-venv python3-pip git build-essential pkg-config default-libmysqlclient-dev
 python3 -m venv .venv
 source .venv/bin/activate
+python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-## 4. Configurar o `.env`
+## 4. Instalar e preparar MariaDB/MySQL
 
-Copie o exemplo:
+### Windows
+
+Instale o MariaDB Server ou MySQL Server e deixe o serviço iniciado. Depois, abra o cliente `mariadb` ou `mysql` como administrador e execute o script do projeto:
+
+```powershell
+Get-Service MariaDB
+mariadb -u root -p < deploy/mysql-init.sql
+```
+
+Antes de executar, altere `ALTERE_ESTA_SENHA` em `deploy/mysql-init.sql` para uma senha forte. Não reutilize a senha do administrador do GoFinance.
+
+### Ubuntu/Debian/Raspberry Pi
+
+```bash
+sudo apt update
+sudo apt install -y mariadb-server default-libmysqlclient-dev build-essential pkg-config
+sudo systemctl enable --now mariadb
+sudo mariadb-secure-installation
+```
+
+Altere a senha no arquivo `deploy/mysql-init.sql` e crie o banco e o usuário dedicado:
+
+```bash
+sudo mariadb < deploy/mysql-init.sql
+```
+
+O GoFinance usa o banco `saas_finance`, o usuário `saas_finance` e a porta `3306` por padrão. Não exponha a porta 3306 à internet; ela deve aceitar conexões apenas do servidor da aplicação.
+
+## 5. Configurar o `.env`
+
+Copie o modelo:
 
 ```powershell
 Copy-Item .env.example .env
@@ -62,164 +100,224 @@ No Linux:
 
 ```bash
 cp .env.example .env
+chmod 600 .env
 ```
 
-Abra o arquivo `.env` e, para uma instalação simples com SQLite, use estes valores:
+### Máquina local ou rede interna sem HTTPS
+
+Use estes valores no `.env` e troque todas as senhas:
 
 ```env
-DJANGO_SECRET_KEY=troque-por-uma-chave-grande-e-secreta
+DJANGO_SECRET_KEY=gere-uma-chave-aleatoria-com-mais-de-50-caracteres
 DJANGO_DEBUG=1
-DJANGO_DB_ENGINE=sqlite
-DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1
-DJANGO_CSRF_TRUSTED_ORIGINS=http://localhost,http://127.0.0.1
-
+DJANGO_DB_ENGINE=mysql
+MYSQL_DATABASE=saas_finance
+MYSQL_USER=saas_finance
+MYSQL_PASSWORD=senha-do-usuario-do-banco
+MYSQL_HOST=127.0.0.1
+MYSQL_PORT=3306
+DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,IP_DA_MAQUINA
+DJANGO_CSRF_TRUSTED_ORIGINS=http://localhost,http://127.0.0.1,http://IP_DA_MAQUINA
 DJANGO_ADMIN_USERNAME=admin
-DJANGO_ADMIN_PASSWORD=TroqueEstaSenha123!
-
+DJANGO_ADMIN_PASSWORD=senha-temporaria-forte
 DJANGO_SECURE_SSL_REDIRECT=0
 DJANGO_SESSION_COOKIE_SECURE=0
 DJANGO_CSRF_COOKIE_SECURE=0
 ```
 
-Use uma senha diferente e forte. O arquivo `.env` não deve ser enviado ao GitHub.
+### Servidor com domínio e HTTPS
 
-## 5. Criar o banco e o administrador inicial
+No servidor, use `DJANGO_DEBUG=0`, uma chave secreta exclusiva com pelo menos 50 caracteres e apenas os hosts reais:
 
-Com o ambiente virtual ativado:
+```env
+DJANGO_DEBUG=0
+DJANGO_DB_ENGINE=mysql
+MYSQL_HOST=127.0.0.1
+MYSQL_PORT=3306
+DJANGO_ALLOWED_HOSTS=financeiro.exemplo.com
+DJANGO_CSRF_TRUSTED_ORIGINS=https://financeiro.exemplo.com
+DJANGO_SECURE_SSL_REDIRECT=1
+DJANGO_SESSION_COOKIE_SECURE=1
+DJANGO_CSRF_COOKIE_SECURE=1
+DJANGO_SECURE_HSTS_SECONDS=31536000
+```
+
+Nunca use a senha do banco, a senha do administrador ou a `DJANGO_SECRET_KEY` mostrada em exemplos.
+
+## 6. Criar as tabelas e o administrador inicial
+
+Com o ambiente virtual ativado e o `.env` configurado:
 
 ```bash
+python manage.py check
 python manage.py migrate
 python manage.py seed_initial_data
 python manage.py collectstatic --noinput
 ```
 
-O comando `seed_initial_data` cria o administrador definido no `.env`. No primeiro login, ele será direcionado para trocar a senha.
+O `seed_initial_data` cria o administrador definido por `DJANGO_ADMIN_USERNAME` e os dados iniciais pertencentes a esse usuário. No primeiro acesso, a senha deverá ser trocada.
 
-## 6. Iniciar o sistema
+Abra:
 
-### Windows
+```text
+http://localhost:8000/login/
+```
+
+Depois do login, a aba **Admin** permite criar usuários, ativar/desativar acessos e resetar senhas. Cada novo usuário começa sem lançamentos, contas, faturas, VR ou investimentos de outra pessoa.
+
+## 7. Iniciar em uma máquina Windows
+
+Para teste ou rede interna:
 
 ```powershell
 python manage.py runserver 0.0.0.0:8000
 ```
 
-Ou execute o arquivo `iniciar_sistema.bat`.
+Também é possível usar `iniciar_sistema.bat`. Acesse `http://IP_DA_MAQUINA:8000/login/` a partir dos outros computadores.
+
+Libere a porta 8000 apenas na rede necessária no Firewall do Windows. Para uso permanente, prefira um servidor Linux com Nginx e HTTPS.
+
+## 8. Instalação em servidor Linux com Gunicorn e Nginx
+
+Exemplo usando `/opt/saas_finance`:
+
+```bash
+sudo mkdir -p /opt/saas_finance
+sudo chown "$USER":"$USER" /opt/saas_finance
+git clone https://github.com/ExampleMaintainer/GoFinance.git /opt/saas_finance
+cd /opt/saas_finance
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+Configure `.env`, MariaDB e execute:
+
+```bash
+python manage.py check --deploy
+python manage.py migrate
+python manage.py seed_initial_data
+python manage.py collectstatic --noinput
+sudo chown -R www-data:www-data /opt/saas_finance
+```
+
+Instale os arquivos fornecidos:
+
+```bash
+sudo cp deploy/saas-finance.service /etc/systemd/system/saas-finance.service
+sudo cp deploy/nginx.conf /etc/nginx/sites-available/saas-finance
+sudo ln -s /etc/nginx/sites-available/saas-finance /etc/nginx/sites-enabled/saas-finance
+sudo nginx -t
+sudo systemctl daemon-reload
+sudo systemctl enable --now saas-finance
+sudo systemctl reload nginx
+```
+
+Ajuste `server_name` em `deploy/nginx.conf` para o domínio ou IP real. Para HTTPS, configure o certificado antes de ativar o redirecionamento seguro no `.env`.
+
+Verifique o serviço:
+
+```bash
+sudo systemctl status saas-finance
+sudo journalctl -u saas-finance -n 100 --no-pager
+```
+
+## 9. Migrar o banco atual do SQLite para MariaDB/MySQL
+
+Use este procedimento somente para levar os dados atuais para um servidor. Preserve o `db.sqlite3` original até validar tudo no MariaDB.
+
+Na máquina que possui os dados atuais, com o projeto na mesma versão do Git:
+
+```bash
+python manage.py migrate
+python manage.py dumpdata --natural-foreign --natural-primary --exclude contenttypes --exclude auth.permission --indent 2 > gofinance-dados.json
+```
+
+Se o `.env` já aponta para MySQL, execute o `dumpdata` usando temporariamente um `.env` configurado para SQLite ou defina `DJANGO_DB_ENGINE=sqlite` somente para esse comando.
+
+No servidor MariaDB/MySQL:
+
+```bash
+python manage.py migrate
+python manage.py loaddata gofinance-dados.json
+python manage.py collectstatic --noinput
+```
+
+Não execute `seed_initial_data` depois de importar um banco completo sem necessidade; o usuário administrador e os dados já estarão no arquivo exportado. Valide login, contas, faturas, gráficos, VR, investimentos e isolamento entre usuários antes de apagar qualquer cópia.
+
+## 10. CSVs, fotos e outros arquivos pessoais
+
+O GitHub armazena somente o código. Os dados ficam no MariaDB/MySQL e os arquivos enviados ficam em `media/`.
+
+- A importação CSV grava os lançamentos no banco e não arquiva automaticamente o CSV original.
+- Guarde os CSVs originais fora do repositório se precisar reprocessá-los.
+- Ao migrar de máquina, copie `media/` preservando permissões.
+- Não copie o `db.sqlite3` para uma instalação que usa MariaDB/MySQL.
+
+Para importar uma fatura Nubank pelo terminal:
+
+```bash
+python manage.py import_nubank_csv /caminho/bank_export.csv
+```
+
+Também é possível importar pela tela **Importar CSV**. A importação é idempotente e não deve duplicar uma fatura já processada.
+
+## 11. Backup e restauração do MariaDB/MySQL
+
+O backup oficial de produção é um dump do MariaDB/MySQL, não uma cópia do SQLite.
 
 ### Linux
 
 ```bash
-python manage.py runserver 0.0.0.0:8000
+mkdir -p backups
+mysqldump --single-transaction --routines --triggers -h 127.0.0.1 -P 3306 -u saas_finance -p saas_finance > backups/gofinance-$(date +%Y%m%d-%H%M).sql
 ```
 
-Abra no navegador:
-
-```text
-http://127.0.0.1:8000/login/
-```
-
-## 7. Permitir acesso de outras máquinas
-
-Descubra o IP da máquina que está executando o GoFinance:
-
-- Windows: `ipconfig`;
-- Linux: `hostname -I`.
-
-Se o IP for `192.168.1.50`, ajuste o `.env`:
-
-```env
-DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,192.168.1.50
-DJANGO_CSRF_TRUSTED_ORIGINS=http://localhost,http://127.0.0.1,http://192.168.1.50
-```
-
-Reinicie o servidor e acesse de outro computador:
-
-```text
-http://192.168.1.50:8000/login/
-```
-
-Também pode ser necessário liberar a porta 8000 no Firewall do Windows ou no firewall do Linux.
-
-## 8. Criar usuários para outras pessoas
-
-Entre com o administrador e abra a aba **Admin**. Nela é possível criar usuários com nome de exibição, e-mail e senha.
-
-Os novos usuários trocam a senha no primeiro acesso. A criação de usuários não cria contas, lançamentos, investimentos ou qualquer outro dado financeiro.
-
-O painel oficial do Django também fica em:
-
-```text
-http://IP_DO_SERVIDOR:8000/admin/
-```
-
-## 9. CSVs, banco e arquivos pessoais
-
-O GitHub armazena o código, não os dados pessoais. Estes arquivos ficam somente na máquina:
-
-- `db.sqlite3`: usuários, contas, lançamentos, investimentos e dados importados dos CSVs;
-- `media/`: fotos de perfil e uploads;
-- `.env`: senhas, chaves e configurações.
-
-O GoFinance guarda os registros importados do CSV no banco, mas não arquiva automaticamente o arquivo CSV original. Guarde os CSVs originais em uma pasta de backup se precisar deles depois.
-
-## 10. Levar tudo para outro computador
-
-Para copiar exatamente o sistema atual:
-
-1. Pare o servidor antigo.
-2. Faça backup de `db.sqlite3`, `media/` e `.env`.
-3. No novo computador, clone o projeto e instale as dependências.
-4. Copie esses três itens para a pasta do projeto.
-5. Execute `python manage.py migrate`.
-6. Inicie o servidor.
-
-Ao copiar o `db.sqlite3`, os usuários, o administrador, as contas e os dados importados permanecem iguais. Não execute `seed_initial_data` nessa cópia se não quiser inserir ou atualizar os dados iniciais novamente.
-
-## 11. Backup do SQLite
-
-Com o servidor parado, copie o arquivo do banco:
+### Windows PowerShell
 
 ```powershell
-Copy-Item db.sqlite3 "backup-db-$(Get-Date -Format yyyyMMdd-HHmm).sqlite3"
+New-Item -ItemType Directory -Force backups | Out-Null
+mysqldump.exe --single-transaction --routines --triggers -h 127.0.0.1 -P 3306 -u saas_finance -p saas_finance > "backups\gofinance-$(Get-Date -Format yyyyMMdd-HHmm).sql"
 ```
 
-No Linux:
+Restaure em um banco vazio após confirmar o arquivo:
 
 ```bash
-cp db.sqlite3 "backup-db-$(date +%Y%m%d-%H%M).sqlite3"
+mariadb -h 127.0.0.1 -P 3306 -u saas_finance -p saas_finance < backups/gofinance-AAAAmmdd-HHMM.sql
 ```
 
-Faça backup também da pasta `media/` e do `.env`, armazenando o `.env` em local protegido.
+Faça backup também de `media/` e do `.env`, mas armazene o `.env` em local protegido. Teste periodicamente uma restauração em uma base separada.
 
-## 12. Personalizar o sistema
+## 12. Atualizar a instalação pelo Git
 
-Depois de entrar, o usuário pode ajustar:
+Faça backup do MariaDB/MySQL e de `media/` antes de atualizar:
 
-- tema claro, escuro ou sistema;
-- nome de exibição e foto de perfil;
-- categorias, salário e VR;
-- contas fixas e assinaturas;
-- usuários pela aba Admin, se for administrador.
+```bash
+git pull --ff-only
+source .venv/bin/activate
+pip install -r requirements.txt
+python manage.py check
+python manage.py migrate
+python manage.py collectstatic --noinput
+sudo systemctl restart saas-finance
+```
 
-Para alterações de código, faça commits no Git e, na outra máquina, execute `git pull` antes de reiniciar o sistema.
+No Windows, substitua `source .venv/bin/activate` pela ativação do PowerShell e reinicie o `runserver`.
 
 ## Problemas comuns
 
-### “Usuário ou senha inválidos”
+### Erro de conexão com o banco
 
-Confira `DJANGO_ADMIN_USERNAME` e `DJANGO_ADMIN_PASSWORD` no `.env` e execute novamente:
-
-```bash
-python manage.py seed_initial_data
-```
+Confira `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_DATABASE`, `MYSQL_USER` e `MYSQL_PASSWORD`. Confirme se MariaDB está ativo e se o usuário possui acesso ao banco `saas_finance`.
 
 ### Erro 403 de CSRF
 
-Confirme que o endereço usado no navegador aparece em `DJANGO_ALLOWED_HOSTS` e `DJANGO_CSRF_TRUSTED_ORIGINS`. Depois reinicie o servidor e faça `Ctrl + F5`.
+O endereço usado no navegador precisa estar em `DJANGO_ALLOWED_HOSTS` e `DJANGO_CSRF_TRUSTED_ORIGINS`. Em HTTPS, use `https://` no valor de `DJANGO_CSRF_TRUSTED_ORIGINS`.
 
-### A página não abre de outro computador
+### Usuário ou senha inválidos
 
-Confirme que o servidor foi iniciado com `0.0.0.0:8000`, que o IP está correto e que a porta 8000 está liberada no firewall.
+Confira `DJANGO_ADMIN_USERNAME` e `DJANGO_ADMIN_PASSWORD`. Para um administrador já existente, use a aba **Admin** para resetar a senha; o usuário deverá trocar a senha temporária no próximo login.
 
-### Quando usar MySQL/MariaDB
+### O sistema abre, mas não aparecem os dados
 
-Use MySQL/MariaDB quando várias pessoas forem acessar e alterar dados ao mesmo tempo. Nesse caso, configure as variáveis `MYSQL_*` do `.env`, crie o banco e execute `python manage.py migrate`.
+Confirme que a aplicação está apontando para o mesmo banco MariaDB/MySQL usado na migração e que `python manage.py migrate` foi executado. Não misture um `.env` de SQLite com um `.env` de MariaDB.
