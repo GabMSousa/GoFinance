@@ -62,7 +62,7 @@ html[data-theme="dark"] .data-panel .panel-heading p,
 html[data-theme="dark"] .page-subtitle,
 html[data-theme="dark"] .form-text { color: var(--muted); }
 html[data-theme="dark"] .data-panel .table-action { color: #82b9f5; }
-html[data-theme="dark"] .data-panel .table-action.danger { color: #ff8d96; }
+html[data-theme="dark"] .data-panel .table-action.danger { color: #ff0020; }
 html[data-theme="dark"] .tag {
   color: #d5e1f0;
   background: #27344a;
@@ -542,8 +542,8 @@ html:not([data-theme="dark"]) .dashboard-summary .summary-icon-card { color: #11
 .dashboard-summary .summary-balance .summary-icon { background: #163e29; }
 .dashboard-summary .summary-receipts { background: #102236; border-color: #23628b; color: #49a3d5; }
 .dashboard-summary .summary-receipts .summary-icon { background: #163853; }
-.dashboard-summary .summary-expenses { background: #4A2227; border-color: #4A2227; color: #f4d6d9; }
-.dashboard-summary .summary-expenses .summary-icon { background: rgba(74,34,39,.28); }
+.dashboard-summary .summary-expenses { background: #5f0e18; border-color: #ff0020; color: #fff; }
+.dashboard-summary .summary-expenses .summary-icon { background: rgba(95,14,24,.28); }
 .dashboard-summary.home-summary .summary-receivable { background: rgba(135,103,23,.18); border-color: #876717; color: #876717; }
 .dashboard-summary.home-summary .summary-receivable .summary-icon { background: rgba(135,103,23,.22); }
 .dashboard-summary.home-summary .summary-vr { background: #21172f; border-color: #6846a0; color: #9675ce; }

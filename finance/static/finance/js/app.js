@@ -199,14 +199,14 @@ function initCharts() {
   const setCursor = (event, active) => { if (event.native?.target) event.native.target.style.cursor = active.length ? 'pointer' : 'default'; };
   const makeBar = (canvas, values, labels) => {
     if (!canvas) return;
-    const colors = ['#0c7128', '#df6a65', '#4dd2c8'];
-    const hoverColors = ['#0ce93e', '#f28a84', '#83eee5'];
+    const colors = ['#0c7128', '#5f0e18', '#4dd2c8'];
+    const hoverColors = ['#0ce93e', '#ff0020', '#83eee5'];
     window.sfCharts.push(new Chart(canvas, { type: 'bar', data: { labels, datasets: [{ label: 'Valor', data: values, backgroundColor: colors.slice(0, values.length), hoverBackgroundColor: hoverColors.slice(0, values.length), borderRadius: 8, borderSkipped: false, barPercentage: .62, categoryPercentage: .62 }] }, options: { ...common, interaction: { mode: 'nearest', intersect: true }, plugins: { ...common.plugins, tooltip: { ...common.plugins.tooltip, callbacks: { title: (items) => items[0]?.label || '', label: (context) => `Valor: ${money.format(context.raw)}` } } }, onHover: setCursor } }));
   };
   const makeDonut = (canvas, labels, values) => {
     if (!canvas) return;
     const total = values.reduce((sum, value) => sum + value, 0);
-    window.sfCharts.push(new Chart(canvas, { type: 'doughnut', data: { labels, datasets: [{ data: values, backgroundColor: ['#0c7128', '#0c7128', '#0c7128', '#7390c9', '#df6a65', '#e7bb65'], hoverBackgroundColor: ['#0ce93e', '#0ce93e', '#0ce93e', '#9bb1df', '#f28a84', '#f4cf87'], hoverOffset: 8, borderWidth: 2, borderColor: dark ? '#172236' : '#fff' }] }, options: { ...common, cutout: '66%', interaction: { mode: 'nearest', intersect: true }, plugins: { ...common.plugins, legend: { display: true, position: 'bottom', labels: { color: text, boxWidth: 11, usePointStyle: true, padding: 14, font: { size: 11 } } }, tooltip: { ...common.plugins.tooltip, callbacks: { title: (items) => items[0]?.label || '', label: (context) => `Valor: ${money.format(context.raw)}`, afterLabel: (context) => `Participação: ${total ? ((context.raw / total) * 100).toFixed(1) : '0.0'}%` } } }, onHover: setCursor } }));
+    window.sfCharts.push(new Chart(canvas, { type: 'doughnut', data: { labels, datasets: [{ data: values, backgroundColor: ['#0c7128', '#0c7128', '#0c7128', '#7390c9', '#5f0e18', '#e7bb65'], hoverBackgroundColor: ['#0ce93e', '#0ce93e', '#0ce93e', '#9bb1df', '#ff0020', '#f4cf87'], hoverOffset: 8, borderWidth: 2, borderColor: dark ? '#172236' : '#fff' }] }, options: { ...common, cutout: '66%', interaction: { mode: 'nearest', intersect: true }, plugins: { ...common.plugins, legend: { display: true, position: 'bottom', labels: { color: text, boxWidth: 11, usePointStyle: true, padding: 14, font: { size: 11 } } }, tooltip: { ...common.plugins.tooltip, callbacks: { title: (items) => items[0]?.label || '', label: (context) => `Valor: ${money.format(context.raw)}`, afterLabel: (context) => `Participação: ${total ? ((context.raw / total) * 100).toFixed(1) : '0.0'}%` } } }, onHover: setCursor } }));
   };
   const makeLine = (canvas, labels, values) => {
     if (!canvas) return;
