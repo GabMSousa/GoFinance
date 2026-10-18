@@ -222,7 +222,83 @@ sudo systemctl status saas-finance
 sudo journalctl -u saas-finance -n 100 --no-pager
 ```
 
-## 9. Migrar o banco atual do SQLite para MariaDB/MySQL
+## 9. Instalação completa com Docker Compose
+
+Use esta opção quando quiser instalar aplicação, Nginx e MariaDB juntos, sem instalar Python ou MariaDB diretamente no sistema operacional.
+
+### Preparar o Docker
+
+No Windows, instale o Docker Desktop, inicie-o e confirme no PowerShell:
+
+```powershell
+docker --version
+docker compose version
+```
+
+No Ubuntu/Debian, uma instalação simples pelos pacotes da distribuição é:
+
+```bash
+sudo apt update
+sudo apt install -y docker.io docker-compose-plugin
+sudo systemctl enable --now docker
+sudo usermod -aG docker "$USER"
+newgrp docker
+docker --version
+docker compose version
+```
+
+Se a distribuição não fornecer `docker-compose-plugin`, instale o Docker Engine e o plugin Compose seguindo a documentação oficial da distribuição antes de continuar.
+
+Na raiz do projeto:
+
+```bash
+cp .env.docker.example .env
+```
+
+No Windows PowerShell:
+
+```powershell
+Copy-Item .env.docker.example .env
+```
+
+Edite o `.env` e substitua `DJANGO_SECRET_KEY`, `DJANGO_ADMIN_PASSWORD`, `MYSQL_PASSWORD` e `MARIADB_ROOT_PASSWORD`. Os valores precisam ser diferentes entre si. O `MYSQL_HOST` deve permanecer `db` no Docker.
+
+Valide e suba os três serviços:
+
+```bash
+docker compose config
+docker compose up -d --build
+docker compose ps
+docker compose logs -f web
+```
+
+Abra `http://localhost:8000/login/`. O Nginx do Compose serve os arquivos estáticos, encaminha as requisições para o Gunicorn e limita tentativas de login. O banco, as fotos e os arquivos estáticos ficam em volumes persistentes.
+
+Na primeira inicialização, as migrações são executadas e o administrador definido no `.env` é criado. Em reinicializações posteriores, a senha não é redefinida automaticamente.
+
+Comandos de operação:
+
+```bash
+docker compose restart
+docker compose logs -f nginx
+docker compose stop
+docker compose start
+docker compose down
+```
+
+`docker compose down` preserva os volumes. **Não use `docker compose down -v` sem backup**, pois isso apaga o banco MariaDB, as fotos e os arquivos persistentes.
+
+Para atualizar a versão:
+
+```bash
+git pull --ff-only
+docker compose up -d --build
+docker compose exec web python manage.py check
+```
+
+Para expor outra porta HTTP, altere `GOFINANCE_HTTP_PORT` no `.env`. Para HTTPS real, coloque um proxy reverso com certificado na frente do Nginx do Compose e ajuste `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS` e os cookies seguros.
+
+## 10. Migrar o banco atual do SQLite para MariaDB/MySQL
 
 Use este procedimento somente para levar os dados atuais para um servidor. Preserve o `db.sqlite3` original até validar tudo no MariaDB.
 
@@ -245,7 +321,7 @@ python manage.py collectstatic --noinput
 
 Não execute `seed_initial_data` depois de importar um banco completo sem necessidade; o usuário administrador e os dados já estarão no arquivo exportado. Valide login, contas, faturas, gráficos, VR, investimentos e isolamento entre usuários antes de apagar qualquer cópia.
 
-## 10. CSVs, fotos e outros arquivos pessoais
+## 11. CSVs, fotos e outros arquivos pessoais
 
 O GitHub armazena somente o código. Os dados ficam no MariaDB/MySQL e os arquivos enviados ficam em `media/`.
 
@@ -262,7 +338,7 @@ python manage.py import_nubank_csv /caminho/Nubank_2026-10-08.csv
 
 Também é possível importar pela tela **Importar CSV**. A importação é idempotente e não deve duplicar uma fatura já processada.
 
-## 11. Backup e restauração do MariaDB/MySQL
+## 12. Backup e restauração do MariaDB/MySQL
 
 O backup oficial de produção é um dump do MariaDB/MySQL, não uma cópia do SQLite.
 
@@ -288,7 +364,7 @@ mariadb -h 127.0.0.1 -P 3306 -u saas_finance -p saas_finance < backups/gofinance
 
 Faça backup também de `media/` e do `.env`, mas armazene o `.env` em local protegido. Teste periodicamente uma restauração em uma base separada.
 
-## 12. Atualizar a instalação pelo Git
+## 13. Atualizar a instalação pelo Git
 
 Faça backup do MariaDB/MySQL e de `media/` antes de atualizar:
 
