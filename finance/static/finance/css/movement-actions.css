@@ -22,31 +22,53 @@
 }
 
 .movement-panel-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-areas:
+    "copy copy copy"
+    "tools tools count";
   align-items: center;
-  gap: 12px 18px;
+  gap: 10px 12px;
+  padding: 16px 21px 14px;
+}
+
+.movement-panel-heading > div {
+  grid-area: copy;
+  min-width: 0;
+}
+
+.movement-panel-heading > .panel-kpi {
+  grid-area: count;
+  align-self: center;
 }
 
 .movement-search {
   display: grid;
+  grid-area: tools;
   grid-template-columns: minmax(120px, 1fr) auto auto;
   align-items: center;
-  gap: 7px;
-  margin-left: auto;
+  gap: 9px;
+  width: min(100%, 430px);
+  margin: 0;
+  justify-self: end;
   min-width: 0;
 }
 
 .movement-search .form-control {
   width: 100%;
   min-width: 0;
-  padding: .38rem .55rem;
-  font-size: .72rem;
+  min-height: 34px;
+  padding: .48rem .65rem;
+  font-size: .78rem;
   border-color: var(--border);
 }
 
-.movement-search .btn {
+.movement-search .btn,
+.movement-filter-menu summary {
+  min-height: 34px;
+  padding: .48rem .7rem;
+  font-size: .74rem;
   white-space: nowrap;
-  padding: .4rem .6rem;
-  font-size: .7rem;
 }
 
 .movement-filter-menu {
@@ -59,9 +81,6 @@
   color: var(--muted);
   border: 1px solid var(--border);
   border-radius: 7px;
-  padding: .38rem .55rem;
-  font-size: .7rem;
-  white-space: nowrap;
 }
 
 .movement-filter-menu summary::-webkit-details-marker {
@@ -103,9 +122,9 @@
 
 .movement-filter-popover .form-control,
 .movement-filter-popover .form-select {
-  margin-top: 4px;
   width: 100%;
   min-width: 0;
+  margin-top: 4px;
   padding: .38rem .45rem;
   font-size: .7rem;
   border-color: var(--border);
@@ -127,35 +146,28 @@
 @media (max-width: 800px) {
   .movement-panel-heading {
     align-items: flex-start;
-    flex-wrap: wrap;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    padding: 16px;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      "copy copy copy"
+      "tools tools count";
+    gap: 10px 8px;
+    padding: 15px 16px 13px;
   }
 
   .movement-search {
-    grid-column: 1 / -1;
     width: 100%;
-    margin: 4px 0 0;
+    justify-self: stretch;
   }
 
-  .movement-search .form-control {
-    min-width: 0;
-  }
-
-  .movement-filter-menu {
-    order: 2;
+  .movement-actions {
+    gap: 12px;
+    font-size: .7rem;
   }
 
   .movement-filter-popover {
     right: auto;
     left: 0;
     width: min(360px, calc(100vw - 32px));
-  }
-
-  .movement-actions {
-    gap: 12px;
-    font-size: .7rem;
   }
 }
 
