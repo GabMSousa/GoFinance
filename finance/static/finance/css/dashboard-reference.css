@@ -537,7 +537,7 @@ html:not([data-theme="dark"]) .dashboard-summary .summary-icon-card { color: #11
 .dashboard-summary .summary-balance .summary-icon { background: #163e29; }
 .dashboard-summary .summary-receipts { background: #102236; border-color: #23628b; color: #49a3d5; }
 .dashboard-summary .summary-receipts .summary-icon { background: #163853; }
-.dashboard-summary .summary-expenses { background: #4A2227; border-color: #4A2227; color: #4A2227; }
+.dashboard-summary .summary-expenses { background: #4A2227; border-color: #4A2227; color: #f4d6d9; }
 .dashboard-summary .summary-expenses .summary-icon { background: rgba(74,34,39,.28); }
 .dashboard-summary.home-summary .summary-receivable { background: rgba(135,103,23,.18); border-color: #876717; color: #876717; }
 .dashboard-summary.home-summary .summary-receivable .summary-icon { background: rgba(135,103,23,.22); }
