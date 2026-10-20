@@ -45,7 +45,14 @@
 
 {{ chart_data|json_script:"dashboard-chart-data" }}
 {{ movement_details|json_script:"movement-details" }}
-{% if purchase_form_has_errors %}<div id="quick-purchase-errors" class="alert alert-danger d-none" role="alert">{{ purchase_form.errors }}</div>{% endif %}
+{% if purchase_form_has_errors %}<div id="quick-purchase-errors" class="alert alert-danger d-none" role="alert">
+  {% for field in purchase_form %}
+    {% for error in field.errors %}
+      <div class="quick-purchase-error"><strong>{% if field.name == 'vr_amount' %}Saldo insuficiente{% else %}{{ field.label }}{% endif %}</strong><span>{{ error }}</span></div>
+    {% endfor %}
+  {% endfor %}
+  {% for error in purchase_form.non_field_errors %}<div class="quick-purchase-error"><strong>Não foi possível salvar</strong><span>{{ error }}</span></div>{% endfor %}
+</div>{% endif %}
 {% include 'finance/_dashboard_modals.html' %}
 {% include 'finance/_dashboard_calculator.html' %}
 {{ vr_movement_indexes|json_script:"vr-movement-indexes" }}
