@@ -13,7 +13,7 @@ from .models import Category, CreditCardBill, CreditCardExpense, FinancialProfil
 from .forms import InvestmentForm, QuickExpenseForm
 from .importers import preview_csv
 from .investment_radar import _annualize_daily, _compound_monthly
-from .services import apply_investment_operation, invoice_month_for_installment, invoice_month_for_purchase, monthly_summary, split_installment_values, vr_balance_for_date, vr_movements_for_display_period
+from .services import apply_investment_operation, invoice_month_for_installment, invoice_month_for_purchase, monthly_summary, split_installment_values, transactions_for_display_period, vr_balance_for_date, vr_movements_for_display_period
 from .views import DuplicateExpenseError, create_card_installments, default_open_period
 from .ownership import reset_current_user, set_current_user
 
@@ -226,6 +226,18 @@ class VRTests(BaseFinanceTest):
         visible = vr_movements_for_display_period(2026, 11)
         self.assertIn(credit, visible)
         self.assertNotIn(credit, vr_movements_for_display_period(2026, 9))
+
+    def test_vr_purchase_is_displayed_in_following_competence(self):
+        purchase = Transaction.objects.create(
+            date=date(2026, 10, 2), description='Compra VR novembro',
+            type=Transaction.Type.EXPENSE, payment_method=Transaction.PaymentMethod.VR,
+            amount=Decimal('550.00'), vr_amount=Decimal('550.00'), paid=True,
+            category=self.food, person=self.me,
+        )
+        self.assertIn(purchase, transactions_for_display_period(2026, 11))
+        self.assertNotIn(purchase, transactions_for_display_period(2026, 10))
+        self.assertContains(self.client.get(reverse('finance:dashboard'), {'year': 2026, 'month': 11}), 'Compra VR novembro')
+        self.assertNotContains(self.client.get(reverse('finance:dashboard'), {'year': 2026, 'month': 10}), 'Compra VR novembro')
 
     def test_quick_expense_uses_vr_amount_as_total_for_vr_payment(self):
         form = QuickExpenseForm(data={
