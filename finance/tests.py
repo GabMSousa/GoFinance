@@ -13,7 +13,7 @@ from .models import Category, CreditCardBill, CreditCardExpense, FinancialProfil
 from .forms import InvestmentForm, QuickExpenseForm
 from .importers import preview_csv
 from .investment_radar import _annualize_daily, _compound_monthly
-from .services import apply_investment_operation, invoice_month_for_installment, invoice_month_for_purchase, monthly_summary, split_installment_values, vr_balance_for_date
+from .services import apply_investment_operation, invoice_month_for_installment, invoice_month_for_purchase, monthly_summary, split_installment_values, vr_balance_for_date, vr_movements_for_display_period
 from .views import DuplicateExpenseError, create_card_installments, default_open_period
 from .ownership import reset_current_user, set_current_user
 
@@ -217,6 +217,15 @@ class VRTests(BaseFinanceTest):
         )
         self.assertEqual(vr_balance_for_date(date(2026, 9, 4)), Decimal('0.00'))
         self.assertEqual(vr_balance_for_date(date(2026, 9, 5)), Decimal('550.00'))
+
+    def test_vr_credit_received_in_previous_month_is_displayed_in_next_competence(self):
+        credit = VRMovement.objects.create(
+            date=date(2026, 10, 1), description='Crédito VR outubro',
+            movement_type=VRMovement.Type.CREDIT, amount=Decimal('550.00'),
+        )
+        visible = vr_movements_for_display_period(2026, 11)
+        self.assertIn(credit, visible)
+        self.assertNotIn(credit, vr_movements_for_display_period(2026, 9))
 
     def test_quick_expense_uses_vr_amount_as_total_for_vr_payment(self):
         form = QuickExpenseForm(data={

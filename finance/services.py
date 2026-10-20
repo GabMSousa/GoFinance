@@ -22,6 +22,17 @@ def month_bounds(year, month):
     return date(year, month, 1), date(year, month, calendar.monthrange(year, month)[1])
 
 
+def vr_movements_for_display_period(year, month):
+    """Show the previous month's VR credit in the following competence."""
+    start, end = month_bounds(year, month)
+    previous_month = add_months(start, -1)
+    previous_start, previous_end = month_bounds(previous_month.year, previous_month.month)
+    return VRMovement.objects.filter(
+        Q(date__range=(start, end))
+        | Q(date__range=(previous_start, previous_end), movement_type=VRMovement.Type.CREDIT)
+    )
+
+
 def invoice_month_for_installment(purchase_date, installment=1):
     """Return the statement month for a real purchase and its installment."""
     return add_months(purchase_date.replace(day=1), int(installment or 1))
