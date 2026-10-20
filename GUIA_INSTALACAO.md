@@ -12,6 +12,19 @@ Este é o procedimento recomendado para instalar o GoFinance em uma máquina Win
 
 O projeto usa Django, MariaDB/MySQL, Gunicorn, Nginx e Chart.js. O arquivo `requirements.txt` instala as dependências Python, inclusive o driver `mysqlclient`.
 
+### Downloads oficiais
+
+Baixe os instaladores somente das páginas oficiais. Use versões estáveis suportadas pelo sistema operacional e mantenha o ambiente atualizado.
+
+- Python: <https://www.python.org/downloads/>
+- Git: <https://git-scm.com/downloads>
+- MySQL: <https://dev.mysql.com/downloads/mysql/>
+- MySQL Installer para Windows: <https://dev.mysql.com/downloads/installer/>
+- MariaDB: <https://mariadb.org/download/>
+- Docker Desktop: <https://www.docker.com/products/docker-desktop/>
+
+O GoFinance usa MariaDB/MySQL como banco oficial. Uma instalação nova não deve usar SQLite.
+
 ## 2. Baixar o projeto
 
 ```bash
@@ -379,6 +392,143 @@ sudo systemctl restart saas-finance
 ```
 
 No Windows, substitua `source .venv/bin/activate` pela ativação do PowerShell e reinicie o `runserver`.
+
+## 14. Instalação local no macOS
+
+O macOS é indicado para desenvolvimento e uso pessoal. Para um serviço corporativo, prefira Linux ou Docker em um servidor dedicado.
+
+### 14.1 Instalar as ferramentas
+
+Instale o Homebrew em <https://brew.sh/>. Depois, no Terminal:
+
+```bash
+brew update
+brew install python git mysql
+brew services start mysql
+python3 --version
+mysql --version
+```
+
+Se optar por MariaDB em vez de MySQL:
+
+```bash
+brew services stop mysql
+brew install mariadb
+brew services start mariadb
+```
+
+### 14.2 Criar o banco e instalar o GoFinance
+
+```bash
+git clone https://github.com/GabMSousa/GoFinance.git
+cd GoFinance
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+Crie o banco e o usuário dedicado usando um administrador do MySQL/MariaDB. Revise `deploy/mysql-init.sql` antes da execução, altere a senha de exemplo e não a reutilize em outros serviços.
+
+```bash
+mysql -u root -p < deploy/mysql-init.sql
+cp .env.example .env
+chmod 600 .env
+```
+
+Edite o `.env` com `DJANGO_DB_ENGINE=mysql`, `MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD`, `MYSQL_HOST=127.0.0.1` e `MYSQL_PORT=3306`. Finalize:
+
+```bash
+python manage.py check
+python manage.py migrate
+python manage.py seed_initial_data
+python manage.py collectstatic --noinput
+python manage.py runserver 127.0.0.1:8000
+```
+
+Acesse `http://127.0.0.1:8000/login/`.
+
+## 15. Instalação corporativa recomendada
+
+### 15.1 Arquitetura
+
+Para várias pessoas, use esta separação:
+
+```text
+Navegadores -> HTTPS/Nginx -> Gunicorn/Django -> MySQL/MariaDB
+                                      |
+                                      +-> media/ e backups
+```
+
+O banco não deve ser publicado na internet. A porta 3306 deve aceitar conexões somente do servidor da aplicação ou de uma rede administrativa. O Nginx é o único serviço que deve ficar exposto publicamente, normalmente nas portas 80 e 443.
+
+### 15.2 Servidor Linux recomendado
+
+Use Ubuntu/Debian LTS ou outra distribuição corporativa mantida. Instale Python, Git, dependências de compilação, MySQL/MariaDB, Nginx e o firewall da distribuição:
+
+```bash
+sudo apt update
+sudo apt install -y python3 python3-venv python3-pip git \
+  build-essential pkg-config default-libmysqlclient-dev \
+  mariadb-server nginx ufw
+sudo systemctl enable --now mariadb nginx
+sudo ufw allow OpenSSH
+sudo ufw allow 'Nginx Full'
+sudo ufw enable
+```
+
+Instale a aplicação em `/opt/saas_finance`, crie o `.env` com `DJANGO_DEBUG=0`, configure o domínio em `DJANGO_ALLOWED_HOSTS` e `DJANGO_CSRF_TRUSTED_ORIGINS`, e execute:
+
+```bash
+cd /opt/saas_finance
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python manage.py check --deploy
+python manage.py migrate
+python manage.py seed_initial_data
+python manage.py collectstatic --noinput
+```
+
+Depois copie `deploy/saas-finance.service` para `/etc/systemd/system/` e `deploy/nginx.conf` para `/etc/nginx/sites-available/`, ajuste usuário, domínio e caminhos, habilite o site e valide:
+
+```bash
+sudo ln -s /etc/nginx/sites-available/saas-finance /etc/nginx/sites-enabled/saas-finance
+sudo nginx -t
+sudo systemctl daemon-reload
+sudo systemctl enable --now saas-finance
+sudo systemctl reload nginx
+sudo systemctl status saas-finance --no-pager
+```
+
+Configure HTTPS com um certificado válido antes de ativar o redirecionamento seguro. O domínio, o certificado e a política de renovação devem ser administrados pela equipe de infraestrutura.
+
+### 15.3 Empresa usando Windows Server
+
+Para Windows Server, a opção mais simples e reproduzível é executar o `docker-compose.yml` com Docker conforme a política da empresa. A aplicação, o Nginx e o MariaDB ficam isolados nos contêineres; o backup deve ser feito dos volumes e com `mysqldump`.
+
+Se a empresa não permitir Docker no Windows Server, use uma VM Linux para a aplicação e mantenha o Windows apenas como estação de administração. O `runserver` do Django é adequado para desenvolvimento e rede interna temporária, mas não deve ser o servidor corporativo definitivo.
+
+### 15.4 Operação mínima corporativa
+
+- Crie um usuário MySQL exclusivo para a aplicação, sem usar `root` no `.env`.
+- Mantenha `.env`, backups e `media/` fora do Git e com permissões restritas.
+- Faça dump diário do MySQL e teste restauração em uma base separada.
+- Faça backup também de `media/`, porque fotos e anexos não ficam no banco.
+- Atualize dependências e o sistema operacional em janela de manutenção.
+- Antes de cada atualização: backup, `git pull --ff-only`, `pip install -r requirements.txt`, `migrate`, `collectstatic` e reinício controlado.
+- Monitore espaço em disco, memória, serviço web, banco e validade do certificado HTTPS.
+- Crie cada usuário pela área Admin; o primeiro login exige troca da senha temporária.
+
+### 15.5 Checklist pós-instalação
+
+```bash
+python manage.py check --deploy
+python manage.py showmigrations
+python manage.py collectstatic --noinput
+```
+
+Confirme no navegador: login, troca de senha no primeiro acesso, criação de compra, compra em VR, compra parcelada, fatura, relatório, exportação CSV e isolamento dos dados entre usuários. Só considere a instalação concluída depois de fazer e restaurar um backup de teste.
 
 ## Problemas comuns
 
