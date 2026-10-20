@@ -22,16 +22,6 @@
           {% if field.errors %}<div class="text-danger small mt-1">{{ field.errors|striptags }}</div>{% endif %}
         </div>
       {% endfor %}
-      <div class="admin-user-financial-settings">
-        <h3>Regras financeiras iniciais</h3>
-        <p class="form-help">A pessoa poderá ajustar tudo depois em Meu perfil.</p>
-        {% for field in financial_form %}
-          <div class="admin-user-field">
-            {{ field.label_tag }}{{ field }}
-            {% if field.errors %}<div class="text-danger small mt-1">{{ field.errors|striptags }}</div>{% endif %}
-          </div>
-        {% endfor %}
-      </div>
       <button class="btn btn-accent" type="submit">Criar usuário</button>
     </form>
   </section>
@@ -49,20 +39,20 @@
               <td>{{ user.email|default:'—' }}</td>
               <td>{% if user.is_active %}<span class="status status-positive">Ativo</span>{% else %}<span class="status status-muted">Inativo</span>{% endif %}</td>
               <td>
-                {% if user.pk == request.user.pk %}
-                  <span class="admin-action-note">Sessão atual</span>
-                {% else %}
-                  <div class="admin-user-actions">
+                <div class="admin-user-actions">
+                  {% if user.pk != request.user.pk %}
                     <form method="post" action="{% url 'finance:admin_user_toggle_active' user.pk %}" data-confirm-submit="{% if user.is_active %}Desativar este usuário? Ele não conseguirá mais entrar no sistema.{% else %}Ativar este usuário novamente?{% endif %}">
                       {% csrf_token %}
                       <button class="admin-action {% if user.is_active %}admin-action-danger{% else %}admin-action-positive{% endif %}" type="submit">{% if user.is_active %}Desativar{% else %}Ativar{% endif %}</button>
                     </form>
+                  {% else %}
+                    <span class="admin-action-note">Sessão atual</span>
+                  {% endif %}
                     <form method="post" action="{% url 'finance:admin_user_reset_password' user.pk %}" data-confirm-submit="Gerar uma nova senha temporária para este usuário? A senha atual deixará de funcionar.">
                       {% csrf_token %}
                       <button class="admin-action admin-action-reset" type="submit">Resetar senha</button>
                     </form>
-                  </div>
-                {% endif %}
+                </div>
               </td>
             </tr>
           {% empty %}

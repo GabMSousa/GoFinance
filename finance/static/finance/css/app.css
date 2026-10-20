@@ -45,6 +45,7 @@
 .login-card--minimal .form-help{color:#aab1c2}.login-card--minimal .text-danger{color:#ff0020!important}
 .login-card--minimal .login-submit{background:#4dd2c8;color:#0b0d12;box-shadow:0 12px 26px rgba(0,0,0,.25)}
 .login-card--minimal .login-submit:hover,.login-card--minimal .login-submit:focus{background:#6be0d7;color:#0b0d12}
+.login-recovery-link{display:block;margin-top:18px;text-align:center;color:#9ba8bd;font-size:.78rem;text-decoration:underline;text-underline-offset:3px}.login-recovery-link:hover,.login-recovery-link:focus{color:#4dd2c8}
 
 /* Profile layout: controlled measure, consistent rhythm, and clear grouping. */
 .page-wrap:has(.profile-grid){max-width:1220px}.page-wrap:has(.profile-grid)>.page-heading{max-width:1040px;margin-bottom:28px}

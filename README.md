@@ -4,6 +4,8 @@ Sistema web pessoal de controle financeiro, feito com Django + MariaDB/MySQL + B
 
 **Instalação:** consulte o [Guia de instalação](GUIA_INSTALACAO.md) para configurar Python, MariaDB/MySQL, o administrador, acesso pela rede, migração de dados e importação de CSVs.
 
+**Uso diário:** consulte o [Manual do usuário](MANUAL_USUARIO.md). O [guia visual em PDF](output/pdf/GUIA_USUARIO_GOFINANCE.pdf) apresenta as telas principais com capturas reais do sistema.
+
 Para subir tudo com Docker Compose, copie `.env.docker.example` para `.env` e execute `docker compose up -d --build`. O Compose inicia MariaDB, Gunicorn e Nginx com volumes persistentes. O procedimento completo, incluindo localhost, servidor Linux e Nginx, está no guia.
 
 O sistema possui usuários, perfis e uma área Admin para criar acessos separados. Consulte também a [política de segurança](SECURITY.md): antes de usar uma única base com dados de pessoas diferentes, conclua a migração de isolamento financeiro por usuário.

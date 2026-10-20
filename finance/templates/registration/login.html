@@ -20,6 +20,7 @@
       <div class="field-group login-field"><label for="id_password">Senha</label>{{ form.password }}</div>
       <button class="btn btn-primary login-submit w-100 mt-3" type="submit">Entrar no painel</button>
     </form>
+    <a class="login-recovery-link" href="{% url 'password_reset' %}">Esqueci minha senha</a>
   </main>
 </body>
 </html>
