@@ -58,6 +58,7 @@ function initPurchaseFields() {
   const reimburse = document.getElementById('modal-reimburse-box') || document.getElementById('reimbursable-box');
   const amountInput = document.getElementById('id_amount');
   const vrInput = document.getElementById('id_vr_amount');
+  const amountBox = amountInput?.closest('.col-md-4') || amountInput?.parentElement;
   let remaining = vr?.querySelector('.vr-remaining');
   if (!remaining && amountInput?.dataset.totalWithVr === 'true' && vrInput) {
     remaining = document.createElement('div');
@@ -80,17 +81,32 @@ function initPurchaseFields() {
   };
   function sync() {
     const method = payment?.value;
+    const isVr = method === 'VR';
     const other = responsible?.value === 'OTHER';
-    vr?.classList.remove('d-none');
-    installments?.classList.toggle('d-none', method !== 'CREDIT_CARD');
+    amountBox?.classList.toggle('d-none', isVr);
+    vr?.classList.toggle('d-none', !isVr);
+    installments?.classList.toggle('d-none', isVr);
     person?.classList.toggle('d-none', !other);
     reimburse?.classList.toggle('d-none', !other);
+    if (isVr && amountInput && vrInput) {
+      amountInput.value = vrInput.value || '';
+      amountInput.removeAttribute('required');
+    } else if (amountInput) {
+      amountInput.setAttribute('required', 'required');
+      if (vrInput) vrInput.value = '0';
+    }
     updateRemaining();
   }
   payment?.addEventListener('change', sync);
   responsible?.addEventListener('change', sync);
   amountInput?.addEventListener('input', updateRemaining);
-  vrInput?.addEventListener('input', updateRemaining);
+  vrInput?.addEventListener('input', () => {
+    if (payment?.value === 'VR' && amountInput) amountInput.value = vrInput.value;
+    updateRemaining();
+  });
+  amountInput?.form?.addEventListener('submit', () => {
+    if (payment?.value === 'VR' && amountInput && vrInput) amountInput.value = vrInput.value;
+  });
   sync();
 }
 

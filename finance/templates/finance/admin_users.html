@@ -22,6 +22,16 @@
           {% if field.errors %}<div class="text-danger small mt-1">{{ field.errors|striptags }}</div>{% endif %}
         </div>
       {% endfor %}
+      <div class="admin-user-financial-settings">
+        <h3>Regras financeiras iniciais</h3>
+        <p class="form-help">A pessoa poderá ajustar tudo depois em Meu perfil.</p>
+        {% for field in financial_form %}
+          <div class="admin-user-field">
+            {{ field.label_tag }}{{ field }}
+            {% if field.errors %}<div class="text-danger small mt-1">{{ field.errors|striptags }}</div>{% endif %}
+          </div>
+        {% endfor %}
+      </div>
       <button class="btn btn-accent" type="submit">Criar usuário</button>
     </form>
   </section>

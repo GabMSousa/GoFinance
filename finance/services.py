@@ -246,9 +246,12 @@ def vr_balance_for_date(target_date):
     movements = VRMovement.objects.filter(date__range=(start, target_date))
     credits_qs = movements.filter(movement_type=VRMovement.Type.CREDIT)
     profile = financial_profile_for_month(target_date.year, target_date.month)
-    credits = money_sum(credits_qs, 'amount') if credits_qs.exists() else to_decimal(
-        profile.vr_monthly_credit if profile else monthly_credit_setting()
-    )
+    if credits_qs.exists():
+        credits = money_sum(credits_qs, 'amount')
+    else:
+        credit_day = int(getattr(profile, 'vr_credit_day', 1) or 1)
+        credit_date = date(target_date.year, target_date.month, min(credit_day, month_bounds(target_date.year, target_date.month)[1].day))
+        credits = to_decimal(profile.vr_monthly_credit if profile else monthly_credit_setting()) if target_date >= credit_date else ZERO
     adjustments = money_sum(movements.filter(movement_type=VRMovement.Type.ADJUSTMENT), 'amount')
     spent = money_sum(movements.filter(movement_type=VRMovement.Type.DEBIT), 'amount')
     return vr_initial_setting() + credits + adjustments - spent
@@ -283,7 +286,15 @@ def monthly_summary(year, month):
     explicit_revenues = tx.filter(type=Transaction.Type.REVENUE)
     explicit_salary = explicit_revenues.filter(revenue_type=Transaction.RevenueType.SALARY).exists()
     profile = financial_profile_for_month(year, month)
-    salary_net = to_decimal(profile.salary_net if profile else 0)
+    salary_lag = int(getattr(profile, 'salary_competence_lag_months', 0) or 0)
+    salary_competence = add_months(date(year, month, 1), -salary_lag)
+    salary_profile = financial_profile_for_month(salary_competence.year, salary_competence.month) or profile
+    salary_net = to_decimal(salary_profile.salary_net if salary_profile else 0)
+    salary_advance = min(
+        to_decimal(getattr(salary_profile, 'salary_advance_amount', 0) or 0),
+        salary_net,
+    )
+    salary_settlement = max(salary_net - salary_advance, ZERO)
     opening_balance = to_decimal(getattr(profile, 'opening_balance', 0))
     automatic_salary = ZERO if explicit_salary else salary_net
     revenues = money_sum(explicit_revenues, 'amount') + automatic_salary
@@ -368,6 +379,9 @@ def monthly_summary(year, month):
     return {
         'revenues': revenues,
         'salary_net': salary_net,
+        'salary_advance': salary_advance,
+        'salary_settlement': salary_settlement,
+        'salary_competence_month': salary_competence,
         'opening_balance': opening_balance,
         'automatic_salary': automatic_salary,
         'expenses': expenses_total,

@@ -102,13 +102,28 @@ def password_change(request):
 def profile(request):
     profile_obj, _ = UserSecurityProfile.objects.get_or_create(user=request.user)
     form = ProfileForm(request.user, request.POST or None, request.FILES or None)
+    financial_profile = FinancialProfile.current(request.user)
+    financial_form = FinancialProfileForm(
+        request.POST if request.POST.get('action') == 'financial' else None,
+        instance=financial_profile,
+    )
     password_form = ProfilePasswordForm(request.user)
     if request.method == 'POST' and request.POST.get('action') == 'profile':
         if form.is_valid():
             form.save()
             messages.success(request, 'Perfil atualizado com sucesso.')
             return redirect('finance:profile')
-    return render(request, 'finance/profile.html', {'form': form, 'password_form': password_form, 'profile': profile_obj})
+    if request.method == 'POST' and request.POST.get('action') == 'financial':
+        if financial_form.is_valid():
+            financial_form.save()
+            messages.success(request, 'Preferências financeiras atualizadas.')
+            return redirect('finance:profile')
+    return render(request, 'finance/profile.html', {
+        'form': form,
+        'financial_form': financial_form,
+        'password_form': password_form,
+        'profile': profile_obj,
+    })
 
 
 def profile_password_change(request):
@@ -123,7 +138,13 @@ def profile_password_change(request):
         return redirect('finance:profile')
     profile_obj, _ = UserSecurityProfile.objects.get_or_create(user=request.user)
     profile_form = ProfileForm(request.user)
-    return render(request, 'finance/profile.html', {'form': profile_form, 'password_form': form, 'profile': profile_obj})
+    financial_form = FinancialProfileForm(instance=FinancialProfile.current(request.user))
+    return render(request, 'finance/profile.html', {
+        'form': profile_form,
+        'financial_form': financial_form,
+        'password_form': form,
+        'profile': profile_obj,
+    })
 
 
 staff_required = user_passes_test(lambda user: user.is_active and user.is_staff, login_url='login')
@@ -132,7 +153,10 @@ staff_required = user_passes_test(lambda user: user.is_active and user.is_staff,
 @staff_required
 def admin_users(request):
     form = AdminUserCreationForm(request.POST or None)
-    if request.method == 'POST' and form.is_valid():
+    financial_form = FinancialProfileForm(request.POST or None, instance=FinancialProfile())
+    financial_submitted = any(name in request.POST for name in financial_form.fields)
+    financial_valid = financial_form.is_valid() if financial_submitted else True
+    if request.method == 'POST' and form.is_valid() and financial_valid:
         with db_transaction.atomic():
             user = form.save()
             UserSecurityProfile.objects.create(
@@ -140,11 +164,21 @@ def admin_users(request):
                 display_name=form.cleaned_data['display_name'],
                 must_change_password=True,
             )
+            if financial_submitted:
+                financial_profile = financial_form.save(commit=False)
+                financial_profile.owner = user
+                financial_profile.save()
+            else:
+                FinancialProfile.objects.create(owner=user)
         messages.success(request, f'Usuário {user.username} criado com sucesso.')
         return redirect('finance:admin_users')
 
     users = get_user_model().objects.select_related('security_profile').order_by('username')
-    return render(request, 'finance/admin_users.html', {'form': form, 'users': users})
+    return render(request, 'finance/admin_users.html', {
+        'form': form,
+        'financial_form': financial_form,
+        'users': users,
+    })
 
 
 def _temporary_password(length=16):
@@ -458,7 +492,14 @@ def settings_page(request):
             defaults={
                 'salary_gross': updated.salary_gross,
                 'salary_net': updated.salary_net,
+                'salary_advance_amount': updated.salary_advance_amount,
+                'salary_advance_day': updated.salary_advance_day,
+                'salary_settlement_day': updated.salary_settlement_day,
+                'salary_competence_lag_months': updated.salary_competence_lag_months,
                 'vr_monthly_credit': updated.vr_monthly_credit,
+                'vr_credit_day': updated.vr_credit_day,
+                'credit_card_due_day': updated.credit_card_due_day,
+                'primary_bank': updated.primary_bank,
                 'opening_balance': form.cleaned_data.get('opening_balance') or Decimal('0.00'),
             },
         )
