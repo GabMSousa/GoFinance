@@ -31,17 +31,7 @@ sudo mysql < deploy/mysql-init.sql
 
 No `.env`, use `DJANGO_DB_ENGINE=mysql`, uma senha forte em `MYSQL_PASSWORD` e `DJANGO_DEBUG=0`. Para uma instalação atrás de HTTPS, ative também `DJANGO_SECURE_SSL_REDIRECT=1`, `DJANGO_SESSION_COOKIE_SECURE=1`, `DJANGO_CSRF_COOKIE_SECURE=1` e defina `DJANGO_SECURE_HSTS_SECONDS=31536000`.
 
-Para migrar os dados existentes de uma instalação antiga que usava SQLite, sem apagar o arquivo original:
-
-```bash
-cp db.sqlite3 backup_before_mysql_$(date +%Y-%m-%d).sqlite3
-DJANGO_DB_ENGINE=sqlite python manage.py dumpdata --natural-foreign --natural-primary --exclude contenttypes --exclude auth.permission --indent 2 > /tmp/gofinance.json
-# altere o .env para MySQL
-python manage.py migrate
-python manage.py loaddata /tmp/gofinance.json
-```
-
-Valide a importação com `python manage.py test` e mantenha o backup até conferir os lançamentos, faturas, contas fixas e relatórios.
+Para transferir dados entre servidores, use `mysqldump` e restaure o arquivo SQL em uma base MariaDB/MySQL vazia. O procedimento completo está no [Guia de instalação](GUIA_INSTALACAO.md).
 
 ## Login inicial
 

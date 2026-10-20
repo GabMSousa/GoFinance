@@ -1,6 +1,6 @@
 # Guia de instalação do GoFinance
 
-Este é o procedimento recomendado para instalar o GoFinance em uma máquina Windows ou em um servidor Linux. A instalação oficial usa **MariaDB/MySQL**. O SQLite não deve ser usado em produção ou quando mais de uma pessoa acessará o sistema.
+Este é o procedimento recomendado para instalar o GoFinance em uma máquina Windows, macOS, Linux ou em um servidor corporativo. A instalação oficial usa **MariaDB/MySQL**.
 
 ## 1. Requisitos
 
@@ -23,7 +23,7 @@ Baixe os instaladores somente das páginas oficiais. Use versões estáveis supo
 - MariaDB: <https://mariadb.org/download/>
 - Docker Desktop: <https://www.docker.com/products/docker-desktop/>
 
-O GoFinance usa MariaDB/MySQL como banco oficial. Uma instalação nova não deve usar SQLite.
+O GoFinance usa MariaDB/MySQL como banco oficial e obrigatório.
 
 ## 2. Baixar o projeto
 
@@ -311,28 +311,16 @@ docker compose exec web python manage.py check
 
 Para expor outra porta HTTP, altere `GOFINANCE_HTTP_PORT` no `.env`. Para HTTPS real, coloque um proxy reverso com certificado na frente do Nginx do Compose e ajuste `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS` e os cookies seguros.
 
-## 10. Migrar o banco atual do SQLite para MariaDB/MySQL
+## 10. Transferir dados entre instâncias MySQL
 
-Use este procedimento somente para levar os dados atuais para um servidor. Preserve o `db.sqlite3` original até validar tudo no MariaDB.
-
-Na máquina que possui os dados atuais, com o projeto na mesma versão do Git:
+Para levar uma instalação para outro servidor, faça um dump do MariaDB/MySQL de origem e restaure-o em uma base vazia de destino:
 
 ```bash
-python manage.py migrate
-python manage.py dumpdata --natural-foreign --natural-primary --exclude contenttypes --exclude auth.permission --indent 2 > gofinance-dados.json
+mysqldump --single-transaction --routines --triggers -h 127.0.0.1 -P 3306 -u saas_finance -p saas_finance > gofinance-dados.sql
+mariadb -h SERVIDOR_DESTINO -P 3306 -u saas_finance -p saas_finance < gofinance-dados.sql
 ```
 
-Se o `.env` já aponta para MySQL, execute o `dumpdata` usando temporariamente um `.env` configurado para SQLite ou defina `DJANGO_DB_ENGINE=sqlite` somente para esse comando.
-
-No servidor MariaDB/MySQL:
-
-```bash
-python manage.py migrate
-python manage.py loaddata gofinance-dados.json
-python manage.py collectstatic --noinput
-```
-
-Não execute `seed_initial_data` depois de importar um banco completo sem necessidade; o usuário administrador e os dados já estarão no arquivo exportado. Valide login, contas, faturas, gráficos, VR, investimentos e isolamento entre usuários antes de apagar qualquer cópia.
+Depois execute `python manage.py migrate` e `python manage.py collectstatic --noinput` no destino. Valide login, contas, faturas, gráficos, VR, investimentos e isolamento entre usuários antes de liberar o acesso.
 
 ## 11. CSVs, fotos e outros arquivos pessoais
 
@@ -341,7 +329,6 @@ O GitHub armazena somente o código. Os dados ficam no MariaDB/MySQL e os arquiv
 - A importação CSV grava os lançamentos no banco e não arquiva automaticamente o CSV original.
 - Guarde os CSVs originais fora do repositório se precisar reprocessá-los.
 - Ao migrar de máquina, copie `media/` preservando permissões.
-- Não copie o `db.sqlite3` para uma instalação que usa MariaDB/MySQL.
 
 Para importar uma fatura Nubank pelo terminal:
 
@@ -353,7 +340,7 @@ Também é possível importar pela tela **Importar CSV**. A importação é idem
 
 ## 12. Backup e restauração do MariaDB/MySQL
 
-O backup oficial de produção é um dump do MariaDB/MySQL, não uma cópia do SQLite.
+O backup oficial de produção é um dump do MariaDB/MySQL.
 
 ### Linux
 
@@ -546,4 +533,4 @@ Confira `DJANGO_ADMIN_USERNAME` e `DJANGO_ADMIN_PASSWORD`. Para um administrador
 
 ### O sistema abre, mas não aparecem os dados
 
-Confirme que a aplicação está apontando para o mesmo banco MariaDB/MySQL usado na migração e que `python manage.py migrate` foi executado. Não misture um `.env` de SQLite com um `.env` de MariaDB.
+Confirme que a aplicação está apontando para o mesmo banco MariaDB/MySQL usado na migração e que `python manage.py migrate` foi executado.

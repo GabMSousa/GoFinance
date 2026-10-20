@@ -13,7 +13,7 @@ Há uma limitação importante antes de liberar a aplicação para várias pesso
 3. Configure `DJANGO_ALLOWED_HOSTS` e `DJANGO_CSRF_TRUSTED_ORIGINS` somente com os endereços reais.
 4. Use HTTPS e mantenha `DJANGO_SECURE_SSL_REDIRECT=1`, `DJANGO_SESSION_COOKIE_SECURE=1` e `DJANGO_CSRF_COOKIE_SECURE=1`.
 5. Depois de confirmar que todo o acesso é HTTPS, habilite HSTS com `DJANGO_SECURE_HSTS_SECONDS` e avalie `DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS`.
-6. Nunca versione `.env`, `db.sqlite3`, `media/`, CSVs ou backups.
+6. Nunca versione `.env`, `media/`, CSVs ou backups.
 7. Faça backup protegido do banco e de `media/`; teste também a restauração.
 8. Não exponha a porta do Django diretamente na internet. Use um proxy HTTPS e firewall restrito.
 
