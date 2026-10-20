@@ -36,7 +36,7 @@
       {% if financial_form.non_field_errors %}<div class="alert alert-danger">{{ financial_form.non_field_errors|striptags }}</div>{% endif %}
       <div class="row g-3">
         {% for field in financial_form %}
-          <div class="col-md-6 financial-rule-field financial-rule-field-{{ field.name }}">{{ field.label_tag }}{{ field }}{% if field.name == 'salary_payment_mode' %}<div class="form-help">Escolha se o salário entra inteiro no primeiro dia útil ou em duas partes.</div>{% endif %}{% if field.errors %}<div class="text-danger small mt-1">{{ field.errors|striptags }}</div>{% endif %}</div>
+          <div class="col-md-6 financial-rule-field financial-rule-field-{{ field.name }}">{{ field.label_tag }}{{ field }}{% if field.help_text %}<div class="form-help">{{ field.help_text }}</div>{% endif %}{% if field.name == 'salary_payment_mode' %}<div class="form-help">Escolha se o salário entra inteiro no primeiro dia útil ou em duas partes.</div>{% endif %}{% if field.errors %}<div class="text-danger small mt-1">{{ field.errors|striptags }}</div>{% endif %}</div>
         {% endfor %}
       </div>
       <button class="btn btn-accent mt-4" type="submit">Salvar regras financeiras</button>

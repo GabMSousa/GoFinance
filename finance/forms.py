@@ -300,12 +300,21 @@ class GoalForm(BootstrapModelForm):
 
 
 class FinancialProfileForm(BootstrapModelForm):
+    salary_competence_lag_months = forms.IntegerField(
+        label='Recebe quantos meses depois?',
+        help_text='Ex.: 1 = trabalhou em outubro e recebeu em novembro. Use 0 se receber no mesmo mês.',
+        min_value=0,
+        required=False,
+    )
     opening_balance = forms.DecimalField(
         label='Saldo inicial do mês',
         min_value=Decimal('0.00'),
         decimal_places=2,
         required=False,
     )
+
+    def clean_salary_competence_lag_months(self):
+        return self.cleaned_data.get('salary_competence_lag_months') or 0
 
     class Meta:
         model = FinancialProfile
