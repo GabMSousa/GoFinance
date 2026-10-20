@@ -6,6 +6,9 @@ venv/
 staticfiles/
 media/
 backups/
+*.sqlite3
+*.sqlite
+*.db
 tmp/
 .idea/
 .vscode/
