@@ -39,14 +39,14 @@ class BaseFinanceTest(TestCase):
 
 class UserDataIsolationTests(TestCase):
     def test_new_user_cannot_see_existing_financial_data(self):
-        owner = get_user_model().objects.create_user(username='gabriel-owner', password='test-password')
+        owner = get_user_model().objects.create_user(username='owner-user', password='test-password')
         other = get_user_model().objects.create_user(username='new-user', password='test-password')
         category = Category.objects.create(name='Privada', owner=owner)
         person = Person.objects.create(name='Eu', owner=owner)
         Transaction.objects.create(
             owner=owner,
             date=date(2026, 9, 10),
-            description='DADO EXCLUSIVO DO GABRIEL',
+            description='DADO EXCLUSIVO DO USUARIO',
             type=Transaction.Type.EXPENSE,
             payment_method=Transaction.PaymentMethod.PIX,
             amount=Decimal('10.00'),
@@ -58,7 +58,7 @@ class UserDataIsolationTests(TestCase):
         response = self.client.get(reverse('finance:dashboard'), {'year': 2026, 'month': 9})
 
         self.assertEqual(response.status_code, 200)
-        self.assertNotContains(response, 'DADO EXCLUSIVO DO GABRIEL')
+        self.assertNotContains(response, 'DADO EXCLUSIVO DO USUARIO')
         self.assertFalse(Transaction.objects.filter(owner=other).exists())
 
 
@@ -1533,15 +1533,15 @@ class AuthenticationTests(TestCase):
         response = self.client.post(reverse('finance:profile'), {
             'action': 'profile',
             'username': 'profile-updated',
-            'display_name': 'Gabriel',
-            'first_name': 'Gabriel',
-            'last_name': 'Sousa',
+            'display_name': 'Usuario de teste',
+            'first_name': 'Usuario',
+            'last_name': 'Teste',
             'avatar': image,
         })
         self.assertRedirects(response, reverse('finance:profile'))
         user.refresh_from_db()
         self.assertEqual(user.username, 'profile-updated')
-        self.assertEqual(user.security_profile.display_name, 'Gabriel')
+        self.assertEqual(user.security_profile.display_name, 'Usuario de teste')
         self.assertTrue(user.security_profile.avatar.name.endswith('.png'))
 
     def test_profile_password_can_change_without_old_password(self):
