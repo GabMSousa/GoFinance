@@ -66,6 +66,7 @@ html[data-theme="dark"] .brand-mark{background:#eef2f7!important;border-radius:5
 html[data-theme="dark"] .vr-highlight {
   background: #21172f !important;
   border-left: 3px solid #6846a0 !important;
+  box-shadow: inset 3px 0 0 #6846a0 !important;
   color: #fff !important;
 }
 html[data-theme="dark"] .vr-highlight .movement-date,
@@ -85,6 +86,7 @@ html[data-theme="dark"] .vr-badge {
 html[data-theme="light"] .vr-highlight {
   background: #f2eafd !important;
   border-left: 3px solid #bba0e5 !important;
+  box-shadow: inset 3px 0 0 #bba0e5 !important;
   color: #5d3b91 !important;
 }
 html[data-theme="light"] .vr-highlight .movement-date,
