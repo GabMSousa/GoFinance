@@ -580,6 +580,35 @@ html:not([data-theme="dark"]) .dashboard-summary.home-summary .summary-vr .summa
   color: #fff !important;
 }
 
+/* O tema claro usa cartões mais densos para preservar leitura e escaneabilidade. */
+html:not([data-theme="dark"]) .dashboard-summary.home-summary .summary-card:nth-child(2) {
+  background: #1d4f91 !important;
+  border-color: #123b70 !important;
+  color: #fff !important;
+}
+html:not([data-theme="dark"]) .dashboard-summary.home-summary .summary-card:nth-child(3) {
+  background: #8f1527 !important;
+  border-color: #6d0f1e !important;
+  color: #fff !important;
+}
+html:not([data-theme="dark"]) .dashboard-summary.home-summary .summary-card:nth-child(4) {
+  background: #9a6b00 !important;
+  border-color: #704d00 !important;
+  color: #fff !important;
+}
+html:not([data-theme="dark"]) .dashboard-summary.home-summary .summary-card:nth-child(5) {
+  background: #5d3b91 !important;
+  border-color: #41276b !important;
+  color: #fff !important;
+}
+html:not([data-theme="dark"]) .dashboard-summary.home-summary .summary-card:nth-child(n+2) .summary-label,
+html:not([data-theme="dark"]) .dashboard-summary.home-summary .summary-card:nth-child(n+2) .summary-value {
+  color: #fff !important;
+}
+html:not([data-theme="dark"]) .dashboard-summary.home-summary .summary-card:nth-child(n+2) .summary-icon {
+  background-color: rgba(0, 0, 0, .18) !important;
+}
+
 .dashboard-search-toolbar {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto auto 56px;
@@ -715,6 +744,27 @@ html:not([data-theme="dark"]) .movement-account-summary .account-summary-card { 
   max-width: none;
   margin-left: 0;
   margin-right: auto;
+}
+.page-wrap:has(.settings-grid),
+.page-wrap:has(.profile-grid),
+.page-wrap:has(.admin-users-layout) {
+  max-width: none;
+  margin-left: 0;
+  margin-right: 0;
+}
+.page-wrap:has(.profile-grid) .profile-grid {
+  max-width: none;
+}
+.page-wrap:has(.profile-grid) > .page-heading {
+  max-width: none;
+}
+
+/* Todas as telas internas usam a largura útil completa da aplicação. */
+.main-content > .page-wrap {
+  width: 100%;
+  max-width: none;
+  margin-left: 0;
+  margin-right: 0;
 }
 .investment-radar--compact { margin-top: 0; }
 .investment-page-heading { align-items: flex-start; margin-bottom: 16px; }

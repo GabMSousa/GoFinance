@@ -6,7 +6,7 @@ from .ownership import reset_current_user, set_current_user
 class LoginRequiredMiddleware:
     """Require an authenticated session for every application URL."""
 
-    public_prefixes = ('/login/', '/admin/', '/static/', '/media/')
+    public_prefixes = ('/login/', '/admin/', '/static/', '/media/', '/senha/recuperar/')
 
     def __init__(self, get_response):
         self.get_response = get_response

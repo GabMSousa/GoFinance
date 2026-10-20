@@ -21,6 +21,26 @@ def login_view(request: HttpRequest) -> HttpResponse:
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('login/', login_view, name='login'),
+    path(
+        'senha/recuperar/',
+        auth_views.PasswordResetView.as_view(template_name='registration/password_reset_form.html'),
+        name='password_reset',
+    ),
+    path(
+        'senha/recuperar/enviado/',
+        auth_views.PasswordResetDoneView.as_view(template_name='registration/password_reset_done.html'),
+        name='password_reset_done',
+    ),
+    path(
+        'senha/recuperar/<uidb64>/<token>/',
+        auth_views.PasswordResetConfirmView.as_view(template_name='registration/password_reset_confirm.html'),
+        name='password_reset_confirm',
+    ),
+    path(
+        'senha/recuperar/concluido/',
+        auth_views.PasswordResetCompleteView.as_view(template_name='registration/password_reset_complete.html'),
+        name='password_reset_complete',
+    ),
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
     path('', include('finance.urls')),
 ]

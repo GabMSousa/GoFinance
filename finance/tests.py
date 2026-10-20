@@ -1416,7 +1416,7 @@ class AuthenticationTests(TestCase):
         self.assertTrue(created.security_profile.must_change_password)
         self.assertFalse(Transaction.objects.filter(person__name='Novo UsuÃ¡rio').exists())
 
-    def test_staff_can_create_user_with_individual_financial_profile(self):
+    def test_staff_can_create_user_with_default_financial_profile(self):
         admin = get_user_model().objects.create_user(username='profile-admin', password='Strong-test-password-123!', is_staff=True)
         self.client.force_login(admin)
         response = self.client.post(reverse('finance:admin_users'), {
@@ -1432,9 +1432,9 @@ class AuthenticationTests(TestCase):
         self.assertRedirects(response, reverse('finance:admin_users'))
         created = get_user_model().objects.get(username='configured-user')
         profile = FinancialProfile.objects.get(owner=created)
-        self.assertEqual(profile.salary_advance_amount, Decimal('1200.00'))
-        self.assertEqual(profile.vr_monthly_credit, Decimal('550.00'))
-        self.assertEqual(profile.primary_bank, 'Nubank')
+        self.assertEqual(profile.salary_advance_amount, Decimal('0.00'))
+        self.assertEqual(profile.vr_monthly_credit, Decimal('0.00'))
+        self.assertEqual(profile.primary_bank, '')
 
     def test_profile_can_update_individual_financial_settings(self):
         user = get_user_model().objects.create_user(username='financial-profile', password='Strong-test-password-123!')
@@ -1477,6 +1477,19 @@ class AuthenticationTests(TestCase):
         self.assertFalse(target.check_password('Old-password-123!'))
         self.assertTrue(target.security_profile.must_change_password)
         self.assertFalse(self.client.login(username='reset-target', password='Old-password-123!'))
+
+    def test_staff_can_see_and_reset_own_password(self):
+        admin = get_user_model().objects.create_user(username='self-reset-admin', password='Old-password-123!', is_staff=True)
+        self.client.force_login(admin)
+
+        page = self.client.get(reverse('finance:admin_users'))
+        self.assertContains(page, reverse('finance:admin_user_reset_password', args=[admin.pk]))
+
+        response = self.client.post(reverse('finance:admin_user_reset_password', args=[admin.pk]))
+        self.assertRedirects(response, reverse('finance:admin_users'))
+        admin.refresh_from_db()
+        self.assertFalse(admin.check_password('Old-password-123!'))
+        self.assertTrue(admin.security_profile.must_change_password)
 
     def test_fresh_login_ends_an_existing_session(self):
         user = get_user_model().objects.create_user(username='fresh-login', password='Strong-test-password-123!')

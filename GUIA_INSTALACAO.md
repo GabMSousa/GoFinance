@@ -517,6 +517,10 @@ python manage.py collectstatic --noinput
 
 Confirme no navegador: login, troca de senha no primeiro acesso, criação de compra, compra em VR, compra parcelada, fatura, relatório, exportação CSV e isolamento dos dados entre usuários. Só considere a instalação concluída depois de fazer e restaurar um backup de teste.
 
+## Guia visual do usuário
+
+Depois da instalação, consulte o [Manual do usuário](MANUAL_USUARIO.md) para o fluxo de login, cadastro de compras, VR, cartão, salário, perfil, configurações e Admin. O PDF com capturas das telas está em [output/pdf/GUIA_USUARIO_GOFINANCE.pdf](output/pdf/GUIA_USUARIO_GOFINANCE.pdf).
+
 ## Problemas comuns
 
 ### Erro de conexão com o banco
