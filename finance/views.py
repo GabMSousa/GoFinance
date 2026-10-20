@@ -169,7 +169,14 @@ def admin_users(request):
                 financial_profile.owner = user
                 financial_profile.save()
             else:
-                FinancialProfile.objects.create(owner=user)
+                FinancialProfile.objects.create(
+                    owner=user,
+                    salary_gross=0,
+                    salary_net=0,
+                    previous_net_salary=0,
+                    salary_advance_amount=0,
+                    vr_monthly_credit=0,
+                )
         messages.success(request, f'Usuário {user.username} criado com sucesso.')
         return redirect('finance:admin_users')
 
