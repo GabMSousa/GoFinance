@@ -182,6 +182,10 @@ function initSalaryPaymentMode() {
   const splitFields = ['salary_advance_amount', 'salary_advance_day', 'salary_settlement_day'];
   const sync = () => {
     const isSplit = mode.value === 'SPLIT_ADVANCE_SETTLEMENT';
+    const fullDay = document.querySelector('.financial-rule-field-salary_payment_day');
+    if (fullDay) fullDay.hidden = isSplit;
+    const modeHelp = document.querySelector('.financial-rule-field-salary_payment_mode .form-help');
+    if (modeHelp) modeHelp.textContent = 'Escolha entre receber uma vez ou em duas partes: vale e saldo.';
     splitFields.forEach((name) => {
       const field = document.querySelector(`.financial-rule-field-${name}`);
       if (field) field.hidden = !isSplit;

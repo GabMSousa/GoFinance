@@ -498,6 +498,7 @@ def settings_page(request):
             month=target,
             defaults={
                 'salary_payment_mode': updated.salary_payment_mode,
+                'salary_payment_day': updated.salary_payment_day,
                 'salary_gross': updated.salary_gross,
                 'salary_net': updated.salary_net,
                 'salary_advance_amount': updated.salary_advance_amount,
