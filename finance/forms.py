@@ -327,6 +327,11 @@ class FinancialProfileForm(BootstrapModelForm):
         required=False,
     )
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # A regra de recebimento da competência permanece interna e fixa em um mês.
+        self.fields.pop('salary_competence_lag_months', None)
+
     def clean_salary_competence_lag_months(self):
         return self.cleaned_data.get('salary_competence_lag_months') or 0
 
