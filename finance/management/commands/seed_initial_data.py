@@ -20,7 +20,7 @@ class Command(BaseCommand):
         owner_user = current_user or user_model.objects.order_by('id').first()
         if password:
             admin_user, created = user_model.objects.get_or_create(
-                username=os.environ.get('DJANGO_ADMIN_USERNAME', 'gabriel.sousa'),
+                username=os.environ.get('DJANGO_ADMIN_USERNAME', 'admin'),
                 defaults={'is_staff': True, 'is_superuser': True, 'email': ''},
             )
             admin_user.is_staff = True
@@ -87,7 +87,7 @@ class Command(BaseCommand):
         if password:
             user_model = get_user_model()
             user, created = user_model.objects.get_or_create(
-                username=os.environ.get('DJANGO_ADMIN_USERNAME', 'gabriel.sousa'),
+                username=os.environ.get('DJANGO_ADMIN_USERNAME', 'admin'),
                 defaults={'is_staff': True, 'is_superuser': True, 'email': ''},
             )
             user.is_staff = True

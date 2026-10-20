@@ -28,7 +28,7 @@ O GoFinance usa MariaDB/MySQL como banco oficial e obrigatório.
 ## 2. Baixar o projeto
 
 ```bash
-git clone https://github.com/GabMSousa/GoFinance.git
+git clone https://github.com/SEU_USUARIO/SEU_REPOSITORIO.git GoFinance
 cd GoFinance
 ```
 
@@ -131,7 +131,7 @@ MYSQL_HOST=127.0.0.1
 MYSQL_PORT=3306
 DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,IP_DA_MAQUINA
 DJANGO_CSRF_TRUSTED_ORIGINS=http://localhost,http://127.0.0.1,http://IP_DA_MAQUINA
-DJANGO_ADMIN_USERNAME=gabriel.sousa
+DJANGO_ADMIN_USERNAME=admin
 DJANGO_ADMIN_PASSWORD=senha-temporaria-forte
 DJANGO_SECURE_SSL_REDIRECT=0
 DJANGO_SESSION_COOKIE_SECURE=0
@@ -197,7 +197,7 @@ Exemplo usando `/opt/saas_finance`:
 ```bash
 sudo mkdir -p /opt/saas_finance
 sudo chown "$USER":"$USER" /opt/saas_finance
-git clone https://github.com/GabMSousa/GoFinance.git /opt/saas_finance
+git clone https://github.com/SEU_USUARIO/SEU_REPOSITORIO.git /opt/saas_finance
 cd /opt/saas_finance
 python3 -m venv .venv
 source .venv/bin/activate
@@ -407,7 +407,7 @@ brew services start mariadb
 ### 14.2 Criar o banco e instalar o GoFinance
 
 ```bash
-git clone https://github.com/GabMSousa/GoFinance.git
+git clone https://github.com/SEU_USUARIO/SEU_REPOSITORIO.git GoFinance
 cd GoFinance
 python3 -m venv .venv
 source .venv/bin/activate
