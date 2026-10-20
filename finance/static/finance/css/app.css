@@ -132,3 +132,35 @@
 .text-danger {
   color: #ff0020 !important;
 }
+
+/* Os lancamentos de VR usam a mesma paleta roxa do saldo de VR. */
+html[data-theme="dark"] .vr-highlight {
+  background: #21172f !important;
+  border-left-color: #6846a0 !important;
+}
+html[data-theme="dark"] .vr-highlight .movement-amount,
+html[data-theme="dark"] .vr-highlight td:nth-child(4),
+html[data-theme="dark"] .vr-highlight .movement-breakdown {
+  color: #9675ce !important;
+}
+html[data-theme="dark"] .vr-highlight .movement-payment,
+html[data-theme="dark"] .vr-badge {
+  background: #352452 !important;
+  border-color: #6846a0 !important;
+  color: #9675ce !important;
+}
+html[data-theme="light"] .vr-highlight {
+  background: #f2eafd !important;
+  border-left-color: #bba0e5 !important;
+}
+html[data-theme="light"] .vr-highlight .movement-amount,
+html[data-theme="light"] .vr-highlight td:nth-child(4),
+html[data-theme="light"] .vr-highlight .movement-breakdown {
+  color: #5d3b91 !important;
+}
+html[data-theme="light"] .vr-highlight .movement-payment,
+html[data-theme="light"] .vr-badge {
+  background: #e8dafb !important;
+  border-color: #bba0e5 !important;
+  color: #5d3b91 !important;
+}
