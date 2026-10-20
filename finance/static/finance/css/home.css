@@ -61,3 +61,43 @@ html[data-theme="dark"] .status,html[data-theme="light"] .status{display:inline-
 /* Cabeçalho de contas: texto à esquerda e indicadores alinhados à direita. */
 .home-summary .summary-card.summary-balance{background:#0c7128;border-color:#0ce93e;color:#fff}.home-summary .summary-card.summary-balance .summary-label{color:#14213d}.home-summary .summary-card:nth-child(2){background:#e8f0ff;border-color:#b9cdf2}.home-summary .summary-card:nth-child(2) .summary-label,.home-summary .summary-card:nth-child(2) .summary-value{color:#1d4f91}.home-summary .summary-card:nth-child(3){background:rgba(95,14,24,.12);border-color:#ff0020}.home-summary .summary-card:nth-child(3) .summary-label,.home-summary .summary-card:nth-child(3) .summary-value{color:#ff0020}.home-summary .summary-card:nth-child(6){background:#8b670f61;border-color:#e1a91d}.home-summary .summary-card:nth-child(6) .summary-label,.home-summary .summary-card:nth-child(6) .summary-value{color:#e1a91d}html[data-theme="dark"] .home-summary .summary-card.summary-balance{background:#0c7128;border-color:#0ce93e;color:#fff}html[data-theme="dark"] .home-summary .summary-card.summary-balance .summary-label{color:#14213d}html[data-theme="dark"] .home-summary .summary-card:nth-child(2){background:#1d3558;border-color:#3f6da9}html[data-theme="dark"] .home-summary .summary-card:nth-child(2) .summary-label,html[data-theme="dark"] .home-summary .summary-card:nth-child(2) .summary-value{color:#d8e7ff}html[data-theme="dark"] .home-summary .summary-card:nth-child(3){background:#5f0e18;border-color:#ff0020}html[data-theme="dark"] .home-summary .summary-card:nth-child(3) .summary-label,html[data-theme="dark"] .home-summary .summary-card:nth-child(3) .summary-value{color:#ff0020}html[data-theme="dark"] .home-summary .summary-card:nth-child(6){background:#8b670f61;border-color:#e1a91d}html[data-theme="dark"] .home-summary .summary-card:nth-child(6) .summary-label,html[data-theme="dark"] .home-summary .summary-card:nth-child(6) .summary-value{color:#e1a91d}
 html[data-theme="dark"] .brand-mark{background:#eef2f7!important;border-radius:50%!important;padding:3px!important}
+
+/* O destaque da movimentacao VR deve seguir exatamente o card de saldo VR. */
+html[data-theme="dark"] .vr-highlight {
+  background: #21172f !important;
+  border-left: 3px solid #6846a0 !important;
+  color: #fff !important;
+}
+html[data-theme="dark"] .vr-highlight .movement-date,
+html[data-theme="dark"] .vr-highlight .movement-main strong,
+html[data-theme="dark"] .vr-highlight .movement-main span,
+html[data-theme="dark"] .vr-highlight .movement-amount,
+html[data-theme="dark"] .vr-highlight .movement-breakdown,
+html[data-theme="dark"] .vr-highlight .movement-payment,
+html[data-theme="dark"] .vr-badge {
+  color: #fff !important;
+}
+html[data-theme="dark"] .vr-highlight .movement-payment,
+html[data-theme="dark"] .vr-badge {
+  background: #352452 !important;
+  border-color: #6846a0 !important;
+}
+html[data-theme="light"] .vr-highlight {
+  background: #f2eafd !important;
+  border-left: 3px solid #bba0e5 !important;
+  color: #5d3b91 !important;
+}
+html[data-theme="light"] .vr-highlight .movement-date,
+html[data-theme="light"] .vr-highlight .movement-main strong,
+html[data-theme="light"] .vr-highlight .movement-main span,
+html[data-theme="light"] .vr-highlight .movement-amount,
+html[data-theme="light"] .vr-highlight .movement-breakdown,
+html[data-theme="light"] .vr-highlight .movement-payment,
+html[data-theme="light"] .vr-badge {
+  color: #5d3b91 !important;
+}
+html[data-theme="light"] .vr-highlight .movement-payment,
+html[data-theme="light"] .vr-badge {
+  background: #e8dafb !important;
+  border-color: #bba0e5 !important;
+}
