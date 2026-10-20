@@ -33,6 +33,20 @@ def vr_movements_for_display_period(year, month):
     )
 
 
+def transactions_for_display_period(year, month):
+    """Show VR purchases in the following competence without changing their dates."""
+    start, end = month_bounds(year, month)
+    previous_month = add_months(start, -1)
+    previous_start, previous_end = month_bounds(previous_month.year, previous_month.month)
+    vr_purchase = Q(type=Transaction.Type.EXPENSE) & (
+        Q(payment_method=Transaction.PaymentMethod.VR) | Q(vr_amount__gt=0)
+    )
+    return Transaction.objects.filter(
+        (Q(date__range=(start, end)) & ~vr_purchase)
+        | (Q(date__range=(previous_start, previous_end)) & vr_purchase)
+    )
+
+
 def invoice_month_for_installment(purchase_date, installment=1):
     """Return the statement month for a real purchase and its installment."""
     return add_months(purchase_date.replace(day=1), int(installment or 1))

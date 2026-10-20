@@ -49,7 +49,7 @@ from .investment_radar import get_investment_radar
 from .models import Category, CreditCardBill, CreditCardExpense, FinancialProfile, FixedExpense, Goal, Investment, InvestmentOperation, Person, SalarySnapshot, Transaction, UserSecurityProfile, VRMovement
 from .importers import import_preview_rows, normalize, preview_csv
 from .reporting import build_financial_pdf
-from .services import add_months, apply_investment_operation, card_expenses_for_period, investment_scope, invoice_month_for_installment, invoice_month_for_purchase, month_bounds, monthly_summary, money_sum, split_installment_values, sync_card_vr, sync_transaction_vr, third_party_by_person, to_decimal, vr_balance_for_date, vr_movements_for_display_period
+from .services import add_months, apply_investment_operation, card_expenses_for_period, investment_scope, invoice_month_for_installment, invoice_month_for_purchase, month_bounds, monthly_summary, money_sum, split_installment_values, sync_card_vr, sync_transaction_vr, third_party_by_person, to_decimal, transactions_for_display_period, vr_balance_for_date, vr_movements_for_display_period
 
 
 def selected_period(request):
@@ -349,7 +349,7 @@ def dashboard(request, purchase_form=None, period=None):
     payment = request.GET.get('payment', '')
     person_filter = request.GET.get('person', '')
     date_filter = request.GET.get('date', '').strip()
-    tx_qs = Transaction.objects.select_related('category', 'person').filter(date__year=year, date__month=month)
+    tx_qs = transactions_for_display_period(year, month).select_related('category', 'person')
     card_qs = card_expenses_for_period(year, month).select_related('category', 'person')
     if search:
         tx_qs = tx_qs.filter(description__icontains=search)
@@ -783,7 +783,7 @@ def report_pdf(request):
 
 def transaction_list(request):
     year, month = selected_period(request)
-    qs = Transaction.objects.select_related('category', 'person').prefetch_related('vr_movements').filter(date__year=year, date__month=month)
+    qs = transactions_for_display_period(year, month).select_related('category', 'person').prefetch_related('vr_movements')
     if request.GET.get('q'):
         qs = qs.filter(description__icontains=request.GET['q'])
     if request.GET.get('category'):
