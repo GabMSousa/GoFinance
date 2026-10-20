@@ -12,6 +12,83 @@ O sistema possui usuários, perfis e uma área Admin para criar acessos separado
 
 - Python 3.10 ou superior
 - pip
+- MySQL 8+ ou MariaDB 10.6+
+- Git
+
+## Executar a ferramenta
+
+O banco oficial é MySQL/MariaDB. O arquivo `.env` precisa estar configurado com `DJANGO_DB_ENGINE=mysql`, `MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD`, `MYSQL_HOST` e `MYSQL_PORT`. Nunca coloque o `.env` no Git.
+
+### Windows PowerShell
+
+Confirme que o MySQL está instalado e ativo:
+
+```powershell
+mysql --version
+Get-Service MySQL
+```
+
+Na primeira instalação do projeto:
+
+```powershell
+cd "D:\Sistema Financeiro\workspace"
+py -3 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+python manage.py migrate
+python manage.py seed_initial_data
+```
+
+Inicie o servidor:
+
+```powershell
+python manage.py runserver 0.0.0.0:8002
+```
+
+Abra `http://127.0.0.1:8002/login/`. Em outro computador da mesma rede, use `http://IP_DO_SERVIDOR:8002/login/`. Para encerrar, pressione `Ctrl+C` no terminal.
+
+Também é possível executar `iniciar_sistema.bat`; esse atalho usa a porta `8000`, portanto acesse `http://127.0.0.1:8000/login/`.
+
+### Linux ou macOS
+
+```bash
+cd /caminho/GoFinance
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+python manage.py migrate
+python manage.py seed_initial_data
+python manage.py runserver 0.0.0.0:8000
+```
+
+Acesse `http://127.0.0.1:8000/login/`. Para uso corporativo, não mantenha `runserver` exposto: use Gunicorn, Nginx e HTTPS conforme o [guia de instalação](GUIA_INSTALACAO.md).
+
+### Docker Compose
+
+Com Docker instalado e o `.env` preenchido:
+
+```bash
+docker compose config
+docker compose up -d --build
+docker compose ps
+```
+
+Acesse `http://127.0.0.1:8000/login/`. Veja os logs com `docker compose logs -f web` e pare os serviços com `docker compose stop`.
+
+### Após atualizar o código
+
+```powershell
+git pull --ff-only
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+python manage.py check
+python manage.py migrate
+python manage.py collectstatic --noinput
+```
+
+No Linux/macOS, substitua a ativação do ambiente por `source .venv/bin/activate`. Em uma instalação corporativa, reinicie o serviço Gunicorn depois da atualização.
 
 ## MariaDB/MySQL no servidor
 
