@@ -300,6 +300,20 @@ class GoalForm(BootstrapModelForm):
 
 
 class FinancialProfileForm(BootstrapModelForm):
+    salary_payment_mode = forms.ChoiceField(
+        label='Quantidade de pagamentos do salário',
+        choices=[
+            ('FULL_FIRST_BUSINESS_DAY', '1 pagamento: salário integral'),
+            ('SPLIT_ADVANCE_SETTLEMENT', '2 pagamentos: vale + saldo'),
+        ],
+    )
+    salary_payment_day = forms.IntegerField(
+        label='Dia do pagamento integral',
+        help_text='Usado quando o salário é recebido em 1 pagamento. Padrão: dia 5.',
+        min_value=1,
+        max_value=31,
+        required=False,
+    )
     salary_competence_lag_months = forms.IntegerField(
         label='Recebe quantos meses depois?',
         help_text='Ex.: 1 = trabalhou em outubro e recebeu em novembro. Use 0 se receber no mesmo mês.',
@@ -320,6 +334,7 @@ class FinancialProfileForm(BootstrapModelForm):
         model = FinancialProfile
         fields = [
             'salary_payment_mode',
+            'salary_payment_day',
             'salary_gross', 'salary_net', 'previous_net_salary',
             'salary_advance_amount', 'salary_advance_day',
             'salary_settlement_day', 'salary_competence_lag_months',
