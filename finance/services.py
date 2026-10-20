@@ -315,11 +315,20 @@ def monthly_summary(year, month):
     salary_competence = add_months(date(year, month, 1), -salary_lag)
     salary_profile = financial_profile_for_month(salary_competence.year, salary_competence.month) or profile
     salary_net = to_decimal(salary_profile.salary_net if salary_profile else 0)
-    salary_advance = min(
-        to_decimal(getattr(salary_profile, 'salary_advance_amount', 0) or 0),
-        salary_net,
+    salary_mode = getattr(
+        salary_profile,
+        'salary_payment_mode',
+        FinancialProfile.SalaryPaymentMode.SPLIT_ADVANCE_SETTLEMENT,
     )
-    salary_settlement = max(salary_net - salary_advance, ZERO)
+    if salary_mode == FinancialProfile.SalaryPaymentMode.FULL_FIRST_BUSINESS_DAY:
+        salary_advance = ZERO
+        salary_settlement = salary_net
+    else:
+        salary_advance = min(
+            to_decimal(getattr(salary_profile, 'salary_advance_amount', 0) or 0),
+            salary_net,
+        )
+        salary_settlement = max(salary_net - salary_advance, ZERO)
     opening_balance = to_decimal(getattr(profile, 'opening_balance', 0))
     automatic_salary = ZERO if explicit_salary else salary_net
     revenues = money_sum(explicit_revenues, 'amount') + automatic_salary
@@ -404,6 +413,7 @@ def monthly_summary(year, month):
     return {
         'revenues': revenues,
         'salary_net': salary_net,
+        'salary_payment_mode': salary_mode,
         'salary_advance': salary_advance,
         'salary_settlement': salary_settlement,
         'salary_competence_month': salary_competence,

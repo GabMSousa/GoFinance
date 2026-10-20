@@ -194,6 +194,18 @@ class ThirdPartyAndReimbursementTests(BaseFinanceTest):
 
 
 class VRTests(BaseFinanceTest):
+    def test_full_salary_mode_receives_salary_without_advance_split(self):
+        FinancialProfile.objects.create(
+            salary_net=Decimal('3000.00'),
+            salary_payment_mode=FinancialProfile.SalaryPaymentMode.FULL_FIRST_BUSINESS_DAY,
+            salary_competence_lag_months=1,
+            vr_monthly_credit=Decimal('0.00'),
+        )
+        summary = monthly_summary(2026, 11)
+        self.assertEqual(summary['salary_payment_mode'], FinancialProfile.SalaryPaymentMode.FULL_FIRST_BUSINESS_DAY)
+        self.assertEqual(summary['salary_advance'], Decimal('0.00'))
+        self.assertEqual(summary['salary_settlement'], Decimal('3000.00'))
+
     def test_salary_cash_month_uses_previous_competence_snapshot(self):
         FinancialProfile.objects.create(
             salary_gross=Decimal('3000.00'), salary_net=Decimal('2751.20'),
