@@ -121,6 +121,10 @@
   border-color: #ff0020;
   color: #fff;
 }
+.quick-purchase-error { display: grid; gap: .15rem; }
+.quick-purchase-error + .quick-purchase-error { margin-top: .75rem; }
+.quick-purchase-error strong { color: #fff; }
+.quick-purchase-error span { color: #fff; }
 .badge.text-bg-danger {
   background: #5f0e18 !important;
   color: #fff !important;
