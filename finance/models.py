@@ -299,7 +299,14 @@ class FinancialProfile(UserOwnedModel):
         profile = cls.objects.filter(owner=user).first() if user else cls.objects.first()
         if profile:
             return profile
-        profile = cls(owner=user)
+        profile = cls(
+            owner=user,
+            salary_gross=0,
+            salary_net=0,
+            previous_net_salary=0,
+            salary_advance_amount=0,
+            vr_monthly_credit=0,
+        )
         profile.save()
         return profile
 
