@@ -176,6 +176,21 @@ function initTheme() {
   });
 }
 
+function initSalaryPaymentMode() {
+  const mode = document.getElementById('id_salary_payment_mode');
+  if (!mode) return;
+  const splitFields = ['salary_advance_amount', 'salary_advance_day', 'salary_settlement_day'];
+  const sync = () => {
+    const isSplit = mode.value === 'SPLIT_ADVANCE_SETTLEMENT';
+    splitFields.forEach((name) => {
+      const field = document.querySelector(`.financial-rule-field-${name}`);
+      if (field) field.hidden = !isSplit;
+    });
+  };
+  mode.addEventListener('change', sync);
+  sync();
+}
+
 function initCharts() {
   if (typeof Chart === 'undefined') return;
   if (window.sfCharts) {
@@ -239,4 +254,4 @@ function initCharts() {
   }
 }
 
-document.addEventListener('DOMContentLoaded', () => { initPurchaseFields(); initPurchasePeriod(); initQuickPurchaseFeedback(); initTheme(); initSecurityInteractions(); initCharts(); window.addEventListener('sf-theme-change', initCharts); });
+document.addEventListener('DOMContentLoaded', () => { initPurchaseFields(); initPurchasePeriod(); initQuickPurchaseFeedback(); initTheme(); initSecurityInteractions(); initSalaryPaymentMode(); initCharts(); window.addEventListener('sf-theme-change', initCharts); });

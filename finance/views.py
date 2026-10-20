@@ -497,6 +497,7 @@ def settings_page(request):
         SalarySnapshot.objects.update_or_create(
             month=target,
             defaults={
+                'salary_payment_mode': updated.salary_payment_mode,
                 'salary_gross': updated.salary_gross,
                 'salary_net': updated.salary_net,
                 'salary_advance_amount': updated.salary_advance_amount,

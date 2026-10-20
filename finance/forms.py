@@ -310,6 +310,7 @@ class FinancialProfileForm(BootstrapModelForm):
     class Meta:
         model = FinancialProfile
         fields = [
+            'salary_payment_mode',
             'salary_gross', 'salary_net', 'previous_net_salary',
             'salary_advance_amount', 'salary_advance_day',
             'salary_settlement_day', 'salary_competence_lag_months',

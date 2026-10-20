@@ -274,6 +274,16 @@ class Goal(UserOwnedModel):
 
 
 class FinancialProfile(UserOwnedModel):
+    class SalaryPaymentMode(models.TextChoices):
+        FULL_FIRST_BUSINESS_DAY = 'FULL_FIRST_BUSINESS_DAY', 'Salário integral no primeiro dia útil'
+        SPLIT_ADVANCE_SETTLEMENT = 'SPLIT_ADVANCE_SETTLEMENT', 'Adiantamento/vale + saldo salarial'
+
+    salary_payment_mode = models.CharField(
+        'Padrão de recebimento do salário',
+        max_length=30,
+        choices=SalaryPaymentMode.choices,
+        default=SalaryPaymentMode.SPLIT_ADVANCE_SETTLEMENT,
+    )
     salary_gross = models.DecimalField('Salário bruto', max_digits=12, decimal_places=2, default=3000)
     salary_net = models.DecimalField('Salário líquido', max_digits=12, decimal_places=2, default=2751.20)
     previous_net_salary = models.DecimalField('Salário líquido anterior', max_digits=12, decimal_places=2, default=2299)
@@ -313,6 +323,12 @@ class FinancialProfile(UserOwnedModel):
 
 class SalarySnapshot(UserOwnedModel):
     month = models.DateField('Mês')
+    salary_payment_mode = models.CharField(
+        'Padrão de recebimento do salário',
+        max_length=30,
+        choices=FinancialProfile.SalaryPaymentMode.choices,
+        default=FinancialProfile.SalaryPaymentMode.SPLIT_ADVANCE_SETTLEMENT,
+    )
     salary_gross = models.DecimalField('Salário bruto', max_digits=12, decimal_places=2, default=3000)
     salary_net = models.DecimalField('Salário líquido', max_digits=12, decimal_places=2, default=2751.20)
     salary_advance_amount = models.DecimalField('Adiantamento salarial', max_digits=12, decimal_places=2, default=1200)
