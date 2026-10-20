@@ -35,7 +35,7 @@ Get-Service MySQL
 Na primeira instalação do projeto:
 
 ```powershell
-cd "D:\Sistema Financeiro\workspace"
+cd caminho\para\GoFinance
 py -3 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
