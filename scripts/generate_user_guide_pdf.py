@@ -139,7 +139,7 @@ add_screen(
 story.append(Paragraph("7. Instalação rápida", styles["SectionTitle"]))
 story.append(Paragraph("O banco oficial é MySQL/MariaDB. Para Windows PowerShell:", styles["Body"]))
 story.extend(bullets([
-    "cd D:\\Sistema Financeiro\\workspace",
+    "cd caminho\\para\\GoFinance",
     "py -3 -m venv .venv",
     ".\\.venv\\Scripts\\Activate.ps1",
     "pip install -r requirements.txt",
