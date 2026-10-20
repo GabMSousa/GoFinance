@@ -12,6 +12,8 @@ Este é o procedimento recomendado para instalar o GoFinance em uma máquina Win
 
 O projeto usa Django, MariaDB/MySQL, Gunicorn, Nginx e Chart.js. O arquivo `requirements.txt` instala as dependências Python, inclusive o driver `mysqlclient`.
 
+SQLite não faz parte desta instalação. Não copie bancos SQLite antigos para o projeto e não versione dumps, backups ou arquivos `.env`; utilize somente MariaDB/MySQL e os procedimentos de `mysqldump` deste guia.
+
 ### Downloads oficiais
 
 Baixe os instaladores somente das páginas oficiais. Use versões estáveis suportadas pelo sistema operacional e mantenha o ambiente atualizado.

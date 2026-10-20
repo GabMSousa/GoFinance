@@ -21,6 +21,8 @@ O sistema possui usuários, perfis e uma área Admin para criar acessos separado
 
 O banco oficial é MySQL/MariaDB. O arquivo `.env` precisa estar configurado com `DJANGO_DB_ENGINE=mysql`, `MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD`, `MYSQL_HOST` e `MYSQL_PORT`. Nunca coloque o `.env` no Git.
 
+O projeto não usa SQLite. Arquivos SQLite, dumps locais e backups ficam fora do repositório; os backups oficiais são feitos com `mysqldump` conforme a seção de backup abaixo.
+
 ### Windows PowerShell
 
 Confirme que o MySQL está instalado e ativo:
