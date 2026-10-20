@@ -10,10 +10,10 @@ from django.test import TestCase
 from django.urls import reverse
 
 from .models import Category, CreditCardBill, CreditCardExpense, FinancialProfile, FixedExpense, Investment, InvestmentOperation, Person, SalarySnapshot, Transaction, UserSecurityProfile, VRMovement
-from .forms import InvestmentForm
+from .forms import InvestmentForm, QuickExpenseForm
 from .importers import preview_csv
 from .investment_radar import _annualize_daily, _compound_monthly
-from .services import apply_investment_operation, invoice_month_for_installment, invoice_month_for_purchase, monthly_summary, split_installment_values
+from .services import apply_investment_operation, invoice_month_for_installment, invoice_month_for_purchase, monthly_summary, split_installment_values, vr_balance_for_date
 from .views import DuplicateExpenseError, create_card_installments, default_open_period
 from .ownership import reset_current_user, set_current_user
 
@@ -194,6 +194,43 @@ class ThirdPartyAndReimbursementTests(BaseFinanceTest):
 
 
 class VRTests(BaseFinanceTest):
+    def test_salary_cash_month_uses_previous_competence_snapshot(self):
+        FinancialProfile.objects.create(
+            salary_gross=Decimal('3000.00'), salary_net=Decimal('2751.20'),
+            previous_net_salary=Decimal('2299.00'), vr_monthly_credit=Decimal('550.00'),
+            salary_advance_amount=Decimal('1200.00'), salary_competence_lag_months=1,
+        )
+        SalarySnapshot.objects.create(
+            month=date(2026, 10, 1), salary_gross=Decimal('3200.00'),
+            salary_net=Decimal('2800.00'), vr_monthly_credit=Decimal('550.00'),
+        )
+        summary = monthly_summary(2026, 11)
+        self.assertEqual(summary['salary_net'], Decimal('2800.00'))
+        self.assertEqual(summary['salary_advance'], Decimal('1200.00'))
+        self.assertEqual(summary['salary_settlement'], Decimal('1600.00'))
+
+    def test_vr_credit_day_blocks_balance_before_credit(self):
+        profile = FinancialProfile.objects.create(
+            salary_gross=Decimal('3000.00'), salary_net=Decimal('2751.20'),
+            previous_net_salary=Decimal('2299.00'), vr_monthly_credit=Decimal('550.00'),
+            vr_credit_day=5,
+        )
+        self.assertEqual(vr_balance_for_date(date(2026, 9, 4)), Decimal('0.00'))
+        self.assertEqual(vr_balance_for_date(date(2026, 9, 5)), Decimal('550.00'))
+
+    def test_quick_expense_uses_vr_amount_as_total_for_vr_payment(self):
+        form = QuickExpenseForm(data={
+            'date': self.today.isoformat(),
+            'description': 'Compra somente VR',
+            'category': self.food.pk,
+            'payment_method': Transaction.PaymentMethod.VR,
+            'vr_amount': '50.00',
+            'responsible': 'SELF',
+            'installment_total': '1',
+        })
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data['amount'], Decimal('50.00'))
+
     def test_vr_does_not_reduce_bank_balance(self):
         Transaction.objects.create(
             date=self.today,
@@ -726,7 +763,14 @@ class SeedAndPagesTests(BaseFinanceTest):
             'salary_gross': '3000.00',
             'salary_net': '2450.00',
             'previous_net_salary': '2299.00',
+            'salary_advance_amount': '1200.00',
+            'salary_advance_day': '15',
+            'salary_settlement_day': '31',
+            'salary_competence_lag_months': '1',
             'vr_monthly_credit': '550.00',
+            'vr_credit_day': '1',
+            'credit_card_due_day': '10',
+            'primary_bank': 'Nubank',
             'opening_balance': '500.00',
         })
         self.assertRedirects(response, reverse('finance:settings') + '?year=2026&month=9')
@@ -1337,6 +1381,42 @@ class AuthenticationTests(TestCase):
         created = get_user_model().objects.get(username='new-user')
         self.assertEqual(created.security_profile.display_name, 'Novo Usuário')
         self.assertTrue(created.security_profile.must_change_password)
+        self.assertFalse(Transaction.objects.filter(person__name='Novo UsuÃ¡rio').exists())
+
+    def test_staff_can_create_user_with_individual_financial_profile(self):
+        admin = get_user_model().objects.create_user(username='profile-admin', password='Strong-test-password-123!', is_staff=True)
+        self.client.force_login(admin)
+        response = self.client.post(reverse('finance:admin_users'), {
+            'username': 'configured-user', 'email': 'configured@example.com',
+            'display_name': 'UsuÃ¡rio Configurado',
+            'password1': 'New-user-password-456!', 'password2': 'New-user-password-456!',
+            'salary_gross': '3200.00', 'salary_net': '2751.20', 'previous_net_salary': '2299.00',
+            'salary_advance_amount': '1200.00', 'salary_advance_day': '15',
+            'salary_settlement_day': '31', 'salary_competence_lag_months': '1',
+            'vr_monthly_credit': '550.00', 'vr_credit_day': '1',
+            'credit_card_due_day': '10', 'primary_bank': 'Nubank',
+        })
+        self.assertRedirects(response, reverse('finance:admin_users'))
+        created = get_user_model().objects.get(username='configured-user')
+        profile = FinancialProfile.objects.get(owner=created)
+        self.assertEqual(profile.salary_advance_amount, Decimal('1200.00'))
+        self.assertEqual(profile.vr_monthly_credit, Decimal('550.00'))
+        self.assertEqual(profile.primary_bank, 'Nubank')
+
+    def test_profile_can_update_individual_financial_settings(self):
+        user = get_user_model().objects.create_user(username='financial-profile', password='Strong-test-password-123!')
+        self.client.force_login(user)
+        response = self.client.post(reverse('finance:profile'), {
+            'action': 'financial', 'salary_gross': '3200.00', 'salary_net': '2751.20',
+            'previous_net_salary': '2299.00', 'salary_advance_amount': '1200.00',
+            'salary_advance_day': '15', 'salary_settlement_day': '30',
+            'salary_competence_lag_months': '1', 'vr_monthly_credit': '550.00',
+            'vr_credit_day': '1', 'credit_card_due_day': '10', 'primary_bank': 'Inter',
+        })
+        self.assertRedirects(response, reverse('finance:profile'))
+        profile = FinancialProfile.objects.get(owner=user)
+        self.assertEqual(profile.salary_settlement_day, 30)
+        self.assertEqual(profile.primary_bank, 'Inter')
         self.assertFalse(Transaction.objects.filter(person__name='Novo Usuário').exists())
 
     def test_staff_can_toggle_user_status_without_disabling_self(self):

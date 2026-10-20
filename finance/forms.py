@@ -309,7 +309,13 @@ class FinancialProfileForm(BootstrapModelForm):
 
     class Meta:
         model = FinancialProfile
-        fields = ['salary_gross', 'salary_net', 'previous_net_salary', 'vr_monthly_credit']
+        fields = [
+            'salary_gross', 'salary_net', 'previous_net_salary',
+            'salary_advance_amount', 'salary_advance_day',
+            'salary_settlement_day', 'salary_competence_lag_months',
+            'vr_monthly_credit', 'vr_credit_day',
+            'credit_card_due_day', 'primary_bank',
+        ]
 
 
 class CardBillPaymentForm(BootstrapMixin, forms.Form):
@@ -554,7 +560,7 @@ class QuickExpenseForm(BootstrapMixin, forms.Form):
     description = forms.CharField(label='Descrição', max_length=180)
     category = forms.ModelChoiceField(label='Categoria', queryset=Category.objects.none())
     payment_method = forms.ChoiceField(label='Forma de pagamento do restante', choices=Transaction.PaymentMethod.choices)
-    amount = forms.DecimalField(label='Valor total', min_value=Decimal('0.01'), decimal_places=2)
+    amount = forms.DecimalField(label='Valor total', min_value=Decimal('0.01'), decimal_places=2, required=False)
     vr_amount = forms.DecimalField(
         label='Valor gasto no VR',
         min_value=Decimal('0.00'),
@@ -584,6 +590,13 @@ class QuickExpenseForm(BootstrapMixin, forms.Form):
         vr_amount = to_decimal(data.get('vr_amount') or 0)
         payment = data.get('payment_method')
         reimbursable = data.get('reimbursable')
+        if payment == Transaction.PaymentMethod.VR:
+            if vr_amount <= 0:
+                self.add_error('vr_amount', 'Informe o valor gasto no VR.')
+            total = vr_amount
+            data['amount'] = total
+        elif data.get('amount') is None:
+            self.add_error('amount', 'Informe o valor total da compra.')
         if vr_amount > total:
             self.add_error('vr_amount', 'O valor gasto no VR não pode ser maior que o total da compra.')
         remaining = total - vr_amount
