@@ -941,9 +941,7 @@ def quick_expense(request):
                     notes=f'Compra total R$ {total}. VR R$ {vr_amount}. {notes}'.strip(),
                 )
             elif vr_amount > 0:
-                # Keep a visible ledger entry for purchases made entirely with VR.
-                # The linked VR movement remains the source of the debit; this
-                # transaction is excluded from bank expenses by monthly_summary.
+                # Mantém o lançamento visível; o débito do VR não reduz o banco.
                 if _transaction_is_duplicate(d, vr_amount, person, Transaction.PaymentMethod.VR):
                     raise DuplicateExpenseError
                 tx = Transaction.objects.create(
@@ -1069,9 +1067,7 @@ def card_edit(request, pk):
         updated = form.save()
         purchase_date = updated.purchase_date or updated.date
         if updated.date == purchase_date:
-            # Imported CSV rows keep the real purchase date even when their
-            # description contains a label such as "8/12". That label must
-            # not move the row to a future invoice.
+            # A parcela descrita no CSV não altera a data real da compra.
             updated.invoice_month = invoice_month_for_purchase(purchase_date)
         else:
             updated.invoice_month = invoice_month_for_installment(purchase_date, updated.current_installment)

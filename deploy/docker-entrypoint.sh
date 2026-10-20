@@ -6,7 +6,7 @@ chown -R www-data:www-data /app/staticfiles /app/media
 
 python manage.py migrate --noinput
 
-# Seed only a brand-new database. Existing restarts must not reset an admin password.
+# Inicializa somente um banco novo.
 if ! python manage.py shell -c "from django.contrib.auth import get_user_model; raise SystemExit(0 if get_user_model().objects.exists() else 1)" >/dev/null 2>&1; then
     python manage.py seed_initial_data
 fi

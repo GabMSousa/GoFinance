@@ -70,7 +70,6 @@ def bullets(items):
 
 story = []
 
-# Cover
 cover_content = [
     Paragraph("GoFinance", styles["CoverTitle"]),
     Spacer(1, 10 * mm),

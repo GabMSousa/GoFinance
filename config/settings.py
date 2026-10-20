@@ -145,7 +145,7 @@ CACHES = {
 }
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
-# Keep oversized requests from consuming memory before form validation runs.
+# Limita requisições grandes antes da validação.
 DATA_UPLOAD_MAX_MEMORY_SIZE = int(os.environ.get('DJANGO_DATA_UPLOAD_MAX_MEMORY_SIZE', str(10 * 1024 * 1024)))
 FILE_UPLOAD_MAX_MEMORY_SIZE = int(os.environ.get('DJANGO_FILE_UPLOAD_MAX_MEMORY_SIZE', str(5 * 1024 * 1024)))
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

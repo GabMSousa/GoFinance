@@ -130,11 +130,7 @@ def preview_csv(content, invoice_month=None):
         except (ValueError, InvalidOperation) as exc:
             raise ValueError(f'Linha inválida para {description}: {exc}') from exc
         current, total = installment_for(description, raw.get(fields.get('installment', ''), ''))
-        # A linha do CSV representa a compra que pertence à fatura importada.
-        # O texto "2/10", "8/12" etc. identifica a parcela da compra, mas
-        # não deve deslocar esta linha para a fatura de meses futuros. O
-        # avanço mensal das parcelas é aplicado somente quando o sistema
-        # gera parcelas novas no cadastro manual.
+        # A data do CSV pertence à fatura importada; parcelas novas avançam no cadastro manual.
         row_invoice_month = invoice_month_for_purchase(purchase_date)
         fingerprint = import_hash(purchase_date, description, amount, current, total, row_invoice_month)
         manual_duplicate = any(
