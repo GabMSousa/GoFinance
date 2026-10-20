@@ -774,7 +774,7 @@ class SeedAndPagesTests(BaseFinanceTest):
             'opening_balance': '500.00',
         })
         self.assertRedirects(response, reverse('finance:settings') + '?year=2026&month=9')
-        profile = FinancialProfile.objects.get(pk=1)
+        profile = FinancialProfile.objects.get(owner=self.user)
         self.assertEqual(profile.salary_net, Decimal('2450.00'))
         self.assertEqual(profile.vr_monthly_credit, Decimal('550.00'))
         self.assertEqual(SalarySnapshot.objects.get(month=date(2026, 9, 1)).opening_balance, Decimal('500.00'))
