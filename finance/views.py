@@ -49,7 +49,7 @@ from .investment_radar import get_investment_radar
 from .models import Category, CreditCardBill, CreditCardExpense, FinancialProfile, FixedExpense, Goal, Investment, InvestmentOperation, Person, SalarySnapshot, Transaction, UserSecurityProfile, VRMovement
 from .importers import import_preview_rows, normalize, preview_csv
 from .reporting import build_financial_pdf
-from .services import add_months, apply_investment_operation, card_expenses_for_period, investment_scope, invoice_month_for_installment, invoice_month_for_purchase, month_bounds, monthly_summary, money_sum, split_installment_values, sync_card_vr, sync_transaction_vr, third_party_by_person, to_decimal, vr_balance_for_date
+from .services import add_months, apply_investment_operation, card_expenses_for_period, investment_scope, invoice_month_for_installment, invoice_month_for_purchase, month_bounds, monthly_summary, money_sum, split_installment_values, sync_card_vr, sync_transaction_vr, third_party_by_person, to_decimal, vr_balance_for_date, vr_movements_for_display_period
 
 
 def selected_period(request):
@@ -677,7 +677,7 @@ def report_rows(start, end, category_id='', report_type='financial', payment='')
         for item in Investment.objects.filter(date__range=(start, end)):
             rows.append([item.date, item.description, '', 'Investimento', item.amount, '', '', '', '', '', '', ''])
     if report_type in ('financial', 'vr', 'visual'):
-        for item in VRMovement.objects.filter(date__range=(start, end)):
+        for item in vr_movements_for_display_period(year, month):
             if report_type != 'vr' and (item.transaction_id or item.card_expense_id):
                 continue
             rows.append([item.date, item.description, '', item.get_movement_type_display(), item.amount, 'VR', '', item.amount, '', '', '', ''])
@@ -1148,7 +1148,7 @@ def third_party(request):
 def vr_list(request):
     year, month = selected_period(request)
     summary = monthly_summary(year, month)
-    items = VRMovement.objects.filter(date__year=year, date__month=month)
+    items = vr_movements_for_display_period(year, month)
     context = period_context(year, month)
     context.update({'items': items, 'summary': summary})
     return render(request, 'finance/vr_list.html', context)
