@@ -329,7 +329,7 @@ class FinancialProfileForm(BootstrapModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # A regra de recebimento da competência permanece interna e fixa em um mês.
+        # A competência permanece fixa em um mês.
         self.fields.pop('salary_competence_lag_months', None)
 
     def clean_salary_competence_lag_months(self):
@@ -631,9 +631,7 @@ class QuickExpenseForm(BootstrapMixin, forms.Form):
             self.add_error('vr_amount', 'O valor gasto no VR não pode ser maior que o total da compra.')
         remaining = total - vr_amount
         if payment == Transaction.PaymentMethod.VR and remaining > 0:
-            # VR informa apenas o valor consumido. Se a opção antiga "VR"
-            # permanecer selecionada em uma compra parcial, o restante cai
-            # no cartão sem aumentar a baixa do benefício.
+            # VR registra só o consumo; o restante vai para o cartão.
             data['payment_method'] = Transaction.PaymentMethod.CREDIT_CARD
         if remaining > 0 and not payment:
             self.add_error('payment_method', 'Informe a forma de pagamento do restante.')

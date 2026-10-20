@@ -40,7 +40,7 @@ class SecurityHeadersMiddleware:
     def __call__(self, request):
         response = self.get_response(request)
         if request.user.is_authenticated:
-            # Financial pages must never be reused by a shared browser/proxy cache.
+            # Evita cache compartilhado em páginas financeiras.
             response['Cache-Control'] = 'private, no-store, max-age=0'
             response['Pragma'] = 'no-cache'
             response['Expires'] = '0'

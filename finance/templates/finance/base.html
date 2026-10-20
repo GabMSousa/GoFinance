@@ -14,7 +14,6 @@
           : savedTheme;
         if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
       } catch (error) {
-        // Mantém o tema padrão quando o armazenamento do navegador estiver indisponível.
       }
     })();
   </script>

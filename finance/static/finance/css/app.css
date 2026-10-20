@@ -3,9 +3,7 @@
 @media(max-width:1150px){.summary-grid{grid-template-columns:repeat(3,1fr)}.summary-card:last-child{grid-column:span 1}.page-wrap{padding:30px 28px}}
 @media(max-width:800px){.sidebar{display:none}.mobile-topbar{display:flex;align-items:center;justify-content:space-between;padding:13px 18px;background:var(--ink);color:#fff}.mobile-topbar .brand{color:#fff}.menu-button{background:transparent;border:1px solid #596780;color:#fff;padding:7px 11px;font-size:.78rem}.page-wrap{padding:26px 16px 45px}.page-heading{flex-direction:column}.page-heading .btn{align-self:stretch}.summary-grid{grid-template-columns:repeat(2,1fr)}.summary-card:last-child{grid-column:span 2}.dashboard-grid{grid-template-columns:1fr}.chart-wide{grid-column:span 1}.summary-strip{grid-template-columns:1fr;gap:14px}.summary-strip>div,.summary-strip>div:first-child{border-right:0;border-bottom:1px solid var(--border);padding:0 0 12px}.summary-strip>div:last-child{border:0;padding-bottom:0}.data-panel{border-radius:12px}.data-panel th,.data-panel td{padding:12px 13px}.table-responsive{overflow-x:auto}.login-card{padding:34px 25px}}
 @media(max-width:420px){.summary-grid{gap:8px}.summary-card{padding:14px;min-height:112px}.summary-value{font-size:1.12rem}.summary-meta{font-size:.68rem}}
-/* Dense data pages: keep long action cells from widening the viewport. */
 .investment-table-panel,.vr-table-panel{overflow:hidden;margin-bottom:18px}.investment-table-panel .table-responsive,.vr-table-panel .table-responsive{overflow-x:auto}.investment-table-panel table,.vr-table-panel table{min-width:820px}.investment-table-panel td:last-child{white-space:nowrap}.vr-table-panel table{min-width:620px}.investment-table-panel tbody tr,.vr-table-panel tbody tr{transition:background-color .15s ease}.investment-table-panel tbody tr:hover,.vr-table-panel tbody tr:hover{background:rgba(77,210,200,.06)}.investment-table-panel .empty-state,.vr-table-panel .empty-state{padding:42px 20px!important}html[data-theme="dark"] .investment-table-panel tbody tr:hover,html[data-theme="dark"] .vr-table-panel tbody tr:hover{background:rgba(77,210,200,.08)}
-/* Brand mark generated for GoFinance: the image carries its own depth and palette. */
 .brand-mark{display:block;width:34px;height:34px;object-fit:contain;border-radius:50%;padding:3px;background:#eef2f7;color:transparent;font-size:0;flex:0 0 34px}.login-card .brand-mark{width:44px;height:44px;flex-basis:44px}
 .movement-breakdown{display:block!important;color:var(--accent)!important;font-size:.69rem!important;font-variant-numeric:tabular-nums}.vr-highlight{box-shadow:inset 3px 0 0 var(--warning)}html[data-theme="dark"] .vr-highlight{background:#8b670f61!important}html[data-theme="light"] .vr-highlight{background:#8b670f61!important}.vr-highlight .movement-breakdown{color:var(--warning)!important}
 .vr-summary-grid{grid-template-columns:repeat(3,minmax(0,1fr));margin-bottom:16px}.vr-actions{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 18px}.vr-table-panel table{min-width:760px}.vr-table-panel .panel-heading{margin-bottom:0}.vr-table-panel .panel-heading p{max-width:48ch}
@@ -15,7 +13,6 @@
 .profile-grid{display:grid;grid-template-columns:minmax(220px,.65fr) minmax(0,1.35fr);gap:16px;align-items:start}.profile-card{padding:22px}.profile-summary{text-align:center;min-height:290px;display:flex;flex-direction:column;align-items:center;justify-content:center}.profile-summary h2{font-size:1.15rem;margin:16px 0 4px}.profile-summary p{color:var(--muted);font-size:.8rem;margin:0 0 14px}.profile-avatar-wrap{display:grid;place-items:center}.profile-avatar{width:104px;height:104px;border-radius:50%;object-fit:cover;border:3px solid var(--accent-dark);box-shadow:0 10px 26px rgba(20,33,61,.16)}.profile-avatar-placeholder{display:grid;place-items:center;background:var(--ink);color:var(--accent);font-size:2rem;font-weight:800}.profile-badge{background:rgba(12,113,40,.12);color:var(--accent-dark);border-radius:999px;padding:6px 10px;font-size:.7rem;font-weight:750}.profile-card .panel-heading{padding:0 0 16px}.profile-form label{display:block;font-size:.78rem;font-weight:750;margin-bottom:6px}.profile-form .form-control{border-color:var(--border);border-radius:9px;padding:.65rem .75rem}.profile-form .form-control:focus{border-color:var(--accent-dark);box-shadow:0 0 0 3px rgba(12,233,62,.35)}.profile-form input[type=file]{padding:.55rem}.profile-form .form-check{display:flex;align-items:center;gap:8px}.profile-form .form-check-input{margin:0}.profile-password-card{grid-column:2}.profile-password-card .form-help,.profile-form .form-help{color:var(--muted);font-size:.74rem;margin-top:5px}
 @media(max-width:800px){.profile-grid{grid-template-columns:1fr}.profile-password-card{grid-column:auto}.profile-summary{min-height:230px}}
 
-/* Minimal auth surface: focused, calm, and responsive. */
 .login-page--minimal{background:radial-gradient(circle at 50% 42%,rgba(117,38,90,.35),transparent 42%),linear-gradient(135deg,#241334 0%,#35162f 47%,#111b48 100%);position:relative;isolation:isolate;overflow:hidden}
 .login-page--minimal::before,.login-page--minimal::after{content:"";position:absolute;z-index:-1;border-radius:50%;filter:blur(70px);pointer-events:none}
 .login-page--minimal::before{width:36vw;height:36vw;min-width:300px;min-height:300px;top:-15%;right:16%;background:#5f0e18;opacity:.45}
@@ -34,7 +31,6 @@
 .login-card--minimal .login-submit:hover,.login-card--minimal .login-submit:focus{background:linear-gradient(100deg,#5f0e18,#7592ff);color:#fff;transform:translateY(-1px)}
 @media(max-width:420px){.login-page{padding:16px}.login-card--minimal{padding:30px 23px 26px;border-radius:20px}.login-card--minimal .login-brand{margin-bottom:28px}.login-card--minimal h1{font-size:1.55rem}.login-page--minimal::before{width:70vw;height:70vw}.login-page--minimal::after{width:72vw;height:72vw}}
 
-/* Auth uses the same dark dashboard palette: graphite, teal, and amber. */
 .login-page--minimal{background:#0b0d12;color:#eef1f6}
 .login-page--minimal::before{background:#8b670f61;opacity:.12;filter:blur(90px)}
 .login-page--minimal::after{background:#4dd2c8;opacity:.14;filter:blur(100px)}
@@ -47,7 +43,6 @@
 .login-card--minimal .login-submit:hover,.login-card--minimal .login-submit:focus{background:#6be0d7;color:#0b0d12}
 .login-recovery-link{display:block;margin-top:18px;text-align:center;color:#9ba8bd;font-size:.78rem;text-decoration:underline;text-underline-offset:3px}.login-recovery-link:hover,.login-recovery-link:focus{color:#4dd2c8}
 
-/* Profile layout: controlled measure, consistent rhythm, and clear grouping. */
 .page-wrap:has(.profile-grid){max-width:1220px}.page-wrap:has(.profile-grid)>.page-heading{max-width:1040px;margin-bottom:28px}
 .profile-grid{max-width:1040px;grid-template-columns:280px minmax(0,1fr);gap:20px;margin:0}
 .profile-card{padding:26px;border-radius:16px}.profile-summary{grid-row:span 2;min-height:100%;padding:30px 24px}.profile-summary h2{margin-top:18px}.profile-card .panel-heading{margin-bottom:2px}.profile-card .panel-heading h2{font-size:1.05rem}.profile-card .panel-heading p{max-width:58ch;line-height:1.5}
@@ -59,7 +54,6 @@
 @media(max-width:390px){.mobile-topbar{padding-inline:9px}.mobile-topbar .brand span{font-size:.84rem}.mobile-topbar .menu-button,.mobile-topbar .mobile-add-button,.mobile-topbar .mobile-exit-button{padding-inline:7px;font-size:.67rem}.mobile-topbar-actions{gap:4px}}
 
 @media(min-width:801px){.sidebar{position:sticky;top:0;height:100vh;align-self:flex-start}.sidebar-footer form{margin-top:10px}.sidebar-footer .logout-link{display:block;width:100%;padding:9px 10px;text-align:left;background:rgba(95,14,24,.08);border:1px solid rgba(255,0,32,.3);border-radius:8px;color:#ff0020}.sidebar-footer .logout-link:hover,.sidebar-footer .logout-link:focus{background:#5f0e18;border-color:#ff0020;color:#fff}}
-/* Profile file picker: keep the native upload accessible while matching the app surface. */
 .profile-form input[type="file"] {
   width: 100%;
   min-height: 46px;
@@ -134,7 +128,6 @@
   color: #ff0020 !important;
 }
 
-/* Os lancamentos de VR usam a mesma paleta roxa do saldo de VR. */
 html[data-theme="dark"] .vr-highlight {
   background: #21172f !important;
   border-left-color: #6846a0 !important;
