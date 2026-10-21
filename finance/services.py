@@ -23,6 +23,18 @@ def month_bounds(year, month):
     return date(year, month, 1), date(year, month, calendar.monthrange(year, month)[1])
 
 
+def month_datetime_bounds(year, month):
+    """Return timezone-aware half-open bounds for datetime fields."""
+    start_date, _ = month_bounds(year, month)
+    next_date = add_months(start_date, 1)
+    start = datetime.combine(start_date, time.min)
+    next_start = datetime.combine(next_date, time.min)
+    if settings.USE_TZ:
+        start = timezone.make_aware(start)
+        next_start = timezone.make_aware(next_start)
+    return start, next_start
+
+
 def vr_movements_for_display_period(year, month):
     """Show the previous month's VR credit in the following competence."""
     start, end = month_bounds(year, month)
@@ -304,10 +316,12 @@ def vr_available(year, month, extra_spent=ZERO):
 
 def monthly_summary(year, month):
     start, end = month_bounds(year, month)
+    datetime_start, datetime_next = month_datetime_bounds(year, month)
     tx = Transaction.objects.filter(date__range=(start, end))
     card = card_expenses_for_period(year, month)
     investment_operations = InvestmentOperation.objects.filter(
-        occurred_at__date__range=(start, end),
+        occurred_at__gte=datetime_start,
+        occurred_at__lt=datetime_next,
         operation_type=InvestmentOperation.OperationType.CONTRIBUTION,
         status=InvestmentOperation.Status.POSTED,
     )
