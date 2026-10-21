@@ -677,10 +677,16 @@ def report_rows(start, end, category_id='', report_type='financial', payment='')
         for item in Investment.objects.filter(date__range=(start, end)):
             rows.append([item.date, item.description, '', 'Investimento', item.amount, '', '', '', '', '', '', ''])
     if report_type in ('financial', 'vr', 'visual'):
-        for item in vr_movements_for_display_period(year, month):
-            if report_type != 'vr' and (item.transaction_id or item.card_expense_id):
-                continue
-            rows.append([item.date, item.description, '', item.get_movement_type_display(), item.amount, 'VR', '', item.amount, '', '', '', ''])
+        current = start.replace(day=1)
+        last = end.replace(day=1)
+        while current <= last:
+            for item in vr_movements_for_display_period(current.year, current.month):
+                if not (start <= item.date <= end):
+                    continue
+                if report_type != 'vr' and (item.transaction_id or item.card_expense_id):
+                    continue
+                rows.append([item.date, item.description, '', item.get_movement_type_display(), item.amount, 'VR', '', item.amount, '', '', '', ''])
+            current = date(current.year + (current.month == 12), 1 if current.month == 12 else current.month + 1, 1)
     for row in rows:
         if len(row) == 12 and row[11]:
             row[4] = row[7] + row[8]
