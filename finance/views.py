@@ -49,7 +49,7 @@ from .investment_radar import get_investment_radar
 from .models import Category, CreditCardBill, CreditCardExpense, FinancialProfile, FixedExpense, Goal, Investment, InvestmentOperation, Person, SalarySnapshot, Transaction, UserSecurityProfile, VRMovement
 from .importers import import_preview_rows, normalize, preview_csv
 from .reporting import build_financial_pdf
-from .services import add_months, apply_investment_operation, card_expenses_for_period, investment_scope, invoice_month_for_installment, invoice_month_for_purchase, month_bounds, monthly_summary, money_sum, split_installment_values, sync_card_vr, sync_transaction_vr, third_party_by_person, to_decimal, transactions_for_display_period, vr_balance_for_date, vr_movements_for_display_period
+from .services import add_months, apply_investment_operation, card_expenses_for_period, investment_scope, invoice_month_for_installment, invoice_month_for_purchase, month_bounds, month_datetime_bounds, monthly_summary, money_sum, split_installment_values, sync_card_vr, sync_transaction_vr, third_party_by_person, to_decimal, transactions_for_display_period, vr_balance_for_date, vr_movements_for_display_period
 
 
 def selected_period(request):
@@ -1165,11 +1165,12 @@ def person_edit(request, pk):
 def investment_list(request):
     year, month = investment_selected_period(request)
     visible = investment_scope(request.user, include_unassigned=request.user.is_staff)
-    start, end = month_bounds(year, month)
+    datetime_start, datetime_next = month_datetime_bounds(year, month)
     owned = Investment.objects.filter(user=request.user).select_related('category')
     items = InvestmentOperation.objects.filter(
         user=request.user,
-        occurred_at__date__range=(start, end),
+        occurred_at__gte=datetime_start,
+        occurred_at__lt=datetime_next,
     ).select_related('investment', 'investment__category')
     recurring_items = owned.filter(active=True).exclude(recurrence=Investment.Recurrence.ONE_TIME)
     next_investment = owned.filter(active=True, date__gte=localdate()).order_by('date', 'id').first()
@@ -1309,8 +1310,8 @@ def investment_history(request):
     operation_type = request.GET.get('type', '').strip()
     investment_id = request.GET.get('investment', '').strip()
     year, month = investment_selected_period(request)
-    start, end = month_bounds(year, month)
-    operations = operations.filter(occurred_at__date__range=(start, end))
+    datetime_start, datetime_next = month_datetime_bounds(year, month)
+    operations = operations.filter(occurred_at__gte=datetime_start, occurred_at__lt=datetime_next)
     if operation_type:
         operations = operations.filter(operation_type=operation_type)
     if investment_id.isdigit():
