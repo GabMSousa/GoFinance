@@ -548,7 +548,10 @@ class InvestmentOperation(models.Model):
         POSTED = 'POSTED', 'Registrada'
         REVERSED = 'REVERSED', 'Estornada'
 
-    operation_key = models.UUIDField('Chave da operação', unique=True)
+    # Keep the storage format explicit and portable across SQLite/MySQL/MariaDB.
+    # MariaDB's Django backend may treat UUIDField as a native UUID and send
+    # 36-character hyphenated values to this CHAR(32) column.
+    operation_key = models.CharField('Chave da operação', max_length=32, unique=True)
     investment = models.ForeignKey(
         Investment,
         on_delete=models.PROTECT,
