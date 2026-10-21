@@ -20,6 +20,9 @@ html[data-theme="light"]{--ink:#14213d;--muted:#667085;--canvas:#f5f7fa;--surfac
 html[data-theme="dark"]{--ink:#eef1f6;--muted:#aab1c2;--canvas:#0b0d12;--surface:#121621;--accent:#8b670f61;--accent-dark:#e1a91d;--border:#273041;--danger:#ff0020;--warning:#e1a91d;--shadow:0 12px 30px rgba(0,0,0,.24)}
 html[data-theme="dark"] body{font-family:"Space Grotesk",ui-sans-serif,system-ui,sans-serif;background:var(--bg);color:var(--text)}
 html[data-theme="dark"] .sidebar,html[data-theme="dark"] .mobile-topbar{background:var(--panel);color:var(--text)}
+html[data-theme="dark"] .mobile-menu{background:var(--panel);color:var(--text)}
+html[data-theme="dark"] .mobile-menu .nav-link{color:var(--muted)}
+html[data-theme="dark"] .mobile-menu .nav-link:hover,html[data-theme="dark"] .mobile-menu .nav-link:focus{background:var(--panel-2);color:var(--text)}
 html[data-theme="dark"] .brand-mark{background:var(--accent);color:#0b0d12}
 html[data-theme="dark"] .sidebar .nav-link{color:var(--muted)}
 html[data-theme="dark"] .sidebar .nav-link.active,html[data-theme="dark"] .sidebar .nav-link:hover{background:var(--panel-2);color:var(--text)}
