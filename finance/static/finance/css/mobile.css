@@ -1,0 +1,165 @@
+/* Mobile layout: preserve the desktop information architecture without
+   forcing dense desktop controls into a phone viewport. */
+@media (max-width: 800px) {
+  html,
+  body {
+    overflow-x: hidden;
+  }
+
+  .page-wrap {
+    width: 100%;
+    padding: 20px 12px 36px;
+  }
+
+  .mobile-topbar {
+    min-height: 60px;
+    padding: 10px 12px;
+    gap: 10px;
+  }
+
+  .mobile-topbar .brand {
+    min-width: 0;
+    gap: 7px;
+    font-size: .92rem;
+  }
+
+  .mobile-topbar-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .mobile-topbar-actions form {
+    margin: 0;
+  }
+
+  .mobile-topbar .menu-button,
+  .mobile-topbar .mobile-add-button,
+  .mobile-topbar .mobile-exit-button {
+    min-height: 40px;
+    padding: 8px 10px;
+    font-size: .74rem;
+    white-space: nowrap;
+  }
+
+  .page-heading {
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+
+  .page-heading h1 {
+    font-size: 1.55rem;
+    line-height: 1.12;
+  }
+
+  .page-subtitle {
+    max-width: 100%;
+    font-size: .86rem;
+    line-height: 1.45;
+  }
+
+  .page-heading .btn,
+  .panel-heading .btn,
+  .panel-heading .btn-group {
+    width: 100%;
+  }
+
+  .data-panel {
+    border-radius: 12px;
+  }
+
+  .panel-heading {
+    gap: 10px;
+    padding: 16px 15px 12px;
+  }
+
+  .panel-heading p {
+    line-height: 1.4;
+  }
+
+  .data-panel .table-responsive {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .data-panel th,
+  .data-panel td {
+    padding: 11px 12px;
+  }
+
+  .form-control,
+  .form-select,
+  .btn,
+  button {
+    min-height: 44px;
+  }
+
+  .summary-card {
+    min-width: 0;
+  }
+
+  .summary-value,
+  .summary-meta,
+  .bill-value {
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 520px) {
+  .mobile-topbar {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .mobile-topbar .brand {
+    flex: 1 1 100%;
+  }
+
+  .mobile-topbar-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .mobile-topbar-actions > *,
+  .mobile-topbar-actions form {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .mobile-topbar .menu-button,
+  .mobile-topbar .mobile-add-button,
+  .mobile-topbar .mobile-exit-button {
+    width: 100%;
+    text-align: center;
+  }
+
+  .summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .summary-card:last-child,
+  .summary-card:nth-child(5) {
+    grid-column: auto;
+  }
+
+  .summary-card {
+    min-height: 96px;
+    padding: 15px 14px;
+  }
+
+  .summary-value {
+    font-size: 1.16rem;
+    margin-top: 10px;
+  }
+
+  .quick-option {
+    min-height: 52px;
+  }
+
+  .login-card {
+    width: 100%;
+  }
+}
