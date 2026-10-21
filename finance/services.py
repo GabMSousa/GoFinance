@@ -1,5 +1,6 @@
 import calendar
 from datetime import datetime, time
+from uuid import UUID
 from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
 
@@ -90,6 +91,10 @@ def investment_scope(user=None, include_unassigned=False):
 def apply_investment_operation(*, user, investment_id, operation_type, operation_key, amount=None,
                                new_balance=None, source='', destination='', reason='', notes='', occurred_on=None):
     """Apply one auditable investment operation atomically and idempotently."""
+    # MySQL/MariaDB stores Django UUIDField as CHAR(32), while a UUID object
+    # can otherwise be sent to the driver in its hyphenated 36-character form.
+    # Normalize before both lookup and insert so idempotency works on every DB.
+    operation_key = UUID(str(operation_key)).hex
     with db_transaction.atomic():
         existing = InvestmentOperation.objects.filter(operation_key=operation_key).first()
         if existing:
