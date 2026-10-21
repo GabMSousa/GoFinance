@@ -6,6 +6,30 @@
     overflow-x: hidden;
   }
 
+  /* A largura disponível deve ser o limite real dos componentes. Sem isso,
+     grids com colunas mínimas de desktop aumentam o documento inteiro e o
+     usuário precisa arrastar a página horizontalmente. */
+  .app-shell,
+  .main-content,
+  .page-wrap,
+  .home-layout,
+  .home-main,
+  .home-side,
+  .dashboard-layout,
+  .data-panel,
+  .panel-heading,
+  .page-heading {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .page-wrap > *,
+  .data-panel > *,
+  .panel-heading > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+
   .page-wrap {
     width: 100%;
     padding: 20px 12px 36px;
@@ -106,6 +130,68 @@
   .bill-value {
     overflow-wrap: anywhere;
   }
+
+  /* O dashboard passa a ser uma leitura em coluna no celular. A rolagem
+     horizontal continua disponível apenas dentro de tabelas extensas. */
+  .dashboard-layout .movement-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 7px 10px;
+    align-items: start;
+  }
+
+  .dashboard-layout .movement-date {
+    grid-column: 1 / -1;
+  }
+
+  .dashboard-layout .movement-main {
+    grid-column: 1;
+    min-width: 0;
+  }
+
+  .dashboard-layout .movement-extra {
+    grid-column: 1;
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  .dashboard-layout .movement-amount {
+    grid-column: 2;
+    grid-row: 2;
+    text-align: right;
+  }
+
+  .dashboard-layout .movement-status {
+    grid-column: 2;
+    grid-row: 3;
+    min-width: 0;
+    text-align: right;
+  }
+
+  .dashboard-layout .movement-main strong,
+  .dashboard-layout .movement-meta,
+  .dashboard-layout .movement-category {
+    max-width: 100%;
+  }
+
+  .dashboard-layout .fixed-dashboard-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dashboard-layout .fixed-dashboard-meta {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    width: 100%;
+  }
+
+  .dashboard-layout .fixed-dashboard-meta > strong,
+  .dashboard-layout .fixed-dashboard-meta > form,
+  .dashboard-layout .fixed-dashboard-meta > .fixed-edit-link {
+    min-width: 0;
+    text-align: left;
+  }
+
+  .dashboard-layout .fixed-dashboard-meta > strong {
+    overflow-wrap: anywhere;
+  }
 }
 
 @media (max-width: 520px) {
@@ -161,5 +247,50 @@
 
   .login-card {
     width: 100%;
+  }
+
+  .page-heading h1,
+  .page-subtitle,
+  .panel-heading h2,
+  .panel-heading p {
+    overflow-wrap: anywhere;
+  }
+
+  .dashboard-layout .movement-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dashboard-layout .movement-date,
+  .dashboard-layout .movement-main,
+  .dashboard-layout .movement-extra,
+  .dashboard-layout .movement-amount,
+  .dashboard-layout .movement-status {
+    grid-column: 1;
+    grid-row: auto;
+    text-align: left;
+  }
+
+  .dashboard-layout .movement-amount,
+  .dashboard-layout .movement-status {
+    justify-self: start;
+  }
+
+  .dashboard-layout .fixed-dashboard-meta {
+    grid-template-columns: 1fr auto;
+    gap: 7px 10px;
+  }
+
+  .dashboard-layout .fixed-dashboard-meta > strong {
+    grid-column: 1 / -1;
+  }
+
+  .dashboard-layout .fixed-dashboard-meta > form,
+  .dashboard-layout .fixed-dashboard-meta > .fixed-edit-link {
+    grid-row: 2;
+  }
+
+  .data-panel .table-responsive {
+    width: 100%;
+    max-width: 100%;
   }
 }
