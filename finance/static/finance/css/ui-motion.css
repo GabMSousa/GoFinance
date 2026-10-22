@@ -1,0 +1,36 @@
+/* Shared interaction feedback for controls across the application. */
+:where(.btn, .main-nav .nav-link, .mobile-menu .nav-link, .table-action, .movement-action, .fixed-edit-link, .theme-button, .logout-link) {
+  transition: transform .18s ease, box-shadow .18s ease, filter .18s ease, background-color .18s ease, color .18s ease;
+}
+
+:where(.btn, .main-nav .nav-link, .mobile-menu .nav-link, .table-action, .movement-action, .fixed-edit-link, .theme-button, .logout-link):hover {
+  transform: translateY(-2px);
+  filter: brightness(1.06);
+}
+
+:where(.btn, .main-nav .nav-link, .mobile-menu .nav-link, .table-action, .movement-action, .fixed-edit-link, .theme-button, .logout-link):active {
+  transform: translateY(0) scale(.98);
+}
+
+:where(.btn, .main-nav .nav-link, .mobile-menu .nav-link, .table-action, .movement-action, .fixed-edit-link, .theme-button, .logout-link):focus-visible {
+  outline: 2px solid var(--accent-dark, #0ce93e);
+  outline-offset: 3px;
+}
+
+.table-action,
+.movement-action,
+.fixed-edit-link {
+  display: inline-block;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(.btn, .main-nav .nav-link, .mobile-menu .nav-link, .table-action, .movement-action, .fixed-edit-link, .theme-button, .logout-link) {
+    transition: none;
+  }
+
+  :where(.btn, .main-nav .nav-link, .mobile-menu .nav-link, .table-action, .movement-action, .fixed-edit-link, .theme-button, .logout-link):hover,
+  :where(.btn, .main-nav .nav-link, .mobile-menu .nav-link, .table-action, .movement-action, .fixed-edit-link, .theme-button, .logout-link):active {
+    transform: none;
+    filter: none;
+  }
+}
