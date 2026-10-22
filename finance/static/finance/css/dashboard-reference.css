@@ -869,6 +869,41 @@ html:not([data-theme="dark"]) .movement-account-summary .account-summary-card { 
 .csv-preview-button span:last-child { font-size: 1.1rem; line-height: 1; }
 .dashboard-layout .investment-radar--compact { width: 100%; max-width: none; align-self: start; }
 
+/* Todos os indicadores informativos têm o mesmo retorno visual dos cartões
+   interativos de VR e A receber. O foco também fica visível para teclado. */
+.dashboard-summary .summary-card {
+  transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+}
+
+.dashboard-summary .summary-card:hover,
+.dashboard-summary .summary-card:focus-visible {
+  transform: translateY(-3px);
+  box-shadow: 0 16px 30px rgba(0, 0, 0, .22);
+}
+
+.dashboard-summary .summary-card:hover .summary-icon,
+.dashboard-summary .summary-card:focus-visible .summary-icon {
+  transform: scale(1.06) rotate(-3deg);
+}
+
+.dashboard-summary .summary-icon {
+  transition: transform .2s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-summary .summary-card,
+  .dashboard-summary .summary-icon {
+    transition: none;
+  }
+
+  .dashboard-summary .summary-card:hover,
+  .dashboard-summary .summary-card:focus-visible,
+  .dashboard-summary .summary-card:hover .summary-icon,
+  .dashboard-summary .summary-card:focus-visible .summary-icon {
+    transform: none;
+  }
+}
+
 @media(max-width:1100px){
   .dashboard-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .dashboard-search-toolbar { width: 100%; }
