@@ -146,6 +146,31 @@ class FixedExpenseTests(BaseFinanceTest):
         self.assertEqual(summary['expenses'], Decimal('159.74'))
         self.assertEqual(summary['bank_outflow'], Decimal('159.74'))
 
+    def test_card_row_matching_fixed_card_expense_is_hidden_and_not_counted(self):
+        FixedExpense.objects.create(
+            description='Spotify',
+            category=self.subs,
+            amount=Decimal('23.90'),
+            active=True,
+            included_in_credit_card=True,
+            payment_method=Transaction.PaymentMethod.CREDIT_CARD,
+        )
+        CreditCardExpense.objects.create(
+            date=date(2026, 10, 8),
+            purchase_date=date(2026, 10, 8),
+            invoice_month=date(2026, 11, 1),
+            description='EBW*Spotify - NuPay',
+            category=self.subs,
+            amount=Decimal('23.90'),
+            person=self.me,
+            current_installment=1,
+            total_installments=1,
+        )
+        summary = monthly_summary(2026, 11)
+        self.assertEqual(summary['card_invoice'], Decimal('23.90'))
+        response = self.client.get(reverse('finance:dashboard'), {'year': 2026, 'month': 11})
+        self.assertNotContains(response, 'EBW*Spotify - NuPay')
+
 
 class ThirdPartyAndReimbursementTests(BaseFinanceTest):
     def test_third_party_expense_and_pending(self):
