@@ -1,5 +1,4 @@
 import csv
-from difflib import SequenceMatcher
 import hashlib
 import io
 import re
@@ -10,7 +9,7 @@ from decimal import Decimal, InvalidOperation
 from django.db.models import Q
 
 from .models import Category, CreditCardExpense, FixedExpense, Person
-from .services import invoice_month_for_purchase, sync_card_vr
+from .services import fixed_card_duplicate, invoice_month_for_purchase, sync_card_vr
 
 csv.field_size_limit(1024 * 1024)
 
@@ -68,21 +67,6 @@ def category_for(description):
 def installment_for(description, raw=''):
     match = re.search(r'(?:parcela\s*)?(\d+)\s*/\s*(\d+)', f'{description} {raw}', re.I)
     return (int(match.group(1)), int(match.group(2))) if match else (1, 1)
-
-
-def fixed_card_duplicate(description, amount):
-    """Find an active card-included fixed expense represented by a CSV row."""
-    row_words = [normalize(word) for word in str(description).split() if normalize(word)]
-    for fixed in FixedExpense.objects.filter(active=True, included_in_credit_card=True, amount=amount):
-        fixed_words = [normalize(word) for word in fixed.description.split() if normalize(word)]
-        if any(
-            word in row_words
-            or any(SequenceMatcher(None, word, candidate).ratio() >= 0.8 for candidate in row_words)
-            for word in fixed_words
-            if len(word) >= 4
-        ):
-            return fixed
-    return None
 
 
 def import_hash(purchase_date, description, amount, current, total, invoice_month):

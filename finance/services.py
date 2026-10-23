@@ -1,5 +1,8 @@
 import calendar
+import re
+import unicodedata
 from datetime import datetime, time
+from difflib import SequenceMatcher
 from uuid import UUID
 from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
@@ -13,6 +16,32 @@ from django.utils import timezone
 from .models import CreditCardExpense, FinancialProfile, FixedExpense, Investment, InvestmentOperation, Person, SalarySnapshot, Transaction, VRMovement
 
 ZERO = Decimal('0.00')
+
+
+def _normalize_match_text(value):
+    text = unicodedata.normalize('NFKD', str(value or '')).encode('ascii', 'ignore').decode().lower()
+    return re.sub(r'[^a-z0-9]+', '', text)
+
+
+def fixed_card_duplicate(description, amount, fixed_expenses=None):
+    """Return a matching active fixed-card expense, if this card row duplicates it."""
+    row_words = [_normalize_match_text(word) for word in str(description).split() if _normalize_match_text(word)]
+    fixed_expenses = fixed_expenses if fixed_expenses is not None else FixedExpense.objects.filter(
+        active=True,
+        included_in_credit_card=True,
+    )
+    for fixed in fixed_expenses:
+        if fixed.amount != amount:
+            continue
+        fixed_words = [_normalize_match_text(word) for word in fixed.description.split() if _normalize_match_text(word)]
+        if any(
+            word in row_words
+            or any(SequenceMatcher(None, word, candidate).ratio() >= 0.8 for candidate in row_words)
+            for word in fixed_words
+            if len(word) >= 4
+        ):
+            return fixed
+    return None
 
 
 def money_sum(queryset, field):
@@ -72,10 +101,16 @@ def invoice_month_for_purchase(purchase_date):
 def card_expenses_for_period(year, month):
     period = date(year, month, 1)
     start, end = month_bounds(year, month)
-    return CreditCardExpense.objects.filter(
+    queryset = CreditCardExpense.objects.filter(
         Q(invoice_month=period)
         | Q(invoice_month__isnull=True, date__range=(start, end))
     )
+    fixed_expenses = list(FixedExpense.objects.filter(active=True, included_in_credit_card=True))
+    fixed_duplicate_ids = [
+        item.pk for item in queryset.only('pk', 'description', 'amount')
+        if fixed_card_duplicate(item.description, item.amount, fixed_expenses)
+    ]
+    return queryset.exclude(pk__in=fixed_duplicate_ids)
 
 
 def add_months(source_date, months):
