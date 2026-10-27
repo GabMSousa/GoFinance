@@ -1309,6 +1309,7 @@ class BillingCycleTests(BaseFinanceTest):
         self.assertEqual(item.invoice_month, date(2026, 11, 1))
         self.assertEqual(monthly_summary(2026, 10)['card_invoice'], Decimal('0.00'))
         self.assertEqual(monthly_summary(2026, 11)['card_invoice'], Decimal('100.00'))
+        self.assertEqual(len(item[0].series_id.hex), 32)
 
     def test_vr_and_card_parts_use_purchase_and_invoice_months(self):
         item = create_card_installments({
