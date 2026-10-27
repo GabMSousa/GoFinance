@@ -416,7 +416,8 @@ class CreditCardExpense(UserOwnedModel):
     )
     first_installment = models.DateField('Primeira parcela', null=True, blank=True)
     last_installment = models.DateField('Última parcela', null=True, blank=True)
-    series_id = models.UUIDField('Série', null=True, blank=True, db_index=True)
+    # MySQL/MariaDB stores this identifier as CHAR(32), not as a native UUID.
+    series_id = models.CharField('Série', max_length=32, null=True, blank=True, db_index=True)
     import_hash = models.CharField('Identificador da importação', max_length=64, null=True, blank=True)
     created_at = models.DateTimeField('Criado em', auto_now_add=True)
     updated_at = models.DateTimeField('Atualizado em', auto_now=True)
