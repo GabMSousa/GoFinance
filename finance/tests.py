@@ -289,6 +289,20 @@ class VRTests(BaseFinanceTest):
         self.assertTrue(form.is_valid(), form.errors)
         self.assertEqual(form.cleaned_data['amount'], Decimal('50.00'))
 
+    def test_quick_expense_accepts_brazilian_decimal_separator(self):
+        form = QuickExpenseForm(data={
+            'date': self.today.isoformat(),
+            'description': 'Compra com virgula',
+            'category': self.food.pk,
+            'payment_method': Transaction.PaymentMethod.CREDIT_CARD,
+            'amount': '1.234,56',
+            'vr_amount': '0,00',
+            'responsible': 'SELF',
+            'installment_total': '1',
+        })
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data['amount'], Decimal('1234.56'))
+
     def test_vr_does_not_reduce_bank_balance(self):
         Transaction.objects.create(
             date=self.today,
