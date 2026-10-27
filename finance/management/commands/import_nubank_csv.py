@@ -101,7 +101,7 @@ class Command(BaseCommand):
                         reimbursable=person_name != 'Eu',
                         received=False,
                         notes=f'{source_tag}; fatura de {invoice_date:%m/%Y}.',
-                        series_id=uuid.uuid4(),
+                        series_id=uuid.uuid4().hex,
                     )
                 created += 1
                 total += amount
