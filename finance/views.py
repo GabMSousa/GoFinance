@@ -304,7 +304,9 @@ def create_card_installments(data, amount_key='amount'):
     purchase_total = to_decimal(data.get('purchase_total') or data.get('total_amount') or (total + vr_amount))
     count = int(data.get('total_installments') or data.get('installment_total') or 1)
     values = split_installment_values(total, count)
-    series = uuid.uuid4()
+    # MySQL/MariaDB stores UUIDField as CHAR(32); use the hex form explicitly
+    # so quick purchases do not send the 36-character hyphenated UUID.
+    series = uuid.uuid4().hex
     first_date = data['date']
     last_date = add_months(first_date, count - 1)
     person = data.get('person') or person_from_responsibility(data)
