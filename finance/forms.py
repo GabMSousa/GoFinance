@@ -12,6 +12,17 @@ from .services import invoice_month_for_purchase, to_decimal, vr_balance_for_dat
 RESPONSIBLE_CHOICES = (('SELF', 'Eu'), ('OTHER', 'Outro'))
 
 
+class BrazilianDecimalField(forms.DecimalField):
+    """Accept decimal input using either dot or Brazilian comma notation."""
+
+    def to_python(self, value):
+        if isinstance(value, str):
+            value = value.strip().replace('R$', '').replace(' ', '')
+            if ',' in value:
+                value = value.replace('.', '').replace(',', '.')
+        return super().to_python(value)
+
+
 class ProfileForm(forms.Form):
     username = forms.CharField(label='Nome de usuário', max_length=150)
     display_name = forms.CharField(label='Nome de exibição', max_length=120, required=False)
@@ -590,8 +601,8 @@ class QuickExpenseForm(BootstrapMixin, forms.Form):
     description = forms.CharField(label='Descrição', max_length=180)
     category = forms.ModelChoiceField(label='Categoria', queryset=Category.objects.none())
     payment_method = forms.ChoiceField(label='Forma de pagamento do restante', choices=Transaction.PaymentMethod.choices)
-    amount = forms.DecimalField(label='Valor total', min_value=Decimal('0.01'), decimal_places=2, required=False)
-    vr_amount = forms.DecimalField(
+    amount = BrazilianDecimalField(label='Valor total', min_value=Decimal('0.01'), decimal_places=2, required=False)
+    vr_amount = BrazilianDecimalField(
         label='Valor gasto no VR',
         min_value=Decimal('0.00'),
         decimal_places=2,
@@ -656,7 +667,7 @@ class CardPurchaseForm(BootstrapMixin, forms.Form):
     date = forms.DateField(label='Primeira parcela', widget=forms.DateInput(attrs={'type': 'date'}))
     description = forms.CharField(label='Descrição', max_length=180)
     category = forms.ModelChoiceField(label='Categoria', queryset=Category.objects.none())
-    amount = forms.DecimalField(label='Valor total da compra', min_value=Decimal('0.01'), decimal_places=2)
+    amount = BrazilianDecimalField(label='Valor total da compra', min_value=Decimal('0.01'), decimal_places=2)
     responsible = forms.ChoiceField(label='Responsável', choices=RESPONSIBLE_CHOICES, initial='SELF')
     person_name = forms.CharField(label='Nome da pessoa', max_length=100, required=False)
     total_installments = forms.IntegerField(label='Quantidade de parcelas', min_value=1, initial=1)
