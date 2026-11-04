@@ -347,17 +347,41 @@ def vr_credit_queryset_until(target_date):
 
 
 def vr_balance_for_date(target_date):
-    """Return the persisted VR balance available on target_date."""
-    movements = VRMovement.objects.filter(date__lte=target_date)
-    credits = money_sum(vr_credit_queryset_until(target_date), 'amount')
+    """Return the balance for target_date's VR competence only.
+
+    VR is reloaded monthly. A month must not inherit receipts or purchases
+    from another competence, otherwise navigating the dashboard can show a
+    negative balance caused by historical movements.
+    """
+    start = target_date.replace(day=1)
+    movements = VRMovement.objects.filter(date__range=(start, target_date))
+    credits = money_sum(
+        VRMovement.objects.filter(
+            movement_type=VRMovement.Type.CREDIT,
+        ).filter(
+            Q(reference_month=start, date__lte=target_date)
+            | Q(reference_month__isnull=True, date__range=(start, target_date))
+        ),
+        'amount',
+    )
     adjustments = money_sum(movements.filter(movement_type=VRMovement.Type.ADJUSTMENT), 'amount')
     spent = money_sum(movements.filter(movement_type=VRMovement.Type.DEBIT), 'amount')
     return vr_initial_setting() + credits + adjustments - spent
 
 
 def vr_balance_before(target_date):
-    movements = VRMovement.objects.filter(date__lt=target_date)
-    credits = money_sum(vr_credit_queryset_until(target_date - timedelta(days=1)), 'amount')
+    """Return the balance immediately before target_date in its competence."""
+    start = target_date.replace(day=1)
+    movements = VRMovement.objects.filter(date__gte=start, date__lt=target_date)
+    credits = money_sum(
+        VRMovement.objects.filter(
+            movement_type=VRMovement.Type.CREDIT,
+        ).filter(
+            Q(reference_month=start, date__lt=target_date)
+            | Q(reference_month__isnull=True, date__gte=start, date__lt=target_date)
+        ),
+        'amount',
+    )
     adjustments = money_sum(movements.filter(movement_type=VRMovement.Type.ADJUSTMENT), 'amount')
     spent = money_sum(movements.filter(movement_type=VRMovement.Type.DEBIT), 'amount')
     return vr_initial_setting() + credits + adjustments - spent

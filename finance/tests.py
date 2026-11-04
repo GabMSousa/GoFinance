@@ -360,6 +360,21 @@ class VRTests(BaseFinanceTest):
         self.assertEqual(summary['vr_balance'], Decimal('460.00'))
         self.assertEqual(summary['final_balance'], Decimal('1000.00'))
 
+    def test_vr_balance_does_not_pull_other_competences(self):
+        VRMovement.objects.create(
+            date=date(2026, 11, 1), reference_month=date(2026, 11, 1),
+            description='Crédito novembro', movement_type=VRMovement.Type.CREDIT,
+            amount=Decimal('550.00'),
+        )
+        VRMovement.objects.create(
+            date=date(2026, 11, 3), description='Compra novembro',
+            movement_type=VRMovement.Type.DEBIT, amount=Decimal('564.15'),
+        )
+
+        self.assertEqual(vr_balance_for_date(date(2026, 11, 30)), Decimal('-14.15'))
+        self.assertEqual(vr_balance_for_date(date(2026, 12, 1)), Decimal('0.00'))
+        self.assertEqual(monthly_summary(2026, 12)['vr_balance'], Decimal('0.00'))
+
     def test_split_vr_and_card(self):
         create_card_installments({
             'date': self.today,
