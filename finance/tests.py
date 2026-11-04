@@ -252,8 +252,36 @@ class VRTests(BaseFinanceTest):
             previous_net_salary=Decimal('2299.00'), vr_monthly_credit=Decimal('550.00'),
             vr_credit_day=5,
         )
+        VRMovement.objects.create(
+            date=date(2026, 9, 5), reference_month=date(2026, 9, 1),
+            description='Recebimento setembro', movement_type=VRMovement.Type.CREDIT,
+            amount=Decimal('550.00'),
+        )
         self.assertEqual(vr_balance_for_date(date(2026, 9, 4)), Decimal('0.00'))
         self.assertEqual(vr_balance_for_date(date(2026, 9, 5)), Decimal('550.00'))
+
+    def test_vr_receipt_popup_is_required_until_monthly_credit_is_registered(self):
+        response = self.client.get(reverse('finance:dashboard'), {'year': 2026, 'month': 9})
+        self.assertTrue(response.context['vr_receipt_required'])
+        self.assertContains(response, 'Recebimento mensal do VR')
+
+        payload = {
+            'reference_month': '2026-09', 'amount': '475,00', 'received_at': '2026-09-01',
+        }
+        response = self.client.post(reverse('finance:vr_receipt_create'), payload)
+        self.assertRedirects(response, reverse('finance:dashboard'))
+        self.assertEqual(VRMovement.objects.filter(
+            movement_type=VRMovement.Type.CREDIT, reference_month=date(2026, 9, 1),
+        ).count(), 1)
+        self.assertEqual(monthly_summary(2026, 9)['vr_credit'], Decimal('475.00'))
+
+        response = self.client.get(reverse('finance:dashboard'), {'year': 2026, 'month': 9})
+        self.assertFalse(response.context['vr_receipt_required'])
+
+        self.client.post(reverse('finance:vr_receipt_create'), payload)
+        self.assertEqual(VRMovement.objects.filter(
+            movement_type=VRMovement.Type.CREDIT, reference_month=date(2026, 9, 1),
+        ).count(), 1)
 
     def test_vr_credit_received_in_previous_month_is_displayed_in_next_competence(self):
         credit = VRMovement.objects.create(
@@ -312,6 +340,13 @@ class VRTests(BaseFinanceTest):
             amount=Decimal('1000.00'),
             paid=True,
             person=self.me,
+        )
+        VRMovement.objects.create(
+            date=self.today,
+            reference_month=self.today.replace(day=1),
+            description='Recebimento setembro',
+            movement_type=VRMovement.Type.CREDIT,
+            amount=Decimal('500.00'),
         )
         VRMovement.objects.create(
             date=self.today,

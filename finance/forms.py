@@ -601,6 +601,38 @@ class VRMovementForm(BootstrapModelForm):
                 self.add_error('amount', 'Saldo de VR insuficiente. Informe um ajuste de crédito antes de consumir acima do saldo.')
         return data
 
+    def save(self, commit=True):
+        movement = super().save(commit=False)
+        movement.reference_month = (
+            movement.date.replace(day=1)
+            if movement.movement_type == VRMovement.Type.CREDIT
+            else None
+        )
+        if commit:
+            movement.save()
+        return movement
+
+
+class VRReceiptForm(forms.Form):
+    reference_month = forms.DateField(
+        label='MÃªs de referÃªncia',
+        widget=forms.DateInput(format='%Y-%m', attrs={'type': 'month'}),
+        input_formats=['%Y-%m', '%Y-%m-%d'],
+    )
+    amount = BrazilianDecimalField(
+        label='Valor recebido',
+        min_value=Decimal('0.01'),
+        decimal_places=2,
+    )
+    received_at = forms.DateField(
+        label='Data do recebimento',
+        widget=forms.DateInput(attrs={'type': 'date'}),
+    )
+
+    def clean_reference_month(self):
+        value = self.cleaned_data['reference_month']
+        return value.replace(day=1)
+
 
 class QuickExpenseForm(BootstrapMixin, forms.Form):
     date = forms.DateField(label='Data', widget=forms.DateInput(attrs={'type': 'date'}))

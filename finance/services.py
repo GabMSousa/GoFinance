@@ -1,7 +1,7 @@
 import calendar
 import re
 import unicodedata
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 from difflib import SequenceMatcher
 from uuid import UUID
 from datetime import date
@@ -317,18 +317,39 @@ def vr_initial_setting():
     return to_decimal(getattr(settings, 'VR_INITIAL_BALANCE', 0))
 
 
+def vr_credit_for_month(year, month):
+    """Return the persisted VR receipt for one competence month."""
+    period = date(year, month, 1)
+    credits = VRMovement.objects.filter(
+        movement_type=VRMovement.Type.CREDIT,
+    ).filter(
+        Q(reference_month=period)
+        | Q(reference_month__isnull=True, date__year=year, date__month=month)
+    )
+    return money_sum(credits, 'amount')
+
+
+def vr_receipt_exists(year, month):
+    return VRMovement.objects.filter(
+        movement_type=VRMovement.Type.CREDIT,
+        reference_month=date(year, month, 1),
+    ).exists()
+
+
+def vr_credit_queryset_until(target_date):
+    period = target_date.replace(day=1)
+    return VRMovement.objects.filter(
+        movement_type=VRMovement.Type.CREDIT,
+    ).filter(
+        Q(reference_month__isnull=False, reference_month__lte=period, date__lte=target_date)
+        | Q(reference_month__isnull=True, date__lte=target_date)
+    )
+
+
 def vr_balance_for_date(target_date):
-    """Return the VR balance available for a purchase on target_date."""
-    start, _ = month_bounds(target_date.year, target_date.month)
-    movements = VRMovement.objects.filter(date__range=(start, target_date))
-    credits_qs = movements.filter(movement_type=VRMovement.Type.CREDIT)
-    profile = financial_profile_for_month(target_date.year, target_date.month)
-    if credits_qs.exists():
-        credits = money_sum(credits_qs, 'amount')
-    else:
-        credit_day = int(getattr(profile, 'vr_credit_day', 1) or 1)
-        credit_date = date(target_date.year, target_date.month, min(credit_day, month_bounds(target_date.year, target_date.month)[1].day))
-        credits = to_decimal(profile.vr_monthly_credit if profile else monthly_credit_setting()) if target_date >= credit_date else ZERO
+    """Return the persisted VR balance available on target_date."""
+    movements = VRMovement.objects.filter(date__lte=target_date)
+    credits = money_sum(vr_credit_queryset_until(target_date), 'amount')
     adjustments = money_sum(movements.filter(movement_type=VRMovement.Type.ADJUSTMENT), 'amount')
     spent = money_sum(movements.filter(movement_type=VRMovement.Type.DEBIT), 'amount')
     return vr_initial_setting() + credits + adjustments - spent
@@ -336,12 +357,10 @@ def vr_balance_for_date(target_date):
 
 def vr_balance_before(target_date):
     movements = VRMovement.objects.filter(date__lt=target_date)
-    credits = money_sum(movements.filter(movement_type=VRMovement.Type.CREDIT), 'amount')
+    credits = money_sum(vr_credit_queryset_until(target_date - timedelta(days=1)), 'amount')
     adjustments = money_sum(movements.filter(movement_type=VRMovement.Type.ADJUSTMENT), 'amount')
     spent = money_sum(movements.filter(movement_type=VRMovement.Type.DEBIT), 'amount')
-    months_from_year_start = target_date.month - 1
-    monthly = monthly_credit_setting() * months_from_year_start
-    return vr_initial_setting() + monthly + credits + adjustments - spent
+    return vr_initial_setting() + credits + adjustments - spent
 
 
 def vr_available(year, month, extra_spent=ZERO):
@@ -426,15 +445,12 @@ def monthly_summary(year, month):
     card_mine = money_sum(card.exclude(third_party_q()), 'amount') + fixed_card
     card_personal_economic = max(card_invoice - third_party_total, ZERO)
 
-    vr_credit_movements = money_sum(vr.filter(movement_type=VRMovement.Type.CREDIT), 'amount')
+    vr_credit_movements = vr_credit_for_month(year, month)
     vr_adjustments = money_sum(vr.filter(movement_type=VRMovement.Type.ADJUSTMENT), 'amount')
     vr_spent = money_sum(vr.filter(movement_type=VRMovement.Type.DEBIT), 'amount')
     vr_initial = vr_initial_setting()
-    if vr.filter(movement_type=VRMovement.Type.CREDIT).exists():
-        vr_credit = vr_credit_movements
-    else:
-        vr_credit = to_decimal(profile.vr_monthly_credit if profile else monthly_credit_setting())
-    vr_balance = vr_initial + vr_credit + vr_adjustments - vr_spent
+    vr_credit = vr_credit_movements
+    vr_balance = vr_balance_for_date(end)
 
     investment_month = money_sum(investment_operations, 'amount')
     legacy_initial_investments = Investment.objects.filter(

@@ -68,7 +68,7 @@ class InvestmentAdmin(admin.ModelAdmin):
 
 @admin.register(VRMovement)
 class VRMovementAdmin(admin.ModelAdmin):
-    list_display = ('date', 'description', 'movement_type', 'amount')
+    list_display = ('date', 'reference_month', 'description', 'movement_type', 'amount')
     list_filter = ('movement_type',)
     search_fields = ('description',)
     date_hierarchy = 'date'
