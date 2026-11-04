@@ -1427,6 +1427,18 @@ class BillingCycleTests(BaseFinanceTest):
         self.assertEqual(installments.last().invoice_month, date(2027, 7, 1))
         self.assertEqual(sum(item.amount for item in installments), Decimal('500.00'))
 
+    def test_pix_cannot_be_saved_as_installment_purchase(self):
+        response = self.client.post(reverse('finance:transaction_create'), {
+            'date': '2026-11-03', 'description': 'Compra Pix parcelada', 'category': self.food.pk,
+            'type': Transaction.Type.EXPENSE, 'payment_method': Transaction.PaymentMethod.PIX,
+            'amount': '500.00', 'vr_amount': '0.00', 'paid': 'on', 'fixed_expense': '',
+            'person': self.me.pk, 'reimbursable': '', 'received': '', 'installment_current': '1',
+            'installment_total': '8', 'notes': '',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Compras parceladas devem usar Cart')
+        self.assertFalse(Transaction.objects.filter(description='Compra Pix parcelada').exists())
+
     def test_invoice_payment_and_undo_do_not_create_or_change_purchases(self):
         item = create_card_installments({
             'date': date(2026, 10, 6), 'description': 'Compra antes do pagamento',
