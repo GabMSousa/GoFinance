@@ -433,7 +433,11 @@ def dashboard(request, purchase_form=None, period=None):
             balance += amount
         balance_points.append({'label': movement_date.strftime('%d/%m'), 'value': float(balance)})
     today = localdate()
-    current_vr_period = today.replace(day=1)
+    selected_vr_period = date(year, month, 1)
+    selected_vr_receipt = VRMovement.objects.filter(
+        movement_type=VRMovement.Type.CREDIT,
+        reference_month=selected_vr_period,
+    ).order_by('-id').first()
     context = period_context(year, month)
     context.update({
         'summary': summary,
@@ -459,12 +463,14 @@ def dashboard(request, purchase_form=None, period=None):
         'investment_radar': get_investment_radar(),
         'bill_payment_form': CardBillPaymentForm(initial={'amount': to_decimal(summary['card_invoice']), 'paid_at': localdate()}),
         'csv_form': CsvImportForm(),
-        'vr_receipt_required': not vr_receipt_exists(current_vr_period.year, current_vr_period.month),
-        'vr_receipt_period': current_vr_period,
+        'vr_receipt_required': not vr_receipt_exists(year, month),
+        'vr_receipt_period': selected_vr_period,
         'vr_receipt_form': VRReceiptForm(initial={
-            'reference_month': current_vr_period,
-            'received_at': today,
+            'reference_month': selected_vr_period,
+            'amount': selected_vr_receipt.amount if selected_vr_receipt else None,
+            'received_at': selected_vr_receipt.date if selected_vr_receipt else today,
         }),
+        'vr_selected_receipt': selected_vr_receipt,
         'vr_receipts': VRMovement.objects.filter(
             movement_type=VRMovement.Type.CREDIT,
             reference_month__isnull=False,
@@ -1227,7 +1233,7 @@ def vr_receipt_create(request):
         messages.success(request, 'Recebimento mensal de VR registrado.')
     else:
         messages.error(request, 'Informe um mÃªs, valor e data vÃ¡lidos para o recebimento do VR.')
-    return redirect('finance:dashboard')
+    return redirect(f'{reverse("finance:dashboard")}?year={period.year}&month={period.month}')
 
 
 def vr_edit(request, pk):
