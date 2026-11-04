@@ -43,13 +43,14 @@ from .forms import (
     ReimbursementForm,
     RevenueForm,
     TransactionForm,
+    VRReceiptForm,
     VRMovementForm,
 )
 from .investment_radar import get_investment_radar
 from .models import Category, CreditCardBill, CreditCardExpense, FinancialProfile, FixedExpense, Goal, Investment, InvestmentOperation, Person, SalarySnapshot, Transaction, UserSecurityProfile, VRMovement
 from .importers import import_preview_rows, normalize, preview_csv
 from .reporting import build_financial_pdf
-from .services import add_months, apply_investment_operation, card_expenses_for_period, investment_scope, invoice_month_for_installment, invoice_month_for_purchase, month_bounds, month_datetime_bounds, monthly_summary, money_sum, split_installment_values, sync_card_vr, sync_transaction_vr, third_party_by_person, to_decimal, transactions_for_display_period, vr_balance_for_date, vr_movements_for_display_period
+from .services import add_months, apply_investment_operation, card_expenses_for_period, investment_scope, invoice_month_for_installment, invoice_month_for_purchase, month_bounds, month_datetime_bounds, monthly_summary, money_sum, split_installment_values, sync_card_vr, sync_transaction_vr, third_party_by_person, to_decimal, transactions_for_display_period, vr_balance_for_date, vr_credit_for_month, vr_receipt_exists, vr_movements_for_display_period
 
 
 def selected_period(request):
@@ -431,6 +432,8 @@ def dashboard(request, purchase_form=None, period=None):
         elif movement_type == Transaction.Type.REIMBURSEMENT:
             balance += amount
         balance_points.append({'label': movement_date.strftime('%d/%m'), 'value': float(balance)})
+    today = localdate()
+    current_vr_period = today.replace(day=1)
     context = period_context(year, month)
     context.update({
         'summary': summary,
@@ -456,6 +459,19 @@ def dashboard(request, purchase_form=None, period=None):
         'investment_radar': get_investment_radar(),
         'bill_payment_form': CardBillPaymentForm(initial={'amount': to_decimal(summary['card_invoice']), 'paid_at': localdate()}),
         'csv_form': CsvImportForm(),
+        'vr_receipt_required': not vr_receipt_exists(current_vr_period.year, current_vr_period.month),
+        'vr_receipt_period': current_vr_period,
+        'vr_receipt_form': VRReceiptForm(initial={
+            'reference_month': current_vr_period,
+            'received_at': today,
+        }),
+        'vr_receipts': VRMovement.objects.filter(
+            movement_type=VRMovement.Type.CREDIT,
+            reference_month__isnull=False,
+        ).order_by('-reference_month', '-id')[:12],
+        'vr_last_received': VRMovement.objects.filter(
+            movement_type=VRMovement.Type.CREDIT,
+        ).order_by('-date', '-id').first(),
         'movement_details': [
             {'total': float(item['total_amount']), 'vr': float(item['vr_amount']), 'card': float(item['card_amount'])}
             for item in movements
@@ -1169,12 +1185,49 @@ def vr_list(request):
     summary = monthly_summary(year, month)
     items = vr_movements_for_display_period(year, month)
     context = period_context(year, month)
-    context.update({'items': items, 'summary': summary})
+    context.update({
+        'items': items,
+        'summary': summary,
+        'vr_receipts': VRMovement.objects.filter(
+            movement_type=VRMovement.Type.CREDIT,
+            reference_month__isnull=False,
+        ).order_by('-reference_month', '-id'),
+    })
     return render(request, 'finance/vr_list.html', context)
 
 
 def vr_create(request):
     return model_form_create(request, VRMovementForm, 'Novo movimento de Vale Refeição', 'finance:vr_list', {'date': date.today()})
+
+
+@require_POST
+def vr_receipt_create(request):
+    form = VRReceiptForm(request.POST)
+    if form.is_valid():
+        period = form.cleaned_data['reference_month']
+        defaults = {
+            'date': form.cleaned_data['received_at'],
+            'description': f'Recebimento mensal de VR {period:%m/%Y}',
+            'amount': form.cleaned_data['amount'],
+            'movement_type': VRMovement.Type.CREDIT,
+            'notes': 'Recebimento mensal informado pelo usuÃ¡rio.',
+            'reference_month': period,
+        }
+        with db_transaction.atomic():
+            movement = VRMovement.objects.filter(
+                movement_type=VRMovement.Type.CREDIT,
+                reference_month=period,
+            ).first()
+            if movement:
+                for field, value in defaults.items():
+                    setattr(movement, field, value)
+                movement.save(update_fields=list(defaults))
+            else:
+                VRMovement.objects.create(**defaults)
+        messages.success(request, 'Recebimento mensal de VR registrado.')
+    else:
+        messages.error(request, 'Informe um mÃªs, valor e data vÃ¡lidos para o recebimento do VR.')
+    return redirect('finance:dashboard')
 
 
 def vr_edit(request, pk):

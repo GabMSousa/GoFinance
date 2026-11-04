@@ -45,6 +45,7 @@ urlpatterns = [
     path('terceiros/', login_required(views.third_party), name='third_party'),
     path('terceiros/<int:pk>/editar/', login_required(views.person_edit), name='person_edit'),
     path('vr/', login_required(views.vr_list), name='vr_list'),
+    path('vr/recebimento/', login_required(views.vr_receipt_create), name='vr_receipt_create'),
     path('vr/novo/', login_required(views.vr_create), name='vr_create'),
     path('vr/<int:pk>/editar/', login_required(views.vr_edit), name='vr_edit'),
     path('investimentos/', login_required(views.investment_list), name='investment_list'),

@@ -53,6 +53,22 @@
   {% endfor %}
   {% for error in purchase_form.non_field_errors %}<div class="quick-purchase-error"><strong>Não foi possível salvar</strong><span>{{ error }}</span></div>{% endfor %}
 </div>{% endif %}
+{% if vr_receipt_required %}
+<div class="modal fade" id="vrReceiptModal" tabindex="-1" aria-labelledby="vrReceiptTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header"><div><p class="eyebrow mb-1">Controle automático</p><h2 class="modal-title" id="vrReceiptTitle">Recebimento mensal do VR</h2></div><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body"><p class="text-muted">Informe o valor realmente recebido no mês. O crédito será registrado uma única vez e entrará no saldo disponível.</p><form method="post" action="{% url 'finance:vr_receipt_create' %}">{% csrf_token %}<div class="mb-3">{{ vr_receipt_form.reference_month.label_tag }}{{ vr_receipt_form.reference_month }}</div><div class="mb-3">{{ vr_receipt_form.amount.label_tag }}{{ vr_receipt_form.amount }}</div><div class="mb-3">{{ vr_receipt_form.received_at.label_tag }}{{ vr_receipt_form.received_at }}</div><button class="btn btn-accent w-100" type="submit">Registrar recebimento</button></form></div>
+    </div>
+  </div>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const modal = document.getElementById('vrReceiptModal');
+  if (modal && window.bootstrap) window.bootstrap.Modal.getOrCreateInstance(modal).show();
+});
+</script>
+{% endif %}
 {% include 'finance/_dashboard_modals.html' %}
 {% include 'finance/_dashboard_calculator.html' %}
 {{ vr_movement_indexes|json_script:"vr-movement-indexes" }}

@@ -622,6 +622,7 @@ class VRMovement(UserOwnedModel):
         ADJUSTMENT = 'ADJUSTMENT', 'Ajuste'
 
     date = models.DateField('Data')
+    reference_month = models.DateField('MÃªs de referÃªncia', null=True, blank=True, db_index=True)
     description = models.CharField('Descrição', max_length=180)
     movement_type = models.CharField('Tipo', max_length=20, choices=Type.choices)
     amount = models.DecimalField(
@@ -653,6 +654,12 @@ class VRMovement(UserOwnedModel):
         ordering = ['-date', '-id']
         verbose_name = 'Movimento de VR'
         verbose_name_plural = 'Movimentos de VR'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['owner', 'reference_month', 'movement_type'],
+                name='unique_vr_credit_reference_month',
+            ),
+        ]
 
     def __str__(self):
         return f'{self.date} - {self.description}'
