@@ -845,6 +845,21 @@ def transaction_edit(request, pk):
     obj = get_object_or_404(Transaction, pk=pk)
     form = TransactionForm(request.POST or None, instance=obj)
     if form.is_valid():
+        data = form.cleaned_data
+        if data['type'] == Transaction.Type.EXPENSE and data['payment_method'] == Transaction.PaymentMethod.CREDIT_CARD:
+            vr_amount = to_decimal(data.get('vr_amount') or 0)
+            create_card_installments({
+                **data,
+                'person': data.get('person') or obj.person or person_from_responsibility(data),
+                'amount': to_decimal(data['amount']) - vr_amount,
+                'purchase_total': to_decimal(data['amount']),
+                'vr_amount': vr_amount,
+                'total_installments': data.get('installment_total') or 1,
+            })
+            obj.vr_movements.all().delete()
+            obj.delete()
+            messages.success(request, 'Lançamento convertido para o cartão e parcelas criadas.')
+            return redirect('finance:card_list')
         sync_transaction_vr(form.save())
         messages.success(request, 'Lançamento atualizado.')
         return redirect('finance:transaction_list')

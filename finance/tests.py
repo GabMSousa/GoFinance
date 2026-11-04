@@ -1405,6 +1405,28 @@ class BillingCycleTests(BaseFinanceTest):
         self.assertNotContains(november, 'Compra parcelada ciclo dezembro')
         self.assertContains(december, 'Compra parcelada ciclo dezembro')
 
+    def test_editing_pix_transaction_to_eight_card_installments_starts_next_invoice(self):
+        transaction = Transaction.objects.create(
+            date=date(2026, 11, 3), description='Compra parcelada', category=self.food,
+            person=self.me, type=Transaction.Type.EXPENSE,
+            payment_method=Transaction.PaymentMethod.PIX, amount=Decimal('500.00'),
+            installment_total=1,
+        )
+        response = self.client.post(reverse('finance:transaction_edit', args=[transaction.pk]), {
+            'date': '2026-11-03', 'description': 'Compra parcelada', 'category': self.food.pk,
+            'type': Transaction.Type.EXPENSE, 'payment_method': Transaction.PaymentMethod.CREDIT_CARD,
+            'amount': '500.00', 'vr_amount': '0.00', 'paid': 'on', 'fixed_expense': '',
+            'person': self.me.pk, 'reimbursable': '', 'received': '', 'installment_current': '1',
+            'installment_total': '8', 'notes': '',
+        })
+        self.assertRedirects(response, reverse('finance:card_list'))
+        self.assertFalse(Transaction.objects.filter(pk=transaction.pk).exists())
+        installments = CreditCardExpense.objects.filter(description='Compra parcelada').order_by('current_installment')
+        self.assertEqual(installments.count(), 8)
+        self.assertEqual(installments.first().invoice_month, date(2026, 12, 1))
+        self.assertEqual(installments.last().invoice_month, date(2027, 7, 1))
+        self.assertEqual(sum(item.amount for item in installments), Decimal('500.00'))
+
     def test_invoice_payment_and_undo_do_not_create_or_change_purchases(self):
         item = create_card_installments({
             'date': date(2026, 10, 6), 'description': 'Compra antes do pagamento',
