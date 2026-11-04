@@ -1393,6 +1393,18 @@ class BillingCycleTests(BaseFinanceTest):
         self.assertEqual(october.context['bill_items'].count(), 0)
         self.assertEqual(november.context['bill_items'].count(), 1)
 
+    def test_november_purchase_enters_december_invoice(self):
+        item = create_card_installments({
+            'date': date(2026, 11, 3), 'description': 'Compra parcelada ciclo dezembro',
+            'category': self.food, 'person': self.me, 'amount': Decimal('500.00'),
+            'total_installments': 1,
+        })[0]
+        self.assertEqual(item.invoice_month, date(2026, 12, 1))
+        november = self.client.get(reverse('finance:dashboard'), {'year': 2026, 'month': 11})
+        december = self.client.get(reverse('finance:dashboard'), {'year': 2026, 'month': 12})
+        self.assertNotContains(november, 'Compra parcelada ciclo dezembro')
+        self.assertContains(december, 'Compra parcelada ciclo dezembro')
+
     def test_invoice_payment_and_undo_do_not_create_or_change_purchases(self):
         item = create_card_installments({
             'date': date(2026, 10, 6), 'description': 'Compra antes do pagamento',
