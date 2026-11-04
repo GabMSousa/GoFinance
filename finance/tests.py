@@ -253,7 +253,7 @@ class VRTests(BaseFinanceTest):
             vr_credit_day=5,
         )
         VRMovement.objects.create(
-            date=date(2026, 9, 5), reference_month=date(2026, 9, 1),
+            date=date(2026, 9, 5), reference_month=date(2026, 10, 1),
             description='Recebimento setembro', movement_type=VRMovement.Type.CREDIT,
             amount=Decimal('550.00'),
         )
@@ -269,18 +269,18 @@ class VRTests(BaseFinanceTest):
             'reference_month': '2026-09', 'amount': '475,00', 'received_at': '2026-09-01',
         }
         response = self.client.post(reverse('finance:vr_receipt_create'), payload)
-        self.assertRedirects(response, reverse('finance:dashboard'))
+        self.assertRedirects(response, f'{reverse("finance:dashboard")}?year=2026&month=10')
         self.assertEqual(VRMovement.objects.filter(
-            movement_type=VRMovement.Type.CREDIT, reference_month=date(2026, 9, 1),
+            movement_type=VRMovement.Type.CREDIT, reference_month=date(2026, 10, 1),
         ).count(), 1)
-        self.assertEqual(monthly_summary(2026, 9)['vr_credit'], Decimal('475.00'))
+        self.assertEqual(monthly_summary(2026, 10)['vr_credit'], Decimal('475.00'))
 
-        response = self.client.get(reverse('finance:dashboard'), {'year': 2026, 'month': 9})
+        response = self.client.get(reverse('finance:dashboard'), {'year': 2026, 'month': 10})
         self.assertFalse(response.context['vr_receipt_required'])
 
         self.client.post(reverse('finance:vr_receipt_create'), payload)
         self.assertEqual(VRMovement.objects.filter(
-            movement_type=VRMovement.Type.CREDIT, reference_month=date(2026, 9, 1),
+            movement_type=VRMovement.Type.CREDIT, reference_month=date(2026, 10, 1),
         ).count(), 1)
 
     def test_vr_credit_received_in_previous_month_is_displayed_in_next_competence(self):
@@ -342,14 +342,14 @@ class VRTests(BaseFinanceTest):
             person=self.me,
         )
         VRMovement.objects.create(
-            date=self.today,
+            date=date(2026, 8, 31),
             reference_month=self.today.replace(day=1),
             description='Recebimento setembro',
             movement_type=VRMovement.Type.CREDIT,
             amount=Decimal('500.00'),
         )
         VRMovement.objects.create(
-            date=self.today,
+            date=date(2026, 8, 31),
             description='Almoço',
             movement_type=VRMovement.Type.DEBIT,
             amount=Decimal('40.00'),
@@ -362,7 +362,7 @@ class VRTests(BaseFinanceTest):
 
     def test_vr_balance_does_not_pull_other_competences(self):
         VRMovement.objects.create(
-            date=date(2026, 11, 1), reference_month=date(2026, 11, 1),
+            date=date(2026, 11, 1), reference_month=date(2026, 12, 1),
             description='Crédito novembro', movement_type=VRMovement.Type.CREDIT,
             amount=Decimal('550.00'),
         )
@@ -373,7 +373,9 @@ class VRTests(BaseFinanceTest):
 
         self.assertEqual(vr_balance_for_date(date(2026, 11, 30)), Decimal('-14.15'))
         self.assertEqual(vr_balance_for_date(date(2026, 12, 1)), Decimal('0.00'))
-        self.assertEqual(monthly_summary(2026, 12)['vr_balance'], Decimal('0.00'))
+        self.assertEqual(monthly_summary(2026, 12)['vr_credit'], Decimal('550.00'))
+        self.assertEqual(monthly_summary(2026, 12)['vr_spent'], Decimal('564.15'))
+        self.assertEqual(monthly_summary(2026, 12)['vr_balance'], Decimal('-14.15'))
 
     def test_split_vr_and_card(self):
         create_card_installments({

@@ -7,7 +7,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.forms import SetPasswordForm, UserCreationForm
 
 from .models import Category, CreditCardBill, CreditCardExpense, FinancialProfile, FixedExpense, Goal, Investment, InvestmentOperation, Person, Transaction, VRMovement
-from .services import invoice_month_for_purchase, to_decimal, vr_balance_for_date
+from .services import add_months, invoice_month_for_purchase, to_decimal, vr_balance_for_date
 
 RESPONSIBLE_CHOICES = (('SELF', 'Eu'), ('OTHER', 'Outro'))
 
@@ -604,7 +604,7 @@ class VRMovementForm(BootstrapModelForm):
     def save(self, commit=True):
         movement = super().save(commit=False)
         movement.reference_month = (
-            movement.date.replace(day=1)
+            add_months(movement.date.replace(day=1), 1)
             if movement.movement_type == VRMovement.Type.CREDIT
             else None
         )
@@ -615,23 +615,32 @@ class VRMovementForm(BootstrapModelForm):
 
 class VRReceiptForm(forms.Form):
     reference_month = forms.DateField(
-        label='MÃªs de referÃªncia',
-        widget=forms.DateInput(format='%Y-%m', attrs={'type': 'month'}),
+        label='Mês de recebimento',
+        widget=forms.DateInput(format='%Y-%m', attrs={'type': 'month', 'class': 'form-control'}),
         input_formats=['%Y-%m', '%Y-%m-%d'],
     )
     amount = BrazilianDecimalField(
         label='Valor recebido',
         min_value=Decimal('0.01'),
         decimal_places=2,
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'inputmode': 'decimal', 'step': '0.01'}),
     )
     received_at = forms.DateField(
         label='Data do recebimento',
-        widget=forms.DateInput(attrs={'type': 'date'}),
+        widget=forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
     )
 
     def clean_reference_month(self):
         value = self.cleaned_data['reference_month']
         return value.replace(day=1)
+
+    def clean(self):
+        data = super().clean()
+        period = data.get('reference_month')
+        received_at = data.get('received_at')
+        if period and received_at and (period.year != received_at.year or period.month != received_at.month):
+            self.add_error('received_at', 'A data deve pertencer ao mês de recebimento informado.')
+        return data
 
 
 class QuickExpenseForm(BootstrapMixin, forms.Form):

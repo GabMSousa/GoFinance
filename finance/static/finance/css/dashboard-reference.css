@@ -853,6 +853,19 @@ html:not([data-theme="dark"]) .movement-account-summary .account-summary-card { 
 .csv-import-kicker { margin: 0 0 5px; color: #0ce93e; font-size: .62rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
 .csv-import-modal .btn-close { opacity: .8; }
 .csv-import-modal .modal-body { padding: 22px; }
+
+#vrReceiptModal .modal-dialog { max-width: 480px; }
+#vrReceiptModal .modal-content { overflow: hidden; background: var(--surface); border-color: var(--border); color: var(--ink); }
+#vrReceiptModal .modal-header { padding: 20px 22px 17px; background: var(--panel, var(--surface)); border-bottom-color: var(--border); }
+#vrReceiptModal .modal-body { padding: 22px; }
+#vrReceiptModal .modal-body > p { color: var(--muted); line-height: 1.5; margin-bottom: 18px; }
+#vrReceiptModal label { display: block; color: var(--ink); font-size: .78rem; font-weight: 700; margin-bottom: 6px; }
+#vrReceiptModal .form-control { width: 100%; min-height: 42px; color: var(--ink); background: var(--surface); border-color: var(--border); }
+#vrReceiptModal .form-control:focus { border-color: var(--accent-dark); box-shadow: 0 0 0 .2rem rgba(225,169,29,.2); }
+#vrReceiptModal .btn-close { opacity: .8; }
+html[data-theme="dark"] #vrReceiptModal .form-control { color: #edf3fb; background: #171e2a; border-color: #40506a; color-scheme: dark; }
+html[data-theme="dark"] #vrReceiptModal .form-control:focus { color: #fff; background: #1b2534; }
+@media (max-width: 520px) { #vrReceiptModal .modal-body, #vrReceiptModal .modal-header { padding-left: 16px; padding-right: 16px; } }
 .csv-import-intro { display: flex; align-items: flex-start; gap: 12px; padding: 13px 14px; border: 1px solid #2e4056; border-radius: 10px; background: #172231; }
 .csv-import-icon { display: grid; flex: 0 0 30px; place-items: center; width: 30px; height: 30px; border-radius: 8px; background: rgba(12,113,40,.18); color: #0ce93e; font-size: 1.2rem; font-weight: 800; }
 .csv-import-intro p { margin: 0; color: #f1f3f5; font-size: .78rem; line-height: 1.45; }
