@@ -433,11 +433,20 @@ def dashboard(request, purchase_form=None, period=None):
             balance += amount
         balance_points.append({'label': movement_date.strftime('%d/%m'), 'value': float(balance)})
     today = localdate()
+    current_vr_period = today.replace(day=1)
     selected_vr_period = date(year, month, 1)
     selected_vr_receipt = VRMovement.objects.filter(
         movement_type=VRMovement.Type.CREDIT,
         reference_month=selected_vr_period,
     ).order_by('-id').first()
+    current_vr_receipt = VRMovement.objects.filter(
+        movement_type=VRMovement.Type.CREDIT,
+        date__year=today.year,
+        date__month=today.month,
+    ).order_by('-id').first()
+    form_receipt = selected_vr_receipt
+    if not form_receipt and selected_vr_period == current_vr_period:
+        form_receipt = current_vr_receipt
     context = period_context(year, month)
     context.update({
         'summary': summary,
@@ -466,9 +475,9 @@ def dashboard(request, purchase_form=None, period=None):
         'vr_receipt_required': not vr_receipt_exists(year, month),
         'vr_receipt_period': selected_vr_period,
         'vr_receipt_form': VRReceiptForm(initial={
-            'reference_month': selected_vr_period,
-            'amount': selected_vr_receipt.amount if selected_vr_receipt else None,
-            'received_at': selected_vr_receipt.date if selected_vr_receipt else today,
+            'reference_month': form_receipt.date.replace(day=1) if form_receipt else add_months(selected_vr_period, -1),
+            'amount': form_receipt.amount if form_receipt else None,
+            'received_at': form_receipt.date if form_receipt else today,
         }),
         'vr_selected_receipt': selected_vr_receipt,
         'vr_receipts': VRMovement.objects.filter(
@@ -1209,20 +1218,22 @@ def vr_create(request):
 @require_POST
 def vr_receipt_create(request):
     form = VRReceiptForm(request.POST)
+    display_period = localdate().replace(day=1)
     if form.is_valid():
-        period = form.cleaned_data['reference_month']
+        received_period = form.cleaned_data['reference_month']
+        display_period = add_months(received_period, 1)
         defaults = {
             'date': form.cleaned_data['received_at'],
-            'description': f'Recebimento mensal de VR {period:%m/%Y}',
+            'description': f'Recebimento mensal de VR {received_period:%m/%Y}',
             'amount': form.cleaned_data['amount'],
             'movement_type': VRMovement.Type.CREDIT,
             'notes': 'Recebimento mensal informado pelo usuÃ¡rio.',
-            'reference_month': period,
+            'reference_month': display_period,
         }
         with db_transaction.atomic():
             movement = VRMovement.objects.filter(
                 movement_type=VRMovement.Type.CREDIT,
-                reference_month=period,
+                reference_month=display_period,
             ).first()
             if movement:
                 for field, value in defaults.items():
@@ -1233,7 +1244,7 @@ def vr_receipt_create(request):
         messages.success(request, 'Recebimento mensal de VR registrado.')
     else:
         messages.error(request, 'Informe um mÃªs, valor e data vÃ¡lidos para o recebimento do VR.')
-    return redirect(f'{reverse("finance:dashboard")}?year={period.year}&month={period.month}')
+    return redirect(f'{reverse("finance:dashboard")}?year={display_period.year}&month={display_period.month}')
 
 
 def vr_edit(request, pk):

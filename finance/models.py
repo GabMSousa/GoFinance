@@ -622,7 +622,7 @@ class VRMovement(UserOwnedModel):
         ADJUSTMENT = 'ADJUSTMENT', 'Ajuste'
 
     date = models.DateField('Data')
-    reference_month = models.DateField('MÃªs de referÃªncia', null=True, blank=True, db_index=True)
+    reference_month = models.DateField('Mês de referência', null=True, blank=True, db_index=True)
     description = models.CharField('Descrição', max_length=180)
     movement_type = models.CharField('Tipo', max_length=20, choices=Type.choices)
     amount = models.DecimalField(

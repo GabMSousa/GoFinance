@@ -65,13 +65,21 @@ def month_datetime_bounds(year, month):
 
 
 def vr_movements_for_display_period(year, month):
-    """Show the previous month's VR credit in the following competence."""
+    """Show VR movements in the competence where they are consumed/viewed."""
     start, end = month_bounds(year, month)
     previous_month = add_months(start, -1)
     previous_start, previous_end = month_bounds(previous_month.year, previous_month.month)
     return VRMovement.objects.filter(
-        Q(date__range=(start, end))
-        | Q(date__range=(previous_start, previous_end), movement_type=VRMovement.Type.CREDIT)
+        Q(reference_month=start, movement_type=VRMovement.Type.CREDIT)
+        | Q(
+            reference_month__isnull=True,
+            date__range=(previous_start, previous_end),
+            movement_type=VRMovement.Type.CREDIT,
+        )
+        | Q(date__range=(previous_start, previous_end), movement_type__in=[
+            VRMovement.Type.DEBIT,
+            VRMovement.Type.ADJUSTMENT,
+        ])
     )
 
 
@@ -318,21 +326,39 @@ def vr_initial_setting():
 
 
 def vr_credit_for_month(year, month):
-    """Return the persisted VR receipt for one competence month."""
+    """Return the persisted VR receipt shown in one competence month."""
     period = date(year, month, 1)
     credits = VRMovement.objects.filter(
         movement_type=VRMovement.Type.CREDIT,
     ).filter(
         Q(reference_month=period)
-        | Q(reference_month__isnull=True, date__year=year, date__month=month)
+        | Q(
+            reference_month__isnull=True,
+            date__year=add_months(period, -1).year,
+            date__month=add_months(period, -1).month,
+        )
     )
     return money_sum(credits, 'amount')
 
 
 def vr_receipt_exists(year, month):
+    """Return whether the selected display competence has a receipt."""
     return VRMovement.objects.filter(
         movement_type=VRMovement.Type.CREDIT,
         reference_month=date(year, month, 1),
+    ).exists()
+
+
+def vr_receipt_received_exists(year, month):
+    """Return whether a receipt was registered during the real month."""
+    start = date(year, month, 1)
+    return VRMovement.objects.filter(
+        movement_type=VRMovement.Type.CREDIT,
+        date__year=year,
+        date__month=month,
+    ).filter(
+        Q(reference_month=add_months(start, 1))
+        | Q(reference_month__isnull=True)
     ).exists()
 
 
@@ -347,20 +373,16 @@ def vr_credit_queryset_until(target_date):
 
 
 def vr_balance_for_date(target_date):
-    """Return the balance for target_date's VR competence only.
-
-    VR is reloaded monthly. A month must not inherit receipts or purchases
-    from another competence, otherwise navigating the dashboard can show a
-    negative balance caused by historical movements.
-    """
-    start = target_date.replace(day=1)
-    movements = VRMovement.objects.filter(date__range=(start, target_date))
+    """Return available VR for a purchase date, isolated by receipt cycle."""
+    purchase_start = target_date.replace(day=1)
+    display_period = add_months(purchase_start, 1)
+    movements = VRMovement.objects.filter(date__range=(purchase_start, target_date))
     credits = money_sum(
         VRMovement.objects.filter(
             movement_type=VRMovement.Type.CREDIT,
         ).filter(
-            Q(reference_month=start, date__lte=target_date)
-            | Q(reference_month__isnull=True, date__range=(start, target_date))
+            Q(reference_month=display_period, date__lte=target_date)
+            | Q(reference_month__isnull=True, date__range=(purchase_start, target_date))
         ),
         'amount',
     )
@@ -370,15 +392,16 @@ def vr_balance_for_date(target_date):
 
 
 def vr_balance_before(target_date):
-    """Return the balance immediately before target_date in its competence."""
-    start = target_date.replace(day=1)
-    movements = VRMovement.objects.filter(date__gte=start, date__lt=target_date)
+    """Return available VR immediately before a purchase date."""
+    purchase_start = target_date.replace(day=1)
+    display_period = add_months(purchase_start, 1)
+    movements = VRMovement.objects.filter(date__gte=purchase_start, date__lt=target_date)
     credits = money_sum(
         VRMovement.objects.filter(
             movement_type=VRMovement.Type.CREDIT,
         ).filter(
-            Q(reference_month=start, date__lt=target_date)
-            | Q(reference_month__isnull=True, date__gte=start, date__lt=target_date)
+            Q(reference_month=display_period, date__lte=target_date)
+            | Q(reference_month__isnull=True, date__gte=purchase_start, date__lt=target_date)
         ),
         'amount',
     )
@@ -403,7 +426,9 @@ def monthly_summary(year, month):
         operation_type=InvestmentOperation.OperationType.CONTRIBUTION,
         status=InvestmentOperation.Status.POSTED,
     )
-    vr = VRMovement.objects.filter(date__range=(start, end))
+    previous_start = add_months(start, -1)
+    previous_end = start - timedelta(days=1)
+    vr = VRMovement.objects.filter(date__range=(previous_start, previous_end))
 
     explicit_revenues = tx.filter(type=Transaction.Type.REVENUE)
     explicit_salary = explicit_revenues.filter(revenue_type=Transaction.RevenueType.SALARY).exists()
@@ -474,7 +499,7 @@ def monthly_summary(year, month):
     vr_spent = money_sum(vr.filter(movement_type=VRMovement.Type.DEBIT), 'amount')
     vr_initial = vr_initial_setting()
     vr_credit = vr_credit_movements
-    vr_balance = vr_balance_for_date(end)
+    vr_balance = vr_credit - vr_spent + vr_adjustments
 
     investment_month = money_sum(investment_operations, 'amount')
     legacy_initial_investments = Investment.objects.filter(
