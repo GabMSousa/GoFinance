@@ -1418,9 +1418,9 @@ class BillingCycleTests(BaseFinanceTest):
             '2026-10-09,Pix no Credito,16.15\n'
             '2026-10-05,Compra mercado,21.29\n'
             '2026-10-01,Compra parcelada A - Parcela 2/2,"97,50"\n'
-            '2026-10-01,Compra online - Parcela 2/10,"54,48"\n'
+            '2026-10-01,Compra online A - Parcela 2/10,"54,48"\n'
             '2026-10-01,Compra online B - Parcela 4/12,"337,75"\n'
-            '2026-10-01,Compra online - Parcela 3/8,"28,92"\n'
+            '2026-10-01,Compra online A - Parcela 3/8,"28,92"\n'
             '2026-10-01,Compra tecnologia - Parcela 8/12,"97,86"\n'
         )
         rows = preview_csv(content)

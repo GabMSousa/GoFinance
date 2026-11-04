@@ -1,6 +1,6 @@
 # Manual do usuário - GoFinance
 
-Este manual explica o uso diário do GoFinance e as configurações que cada pessoa deve preencher. O guia visual em PDF está em [output/pdf/GUIA_USUARIO_GOFINANCE.pdf](output/pdf/GUIA_USUARIO_GOFINANCE.pdf).
+Este manual explica o uso diário do GoFinance e as configurações que cada pessoa deve preencher.
 
 ## 1. Primeiro acesso
 
