@@ -232,10 +232,10 @@ class TransactionForm(BootstrapModelForm):
             self.add_error('installment_total', 'O total de parcelas deve ser no mínimo 1.')
         if (
             tx_type == Transaction.Type.EXPENSE
-            and data.get('payment_method') == Transaction.PaymentMethod.PIX
+            and data.get('payment_method') == Transaction.PaymentMethod.VR
             and total > 1
         ):
-            self.add_error('payment_method', 'Compras parceladas devem usar Cartao de credito; Pix nao gera fatura.')
+            self.add_error('installment_total', 'O VR não pode ser parcelado; informe cada consumo separadamente.')
         if current and total and current > total:
             self.add_error('installment_current', 'A parcela atual não pode ser maior que o total.')
         if tx_type == Transaction.Type.EXPENSE and data.get('payment_method') == Transaction.PaymentMethod.CREDIT_CARD and amount is not None and vr_amount < amount and data.get('date'):

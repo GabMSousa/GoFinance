@@ -113,12 +113,10 @@ def card_expenses_for_period(year, month):
         Q(invoice_month=period)
         | Q(invoice_month__isnull=True, date__range=(start, end))
     )
-    fixed_expenses = list(FixedExpense.objects.filter(active=True, included_in_credit_card=True))
-    fixed_duplicate_ids = [
-        item.pk for item in queryset.only('pk', 'description', 'amount')
-        if fixed_card_duplicate(item.description, item.amount, fixed_expenses)
-    ]
-    return queryset.exclude(pk__in=fixed_duplicate_ids)
+    # A fatura deve refletir a fonte bancária (compras efetivamente lançadas
+    # no cartão). Contas fixas são exibidas separadamente e só entram aqui
+    # quando também existirem como CreditCardExpense importada do CSV.
+    return queryset
 
 
 def add_months(source_date, months):
@@ -474,12 +472,15 @@ def monthly_summary(year, month):
     fixed_pending = money_sum(fixed_all.filter(paid=False), 'amount')
     fixed_paid = fixed_total - fixed_pending
     subscriptions_total = money_sum(fixed_all.filter(is_subscription=True), 'amount')
-    fixed_card = money_sum(fixed_all.filter(included_in_credit_card=True), 'amount')
-    fixed_non_card = fixed_total - fixed_card
+    # ``included_in_credit_card`` continua disponível para classificação e
+    # filtros de contas fixas, mas nunca cria uma cobrança de cartão por si só.
+    # A cobrança precisa existir como CreditCardExpense/linha bancária.
+    fixed_card = ZERO
+    fixed_non_card = fixed_total
 
     card_manual = money_sum(card, 'amount') + card_from_tx
     variable_total = variable_non_card + card_manual
-    card_invoice = card_manual + fixed_card
+    card_invoice = card_manual
 
     third_party = card.filter(third_party_q())
     tx_third = tx.filter(type=Transaction.Type.EXPENSE).filter(third_party_q()).exclude(

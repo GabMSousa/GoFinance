@@ -8,8 +8,8 @@ from decimal import Decimal, InvalidOperation
 
 from django.db.models import Q
 
-from .models import Category, CreditCardExpense, FixedExpense, Person
-from .services import fixed_card_duplicate, invoice_month_for_purchase, sync_card_vr
+from .models import Category, CreditCardExpense, Person
+from .services import invoice_month_for_purchase, sync_card_vr
 
 csv.field_size_limit(1024 * 1024)
 
@@ -134,19 +134,17 @@ def preview_csv(content, invoice_month=None):
         ).exists() or CreditCardExpense.objects.filter(
             date=row_invoice_month, description=description, amount=amount,
         ).exists() or manual_duplicate
-        fixed_duplicate = fixed_card_duplicate(description, amount)
         duplicate = bool(
             fingerprint in seen_hashes
             or CreditCardExpense.objects.filter(import_hash=fingerprint).exists()
             or legacy_duplicate
-            or fixed_duplicate
         )
         seen_hashes.add(fingerprint)
         rows.append({
             'purchase_date': purchase_date.isoformat(), 'description': description,
             'amount': str(amount), 'vr_amount': str(vr_amount), 'current_installment': current, 'total_installments': total,
             'invoice_month': row_invoice_month.isoformat(), 'category': category_for(description),
-            'duplicate': duplicate, 'duplicate_reason': 'fixed' if fixed_duplicate else '',
+            'duplicate': duplicate, 'duplicate_reason': '',
             'import_hash': fingerprint,
         })
     return rows

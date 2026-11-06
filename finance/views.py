@@ -341,6 +341,48 @@ def create_card_installments(data, amount_key='amount'):
     return created
 
 
+def create_transaction_installments(data, amount_key='amount'):
+    """Create non-card installments without ever creating a card invoice."""
+    total = to_decimal(data[amount_key])
+    count = int(data.get('total_installments') or data.get('installment_total') or 1)
+    values = split_installment_values(total, count)
+    first_date = data['date']
+    person = data.get('person') or person_from_responsibility(data)
+    if count == 1:
+        if _transaction_is_duplicate(data, values[0], person, data['payment_method']):
+            raise DuplicateExpenseError
+    else:
+        existing = Transaction.objects.filter(
+            date=first_date,
+            type=Transaction.Type.EXPENSE,
+            description=data['description'],
+            payment_method=data['payment_method'],
+            installment_total=count,
+        ).exists()
+        if existing:
+            raise DuplicateExpenseError
+    created = []
+    with db_transaction.atomic():
+        for number, value in enumerate(values, start=1):
+            created.append(Transaction.objects.create(
+                date=add_months(first_date, number - 1),
+                description=data['description'],
+                category=data['category'],
+                type=Transaction.Type.EXPENSE,
+                payment_method=data['payment_method'],
+                amount=value,
+                vr_amount=to_decimal(data.get('vr_amount') or 0) if number == 1 else Decimal('0.00'),
+                paid=bool(data.get('paid')) and number == 1,
+                person=person,
+                reimbursable=data.get('reimbursable', False),
+                received=data.get('received', False),
+                installment_current=number,
+                installment_total=count,
+                notes=data.get('notes', ''),
+            ))
+    return created
+
+
 def dashboard(request, purchase_form=None, period=None):
     year, month = period or selected_period(request)
     request.session['dashboard_period'] = [year, month]
@@ -855,8 +897,10 @@ def transaction_create(request):
                 create_card_installments({**d, 'amount': d['amount'] - d.get('vr_amount', 0), 'purchase_total': d['amount'], 'total_installments': d.get('installment_total') or 1})
                 messages.success(request, 'Compra enviada ao cartão e parcelas criadas.')
                 return redirect('finance:card_list')
-            if d['type'] == Transaction.Type.EXPENSE and _transaction_is_duplicate(d, d['amount'], person, d['payment_method']):
-                raise DuplicateExpenseError
+            if d['type'] == Transaction.Type.EXPENSE and d['payment_method'] != Transaction.PaymentMethod.VR:
+                create_transaction_installments({**d, 'person': person})
+                messages.success(request, 'Lançamento salvo.')
+                return redirect('finance:transaction_list')
             if d['type'] == Transaction.Type.EXPENSE and d['payment_method'] == Transaction.PaymentMethod.VR:
                 tx = form.save()
                 sync_transaction_vr(tx)
@@ -977,23 +1021,14 @@ def quick_expense(request):
             if remaining > 0 and d['payment_method'] == Transaction.PaymentMethod.CREDIT_CARD:
                 create_card_installments({**d, 'person': person, 'amount': remaining, 'purchase_total': total, 'vr_amount': vr_amount, 'total_installments': d.get('installment_total') or 1})
             elif remaining > 0:
-                if _transaction_is_duplicate(d, remaining, person, d['payment_method']):
-                    raise DuplicateExpenseError
-                tx = Transaction.objects.create(
-                    date=d['date'],
-                    description=d['description'],
-                    category=d['category'],
-                    type=Transaction.Type.EXPENSE,
-                    payment_method=d['payment_method'],
-                    amount=remaining,
-                    vr_amount=vr_amount,
-                    paid=d['paid'],
-                    person=person,
-                    reimbursable=d['reimbursable'],
-                    received=d['received'],
-                    installment_total=1,
-                    notes=f'Compra total R$ {total}. VR R$ {vr_amount}. {notes}'.strip(),
-                )
+                created_transactions = create_transaction_installments({
+                    **d,
+                    'person': person,
+                    'amount': remaining,
+                    'total_installments': d.get('installment_total') or 1,
+                    'notes': f'Compra total R$ {total}. VR R$ {vr_amount}. {notes}'.strip(),
+                })
+                tx = created_transactions[0] if created_transactions else None
             elif vr_amount > 0:
                 # Mantém o lançamento visível; o débito do VR não reduz o banco.
                 if _transaction_is_duplicate(d, vr_amount, person, Transaction.PaymentMethod.VR):

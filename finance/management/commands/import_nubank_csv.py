@@ -7,7 +7,7 @@ from pathlib import Path
 from django.core.management.base import BaseCommand, CommandError
 
 from finance.importers import parse_date
-from finance.models import Category, CreditCardExpense, FixedExpense, Person, Transaction
+from finance.models import Category, CreditCardExpense, Person
 from finance.services import add_months, invoice_month_for_purchase
 
 
@@ -59,17 +59,6 @@ class Command(BaseCommand):
                 person = people.get(person_name, people['Eu'])
                 current, installments = self.installments_for(title)
 
-                fixed = self.fixed_for(title)
-                if fixed:
-                    if not options['dry_run'] and fixed.included_in_credit_card is False:
-                        fixed.included_in_credit_card = True
-                        fixed.payment_method = Transaction.PaymentMethod.CREDIT_CARD
-                        fixed.save(update_fields=['included_in_credit_card', 'payment_method', 'updated_at'])
-                    skipped += 1
-                    total += amount
-                    self.stdout.write(f'FIXO mantido no cartão: {title} R$ {amount:.2f}')
-                    continue
-
                 if CreditCardExpense.objects.filter(
                     purchase_date=purchase_date,
                     invoice_month=invoice_date,
@@ -108,15 +97,6 @@ class Command(BaseCommand):
 
         mode = 'simulação' if options['dry_run'] else 'importação'
         self.stdout.write(self.style.SUCCESS(f'{mode.capitalize()} concluída: {created} compras, {skipped} ignorados, total bruto R$ {total:.2f}.'))
-
-    @staticmethod
-    def fixed_for(title):
-        normalized = title.lower()
-        if 'coone[c]?ta' in normalized or 'coonecta' in normalized:
-            return FixedExpense.objects.filter(description__iexact='Seguro Connecta').first()
-        if 'spotify' in normalized:
-            return FixedExpense.objects.filter(description__iexact='Spotify').first()
-        return None
 
     @staticmethod
     def person_for(title):
