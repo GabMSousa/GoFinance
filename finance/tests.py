@@ -141,8 +141,8 @@ class FixedExpenseTests(BaseFinanceTest):
         )
         summary = monthly_summary(2026, 9)
         self.assertEqual(summary['fixed_total'], Decimal('159.74'))
-        self.assertEqual(summary['card_invoice'], Decimal('159.74'))
-        self.assertEqual(summary['fixed_non_card'], Decimal('0.00'))
+        self.assertEqual(summary['card_invoice'], Decimal('0.00'))
+        self.assertEqual(summary['fixed_non_card'], Decimal('159.74'))
         self.assertEqual(summary['expenses'], Decimal('159.74'))
         self.assertEqual(summary['bank_outflow'], Decimal('159.74'))
 
@@ -169,7 +169,7 @@ class FixedExpenseTests(BaseFinanceTest):
         summary = monthly_summary(2026, 11)
         self.assertEqual(summary['card_invoice'], Decimal('23.90'))
         response = self.client.get(reverse('finance:dashboard'), {'year': 2026, 'month': 11})
-        self.assertNotContains(response, 'EBW*Spotify - NuPay')
+        self.assertContains(response, 'EBW*Spotify - NuPay')
 
 
 class ThirdPartyAndReimbursementTests(BaseFinanceTest):
@@ -1330,16 +1330,17 @@ class BalanceVrInvestmentTests(BaseFinanceTest):
         self.assertEqual(response.status_code, 302)
         self.assertEqual(Transaction.objects.filter(description='Pix repetido').count(), 1)
 
-    def test_csv_preview_skips_card_included_fixed_expense_alias(self):
+    def test_csv_preview_keeps_fixed_alias_as_bank_card_purchase(self):
         FixedExpense.objects.create(
             description='Example Insurance', category=self.food, amount=Decimal('159.74'),
             active=True, included_in_credit_card=True,
         )
         rows = preview_csv('date,title,amount\n2026-10-11,Asaas *Coonecta,159.74\n')
-        self.assertTrue(rows[0]['duplicate'])
-        self.assertEqual(rows[0]['duplicate_reason'], 'fixed')
+        self.assertFalse(rows[0]['duplicate'])
+        self.assertEqual(rows[0]['duplicate_reason'], '')
         from .importers import import_preview_rows
-        self.assertEqual(import_preview_rows(rows), (0, 1))
+        self.assertEqual(import_preview_rows(rows), (1, 0))
+        self.assertTrue(CreditCardExpense.objects.filter(description='Asaas *Coonecta', amount=Decimal('159.74')).exists())
 
     def test_delete_bill_preserves_purchases_and_vr_movements(self):
         item = create_card_installments({
@@ -1479,7 +1480,7 @@ class BillingCycleTests(BaseFinanceTest):
         self.assertEqual(installments.last().invoice_month, date(2027, 7, 1))
         self.assertEqual(sum(item.amount for item in installments), Decimal('500.00'))
 
-    def test_pix_cannot_be_saved_as_installment_purchase(self):
+    def test_non_card_installment_purchase_stays_out_of_card_invoice(self):
         response = self.client.post(reverse('finance:transaction_create'), {
             'date': '2026-11-03', 'description': 'Compra Pix parcelada', 'category': self.food.pk,
             'type': Transaction.Type.EXPENSE, 'payment_method': Transaction.PaymentMethod.PIX,
@@ -1487,9 +1488,11 @@ class BillingCycleTests(BaseFinanceTest):
             'person': self.me.pk, 'reimbursable': '', 'received': '', 'installment_current': '1',
             'installment_total': '8', 'notes': '',
         })
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Compras parceladas devem usar Cart')
-        self.assertFalse(Transaction.objects.filter(description='Compra Pix parcelada').exists())
+        self.assertRedirects(response, reverse('finance:transaction_list'))
+        installments = Transaction.objects.filter(description='Compra Pix parcelada').order_by('installment_current')
+        self.assertEqual(installments.count(), 8)
+        self.assertEqual(sum(item.amount for item in installments), Decimal('500.00'))
+        self.assertEqual(monthly_summary(2026, 11)['card_invoice'], Decimal('0.00'))
 
     def test_invoice_payment_and_undo_do_not_create_or_change_purchases(self):
         item = create_card_installments({

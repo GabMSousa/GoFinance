@@ -163,7 +163,7 @@ Para importar compras de uma fatura sem duplicar cobranças recorrentes ou pagam
 python manage.py import_nubank_csv /caminho/bank_export.csv
 ```
 
-O comando é idempotente, registra parcelas identificadas no título e mantém Example Insurance/Spotify como fixos no cartão quando já existem no cadastro.
+O comando é idempotente e registra cada linha positiva do CSV como compra real do cartão, incluindo assinaturas quando elas aparecem na fatura. Pagamentos recebidos e estornos não viram despesas. Contas fixas cadastradas não são somadas automaticamente à fatura: elas só entram quando existe a respectiva linha bancária importada. Compras em dinheiro/Pix parceladas permanecem fora da fatura.
 
 ## Produção com Gunicorn + Nginx + systemd
 

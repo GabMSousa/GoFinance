@@ -338,7 +338,7 @@ Para importar uma fatura Nubank pelo terminal:
 python manage.py import_nubank_csv /caminho/bank_export.csv
 ```
 
-Também é possível importar pela tela **Importar CSV**. A importação é idempotente e não deve duplicar uma fatura já processada.
+Também é possível importar pela tela **Importar CSV**. A importação é idempotente, considera o CSV do banco como fonte das compras do cartão e não transforma contas fixas cadastradas em cobranças automáticas. Compras em dinheiro/Pix parceladas ficam fora da fatura.
 
 ## 12. Backup e restauração do MariaDB/MySQL
 
