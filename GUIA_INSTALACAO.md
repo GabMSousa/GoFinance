@@ -172,6 +172,8 @@ python manage.py collectstatic --noinput
 
 O `seed_initial_data` cria o administrador definido por `DJANGO_ADMIN_USERNAME` usando a senha definida localmente em `DJANGO_ADMIN_PASSWORD`. Nenhuma credencial real é armazenada no repositório.
 
+Login padrão: usuário `admin`. A senha não é padrão nem fica no GitHub; ela deve ser criada localmente em `DJANGO_ADMIN_PASSWORD` antes de executar o seed.
+
 Abra:
 
 O seed de uma instalação nova é neutro: cria apenas a estrutura básica e não inclui contas fixas, compras, receitas, faturas, salário, VR ou dados pessoais. Os dados financeiros devem ser cadastrados pelo usuário após o primeiro acesso.
