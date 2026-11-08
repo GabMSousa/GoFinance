@@ -134,7 +134,7 @@ MYSQL_PORT=3306
 DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,IP_DA_MAQUINA
 DJANGO_CSRF_TRUSTED_ORIGINS=http://localhost,http://127.0.0.1,http://IP_DA_MAQUINA
 DJANGO_ADMIN_USERNAME=admin
-DJANGO_ADMIN_PASSWORD=CHANGE_ME_LOCAL_PASSWORD
+DJANGO_ADMIN_PASSWORD=defina-uma-senha-forte-localmente
 DJANGO_SECURE_SSL_REDIRECT=0
 DJANGO_SESSION_COOKIE_SECURE=0
 DJANGO_CSRF_COOKIE_SECURE=0
@@ -170,7 +170,7 @@ python manage.py seed_initial_data
 python manage.py collectstatic --noinput
 ```
 
-O `seed_initial_data` cria o administrador definido por `DJANGO_ADMIN_USERNAME`. Em uma instalação limpa, a credencial inicial é `admin`/`CHANGE_ME_LOCAL_PASSWORD`; a senha deverá ser trocada no primeiro acesso antes de usar o sistema.
+O `seed_initial_data` cria o administrador definido por `DJANGO_ADMIN_USERNAME` usando a senha definida localmente em `DJANGO_ADMIN_PASSWORD`. Nenhuma credencial real é armazenada no repositório.
 
 Abra:
 

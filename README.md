@@ -116,7 +116,7 @@ Para transferir dados entre servidores, use `mysqldump` e restaure o arquivo SQL
 
 ## Login inicial
 
-Copie o `.env.example` para `.env` e execute `python manage.py seed_initial_data`. A instalação limpa usa `admin`/`CHANGE_ME_LOCAL_PASSWORD`; altere a senha obrigatoriamente no primeiro acesso. Em produção, substitua essa senha antes de liberar o acesso.
+Copie o `.env.example` para `.env`, defina uma senha forte em `DJANGO_ADMIN_PASSWORD` e execute `python manage.py seed_initial_data`. O usuário inicial é definido por `DJANGO_ADMIN_USERNAME`; nenhuma senha real é versionada.
 
 ## Dados iniciais
 
