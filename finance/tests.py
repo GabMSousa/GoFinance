@@ -861,6 +861,9 @@ class SeedAndPagesTests(BaseFinanceTest):
         self.assertEqual(Person.objects.filter(name='Eu').count(), 1)
         self.assertEqual(FixedExpense.objects.count(), 0)
         self.assertEqual(VRMovement.objects.count(), 0)
+        self.assertEqual(Transaction.objects.count(), 0)
+        self.assertEqual(CreditCardExpense.objects.count(), 0)
+        self.assertEqual(FinancialProfile.objects.count(), 0)
 
     def test_pages_load(self):
         urls = [
