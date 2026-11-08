@@ -1,23 +1,21 @@
-from datetime import date
-from decimal import Decimal
 import os
 
-from django.core.management.base import BaseCommand, CommandError
 from django.contrib.auth import get_user_model
+from django.core.management.base import BaseCommand, CommandError
 
-from finance.models import Category, FixedExpense, Person, Transaction, UserSecurityProfile, VRMovement
+from finance.models import Category, Person, UserSecurityProfile
 from finance.ownership import get_current_user
-from finance.services import monthly_credit_setting
 
 
 class Command(BaseCommand):
-    help = 'Cria categorias, responsáveis, gastos fixos e crédito mensal de VR sem duplicar.'
+    help = 'Cria somente a estrutura neutra de uma instalação nova, sem dados financeiros pessoais.'
 
     def handle(self, *args, **options):
         password = os.environ.get('DJANGO_ADMIN_PASSWORD', '')
         user_model = get_user_model()
         current_user = get_current_user()
         owner_user = current_user or user_model.objects.order_by('id').first()
+
         if password:
             admin_user, created = user_model.objects.get_or_create(
                 username=os.environ.get('DJANGO_ADMIN_USERNAME', 'admin'),
@@ -32,74 +30,25 @@ class Command(BaseCommand):
                 profile.must_change_password = True
                 profile.save(update_fields=['must_change_password', 'updated_at'])
             owner_user = current_user or admin_user
-        if owner_user is None:
-            raise CommandError('Crie o primeiro usuário administrador antes de inicializar os dados financeiros.')
+            self.stdout.write(self.style.SUCCESS(f'Usuário administrador {admin_user.username} configurado.'))
+        elif owner_user is None:
+            raise CommandError(
+                'Defina DJANGO_ADMIN_PASSWORD ou crie o primeiro usuário administrador antes de inicializar.'
+            )
+        else:
+            self.stdout.write('DJANGO_ADMIN_PASSWORD não definida; usuário inicial não foi criado/alterado.')
 
         categories = [
-            'Alimentação', 'Restaurante', 'Mercado', 'Moto', 'Combustível',
-            'Transporte', 'Internet', 'Faculdade', 'Academia', 'Assinaturas',
-            'Compras', 'Lazer', 'Saúde', 'Investimentos', 'Outros',
+            'Alimentação', 'Restaurante', 'Mercado', 'Combustível', 'Transporte',
+            'Assinaturas', 'Compras', 'Lazer', 'Saúde', 'Investimentos', 'Outros',
         ]
-        category_map = {}
         for name in categories:
-            category_map[name], _ = Category.objects.get_or_create(
+            Category.objects.get_or_create(
                 owner=owner_user,
                 name=name,
                 defaults={'active': True},
             )
 
         Person.objects.get_or_create(owner=owner_user, name='Eu', defaults={'active': True})
-
-        initial_fixed = [
-            ('Moto', 'Moto', Decimal('660.06'), False, '', False),
-            ('Example Insurance', 'Assinaturas', Decimal('159.74'), True, Transaction.PaymentMethod.CREDIT_CARD, False),
-            ('Internet', 'Internet', Decimal('99.90'), False, '', False),
-            ('Faculdade', 'Faculdade', Decimal('216.89'), False, '', False),
-            ('Spotify', 'Assinaturas', Decimal('23.90'), False, '', True),
-            ('Academia', 'Academia', Decimal('70.00'), False, '', False),
-        ]
-        for description, category_name, amount, included, payment_method, is_subscription in initial_fixed:
-            category = category_map[category_name]
-            FixedExpense.objects.update_or_create(
-                owner=owner_user,
-                description=description,
-                defaults={
-                    'category': category,
-                    'amount': amount,
-                    'active': True,
-                    'included_in_credit_card': included,
-                    'is_subscription': is_subscription,
-                    'payment_method': payment_method,
-                },
-            )
-
-        today = date.today()
-        credit = monthly_credit_setting()
-        VRMovement.objects.get_or_create(
-            owner=owner_user,
-            date=date(today.year, today.month, 1),
-            description=f'Crédito mensal VR {today.month:02d}/{today.year}',
-            movement_type=VRMovement.Type.CREDIT,
-            defaults={'amount': credit, 'notes': 'Seed automático do crédito mensal de R$ 500,00.'},
-        )
-
-        password = os.environ.get('DJANGO_ADMIN_PASSWORD', '')
-        if password:
-            user_model = get_user_model()
-            user, created = user_model.objects.get_or_create(
-                username=os.environ.get('DJANGO_ADMIN_USERNAME', 'admin'),
-                defaults={'is_staff': True, 'is_superuser': True, 'email': ''},
-            )
-            user.is_staff = True
-            user.is_superuser = True
-            user.set_password(password)
-            user.save(update_fields=['password', 'is_staff', 'is_superuser'])
-            profile, profile_created = UserSecurityProfile.objects.get_or_create(user=user)
-            if created or profile_created:
-                profile.must_change_password = True
-                profile.save(update_fields=['must_change_password', 'updated_at'])
-            self.stdout.write(self.style.SUCCESS(f'Usuário administrador {user.username} configurado.'))
-        else:
-            self.stdout.write('DJANGO_ADMIN_PASSWORD não definida; usuário inicial não foi criado/alterado.')
-
-        self.stdout.write(self.style.SUCCESS('Dados iniciais criados/validados.'))
+        self.stdout.write('Nenhuma conta fixa, compra, receita, fatura ou crédito de VR foi criado.')
+        self.stdout.write(self.style.SUCCESS('Estrutura inicial criada/validada.'))

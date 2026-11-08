@@ -858,9 +858,8 @@ class SeedAndPagesTests(BaseFinanceTest):
         call_command('seed_initial_data')
         self.assertEqual(Category.objects.filter(name='Alimentação').count(), 1)
         self.assertEqual(Person.objects.filter(name='Eu').count(), 1)
-        self.assertEqual(FixedExpense.objects.filter(description='Example Insurance').count(), 1)
-        seguro = FixedExpense.objects.get(description='Example Insurance')
-        self.assertTrue(seguro.included_in_credit_card)
+        self.assertEqual(FixedExpense.objects.count(), 0)
+        self.assertEqual(VRMovement.objects.count(), 0)
 
     def test_pages_load(self):
         urls = [

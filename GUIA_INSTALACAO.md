@@ -174,6 +174,8 @@ O `seed_initial_data` cria o administrador definido por `DJANGO_ADMIN_USERNAME`.
 
 Abra:
 
+O seed de uma instalação nova é neutro: cria apenas a estrutura básica e não inclui contas fixas, compras, receitas, faturas, salário, VR ou dados pessoais. Os dados financeiros devem ser cadastrados pelo usuário após o primeiro acesso.
+
 ```text
 http://localhost:8000/login/
 ```

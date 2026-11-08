@@ -120,6 +120,8 @@ Copie o `.env.example` para `.env` e execute `python manage.py seed_initial_data
 
 ## Dados iniciais
 
+Em uma instalação nova, `seed_initial_data` cria somente categorias básicas, a pessoa `Eu` e o administrador configurado por variável de ambiente. Ele não cria contas fixas, compras, receitas, faturas, salário, VR ou qualquer dado financeiro pessoal. Cadastre os seus dados depois do primeiro acesso.
+
 O comando `seed_initial_data` cria, sem duplicar:
 
 
