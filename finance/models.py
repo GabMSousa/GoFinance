@@ -1,4 +1,5 @@
 from decimal import Decimal
+from uuid import UUID
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -7,6 +8,16 @@ from django.utils import timezone
 from django.db import models
 
 from .ownership import UserOwnedManagerMixin, get_current_user
+
+
+def normalize_uuid_hex(value):
+    """Return UUID values in the 32-character format used by MariaDB CHAR(32)."""
+    if value in (None, ''):
+        return value
+    try:
+        return UUID(str(value)).hex
+    except (AttributeError, ValueError):
+        return value
 
 
 class UserOwnedManager(UserOwnedManagerMixin, models.Manager):
@@ -430,6 +441,10 @@ class CreditCardExpense(UserOwnedModel):
     def __str__(self):
         return f'{self.description} ({self.current_installment}/{self.total_installments})'
 
+    def save(self, *args, **kwargs):
+        self.series_id = normalize_uuid_hex(self.series_id)
+        return super().save(*args, **kwargs)
+
     @property
     def remaining_installments(self):
         return max(int(self.total_installments or 1) - int(self.current_installment or 1), 0)
@@ -600,6 +615,10 @@ class InvestmentOperation(models.Model):
 
     def __str__(self):
         return f'{self.get_operation_type_display()} - {self.investment}'
+
+    def save(self, *args, **kwargs):
+        self.operation_key = normalize_uuid_hex(self.operation_key)
+        return super().save(*args, **kwargs)
 
     def clean(self):
         errors = {}

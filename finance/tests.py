@@ -1,5 +1,6 @@
 from datetime import date
 from decimal import Decimal
+from uuid import uuid4
 from unittest.mock import patch
 
 from django.core.exceptions import ValidationError
@@ -1376,6 +1377,12 @@ class BillingCycleTests(BaseFinanceTest):
         self.assertEqual(monthly_summary(2026, 10)['card_invoice'], Decimal('0.00'))
         self.assertEqual(monthly_summary(2026, 11)['card_invoice'], Decimal('100.00'))
         self.assertEqual(len(item.series_id), 32)
+
+        item.series_id = str(uuid4())
+        item.save(update_fields=['series_id', 'updated_at'])
+        item.refresh_from_db()
+        self.assertEqual(len(item.series_id), 32)
+        self.assertNotIn('-', item.series_id)
 
     def test_vr_and_card_parts_use_purchase_and_invoice_months(self):
         item = create_card_installments({
