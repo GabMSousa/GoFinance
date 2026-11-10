@@ -893,6 +893,13 @@ class SeedAndPagesTests(BaseFinanceTest):
         self.assertContains(response, 'Consórcio')
         self.assertEqual(FixedExpense.objects.count(), 0)
 
+    def test_receivable_card_opens_filters_without_changing_selected_period(self):
+        response = self.client.get(reverse('finance:dashboard'), {'year': 2026, 'month': 12, 'person': 'other'})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['person_filter'], 'other')
+        self.assertContains(response, 'href="?year=2026&amp;month=12&amp;person=other"')
+        self.assertContains(response, '<details class="movement-filter-menu" open>')
+
     def test_financial_profile_is_editable(self):
         response = self.client.post(reverse('finance:settings') + '?year=2026&month=9', {
             'salary_gross': '3000.00',
