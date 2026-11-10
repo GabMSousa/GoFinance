@@ -1,6 +1,7 @@
 import calendar
 import csv
 import io
+import json
 import string
 import secrets
 import uuid
@@ -14,7 +15,7 @@ from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.forms import PasswordChangeForm
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
-from django.db import transaction as db_transaction
+from django.db import IntegrityError, transaction as db_transaction
 from django.db.models import Q, Sum
 from django.db.models.deletion import ProtectedError
 from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
@@ -50,6 +51,7 @@ from .investment_radar import get_investment_radar
 from .models import Category, CreditCardBill, CreditCardExpense, FinancialProfile, FixedExpense, Goal, Investment, InvestmentOperation, Person, SalarySnapshot, Transaction, UserSecurityProfile, VRMovement
 from .importers import import_preview_rows, normalize, preview_csv
 from .reporting import build_financial_pdf
+from .portable import MAX_IMPORT_BYTES, build_export, import_snapshot
 from .services import add_months, apply_investment_operation, card_expenses_for_period, investment_scope, invoice_month_for_installment, invoice_month_for_purchase, month_bounds, month_datetime_bounds, monthly_summary, money_sum, split_installment_values, sync_card_vr, sync_transaction_vr, third_party_by_person, to_decimal, transactions_for_display_period, vr_balance_for_date, vr_credit_for_month, vr_receipt_exists, vr_movements_for_display_period
 
 
@@ -589,6 +591,45 @@ def settings_page(request):
         'categories': Category.objects.all(),
         'people': Person.objects.all(),
     })
+
+
+@require_GET
+def export_data(request):
+    response = HttpResponse(
+        json.dumps(build_export(request.user), ensure_ascii=False, indent=2),
+        content_type='application/json; charset=utf-8',
+    )
+    response['Content-Disposition'] = 'attachment; filename="gofinance-export.json"'
+    return response
+
+
+@require_POST
+def import_data(request):
+    uploaded = request.FILES.get('backup_file')
+    if not uploaded:
+        messages.error(request, 'Selecione um arquivo JSON exportado pelo GoFinance.')
+        return redirect('finance:settings')
+    if uploaded.size > MAX_IMPORT_BYTES:
+        messages.error(request, 'O arquivo excede o limite de 10 MB.')
+        return redirect('finance:settings')
+    replace_existing = request.POST.get('replace_existing') == '1'
+    if replace_existing and request.POST.get('replace_confirmation', '').strip().upper() != 'SUBSTITUIR':
+        messages.error(request, 'Para substituir os dados atuais, digite SUBSTITUIR na confirmação.')
+        return redirect('finance:settings')
+    try:
+        payload = json.loads(uploaded.read().decode('utf-8-sig'))
+        summary = import_snapshot(payload, request.user, replace_existing=replace_existing)
+    except (UnicodeDecodeError, json.JSONDecodeError, TypeError, ValueError, ValidationError, IntegrityError) as exc:
+        detail = exc.messages[0] if isinstance(exc, ValidationError) else str(exc)
+        messages.error(request, f'Importação não realizada: {detail}')
+        return redirect('finance:settings')
+    messages.success(
+        request,
+        'Importação concluída: '
+        f"{summary['transactions']} lançamentos, {summary['card_expenses']} compras no cartão, "
+        f"{summary['fixed_expenses']} contas fixas e {summary['investments']} investimentos.",
+    )
+    return redirect('finance:settings')
 
 
 @require_POST

@@ -17,6 +17,7 @@ from .investment_radar import _annualize_daily, _compound_monthly
 from .services import apply_investment_operation, invoice_month_for_installment, invoice_month_for_purchase, monthly_summary, split_installment_values, transactions_for_display_period, vr_balance_for_date, vr_movements_for_display_period
 from .views import DuplicateExpenseError, create_card_installments, default_open_period
 from .ownership import reset_current_user, set_current_user
+from .portable import build_export, import_snapshot
 
 
 class BaseFinanceTest(TestCase):
@@ -892,6 +893,31 @@ class SeedAndPagesTests(BaseFinanceTest):
         self.assertContains(response, 'Financiamento')
         self.assertContains(response, 'Consórcio')
         self.assertEqual(FixedExpense.objects.count(), 0)
+
+    def test_export_contains_user_data_without_credentials(self):
+        FixedExpense.objects.create(
+            owner=self.user,
+            description='Internet',
+            category=self.food,
+            amount=Decimal('99.90'),
+        )
+        payload = build_export(self.user)
+        self.assertEqual(payload['schema'], 'gofinance.portable')
+        self.assertEqual(payload['version'], 1)
+        self.assertTrue(payload['data']['fixedexpense'])
+        self.assertNotIn('password', str(payload).lower())
+
+    def test_import_can_replace_portable_user_data(self):
+        source = build_export(self.user)
+        FixedExpense.objects.create(
+            owner=self.user,
+            description='Apagar no restore',
+            category=self.food,
+            amount=Decimal('10.00'),
+        )
+        summary = import_snapshot(source, self.user, replace_existing=True)
+        self.assertEqual(summary['fixed_expenses'], 0)
+        self.assertFalse(FixedExpense.objects.filter(description='Apagar no restore').exists())
 
     def test_settings_does_not_duplicate_fixed_expenses(self):
         response = self.client.get(reverse('finance:settings'))
