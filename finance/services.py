@@ -16,6 +16,9 @@ from django.utils import timezone
 from .models import Category, CreditCardExpense, FinancialProfile, FixedExpense, Investment, InvestmentOperation, Person, SalarySnapshot, Transaction, VRMovement
 
 ZERO = Decimal('0.00')
+CARD_INVOICE_LAG_MONTHS = 1
+VR_COMPETENCE_LAG_MONTHS = 1
+SALARY_COMPETENCE_LAG_MONTHS = 1
 
 DEFAULT_CATEGORY_NAMES = (
     'Alimentação',
@@ -93,7 +96,7 @@ def month_datetime_bounds(year, month):
 def vr_movements_for_display_period(year, month):
     """Show VR movements in the competence where they are consumed/viewed."""
     start, end = month_bounds(year, month)
-    previous_month = add_months(start, -1)
+    previous_month = add_months(start, -VR_COMPETENCE_LAG_MONTHS)
     previous_start, previous_end = month_bounds(previous_month.year, previous_month.month)
     return VRMovement.objects.filter(
         Q(reference_month=start, movement_type=VRMovement.Type.CREDIT)
@@ -112,7 +115,7 @@ def vr_movements_for_display_period(year, month):
 def transactions_for_display_period(year, month):
     """Show VR purchases in the following competence without changing their dates."""
     start, end = month_bounds(year, month)
-    previous_month = add_months(start, -1)
+    previous_month = add_months(start, -VR_COMPETENCE_LAG_MONTHS)
     previous_start, previous_end = month_bounds(previous_month.year, previous_month.month)
     vr_purchase = Q(type=Transaction.Type.EXPENSE) & (
         Q(payment_method=Transaction.PaymentMethod.VR) | Q(vr_amount__gt=0)
@@ -125,7 +128,9 @@ def transactions_for_display_period(year, month):
 
 def invoice_month_for_installment(purchase_date, installment=1):
     """Return the statement month for a real purchase and its installment."""
-    return add_months(purchase_date.replace(day=1), int(installment or 1))
+    installment_number = max(int(installment or 1), 1)
+    offset = CARD_INVOICE_LAG_MONTHS + installment_number - 1
+    return add_months(purchase_date.replace(day=1), offset)
 
 
 def invoice_month_for_purchase(purchase_date):
@@ -358,8 +363,8 @@ def vr_credit_for_month(year, month):
         Q(reference_month=period)
         | Q(
             reference_month__isnull=True,
-            date__year=add_months(period, -1).year,
-            date__month=add_months(period, -1).month,
+            date__year=add_months(period, -VR_COMPETENCE_LAG_MONTHS).year,
+            date__month=add_months(period, -VR_COMPETENCE_LAG_MONTHS).month,
         )
     )
     return money_sum(credits, 'amount')
@@ -381,7 +386,7 @@ def vr_receipt_received_exists(year, month):
         date__year=year,
         date__month=month,
     ).filter(
-        Q(reference_month=add_months(start, 1))
+        Q(reference_month=add_months(start, VR_COMPETENCE_LAG_MONTHS))
         | Q(reference_month__isnull=True)
     ).exists()
 
@@ -399,7 +404,7 @@ def vr_credit_queryset_until(target_date):
 def vr_balance_for_date(target_date):
     """Return available VR for a purchase date, isolated by receipt cycle."""
     purchase_start = target_date.replace(day=1)
-    display_period = add_months(purchase_start, 1)
+    display_period = add_months(purchase_start, VR_COMPETENCE_LAG_MONTHS)
     movements = VRMovement.objects.filter(date__range=(purchase_start, target_date))
     credits = money_sum(
         VRMovement.objects.filter(
@@ -418,7 +423,7 @@ def vr_balance_for_date(target_date):
 def vr_balance_before(target_date):
     """Return available VR immediately before a purchase date."""
     purchase_start = target_date.replace(day=1)
-    display_period = add_months(purchase_start, 1)
+    display_period = add_months(purchase_start, VR_COMPETENCE_LAG_MONTHS)
     movements = VRMovement.objects.filter(date__gte=purchase_start, date__lt=target_date)
     credits = money_sum(
         VRMovement.objects.filter(
@@ -450,14 +455,14 @@ def monthly_summary(year, month):
         operation_type=InvestmentOperation.OperationType.CONTRIBUTION,
         status=InvestmentOperation.Status.POSTED,
     )
-    previous_start = add_months(start, -1)
+    previous_start = add_months(start, -VR_COMPETENCE_LAG_MONTHS)
     previous_end = start - timedelta(days=1)
     vr = VRMovement.objects.filter(date__range=(previous_start, previous_end))
 
     explicit_revenues = tx.filter(type=Transaction.Type.REVENUE)
     explicit_salary = explicit_revenues.filter(revenue_type=Transaction.RevenueType.SALARY).exists()
     profile = financial_profile_for_month(year, month)
-    salary_lag = int(getattr(profile, 'salary_competence_lag_months', 0) or 0)
+    salary_lag = SALARY_COMPETENCE_LAG_MONTHS
     salary_competence = add_months(date(year, month, 1), -salary_lag)
     salary_profile = financial_profile_for_month(salary_competence.year, salary_competence.month) or profile
     salary_net = to_decimal(salary_profile.salary_net if salary_profile else 0)

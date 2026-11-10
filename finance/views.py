@@ -53,7 +53,7 @@ from .ownership import reset_current_user, set_current_user
 from .importers import import_preview_rows, normalize, preview_csv
 from .reporting import build_financial_pdf
 from .portable import MAX_IMPORT_BYTES, build_export, import_snapshot
-from .services import add_months, apply_investment_operation, card_expenses_for_period, investment_scope, invoice_month_for_installment, invoice_month_for_purchase, month_bounds, month_datetime_bounds, monthly_summary, money_sum, split_installment_values, sync_card_vr, sync_transaction_vr, third_party_by_person, to_decimal, transactions_for_display_period, vr_balance_for_date, vr_credit_for_month, vr_receipt_exists, vr_movements_for_display_period
+from .services import VR_COMPETENCE_LAG_MONTHS, add_months, apply_investment_operation, card_expenses_for_period, investment_scope, invoice_month_for_installment, invoice_month_for_purchase, month_bounds, month_datetime_bounds, monthly_summary, money_sum, split_installment_values, sync_card_vr, sync_transaction_vr, third_party_by_person, to_decimal, transactions_for_display_period, vr_balance_for_date, vr_credit_for_month, vr_receipt_exists, vr_movements_for_display_period
 
 
 def selected_period(request):
@@ -576,7 +576,7 @@ def dashboard(request, purchase_form=None, period=None):
         'vr_receipt_required': not vr_receipt_exists(year, month),
         'vr_receipt_period': selected_vr_period,
         'vr_receipt_form': VRReceiptForm(initial={
-            'reference_month': form_receipt.date.replace(day=1) if form_receipt else add_months(selected_vr_period, -1),
+            'reference_month': form_receipt.date.replace(day=1) if form_receipt else add_months(selected_vr_period, -VR_COMPETENCE_LAG_MONTHS),
             'amount': form_receipt.amount if form_receipt else None,
             'received_at': form_receipt.date if form_receipt else today,
         }),
@@ -1344,7 +1344,7 @@ def vr_receipt_create(request):
     display_period = localdate().replace(day=1)
     if form.is_valid():
         received_period = form.cleaned_data['reference_month']
-        display_period = add_months(received_period, 1)
+        display_period = add_months(received_period, VR_COMPETENCE_LAG_MONTHS)
         defaults = {
             'date': form.cleaned_data['received_at'],
             'description': f'Recebimento mensal de VR {received_period:%m/%Y}',
