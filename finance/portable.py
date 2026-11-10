@@ -190,9 +190,9 @@ def _apply_fields(model, obj, raw_fields, maps):
             continue
         if field.attname not in raw_fields:
             continue
-        if model is InvestmentOperation and field.name == 'reverses':
-            # Reversal links are restored in a second pass after every
-            # operation has received its destination primary key.
+        if model is InvestmentOperation and field.name in {'investment', 'reverses'}:
+            # Investment and reversal links are restored after all investment
+            # records have received their destination primary keys.
             continue
         value = raw_fields[field.attname]
         if field.is_relation:
