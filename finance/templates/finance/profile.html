@@ -6,10 +6,10 @@
 <div class="profile-grid">
   <section class="data-panel profile-card profile-summary">
     <div class="profile-avatar-wrap">
-      {% if profile.avatar %}<img class="profile-avatar" src="{{ profile.avatar.url }}" alt="Foto de {{ request.user.username }}">{% else %}<span class="profile-avatar profile-avatar-placeholder">{{ request.user.username|slice:':1'|upper }}</span>{% endif %}
+      {% if profile.avatar %}<img class="profile-avatar" src="{{ profile.avatar.url }}" alt="Foto de {{ request.user.email|default:request.user.username }}">{% else %}<span class="profile-avatar profile-avatar-placeholder">{{ request.user.email|default:request.user.username|slice:':1'|upper }}</span>{% endif %}
     </div>
-    <h2>{% if profile.display_name %}{{ profile.display_name }}{% else %}{{ request.user.username }}{% endif %}</h2>
-    <p>{{ request.user.username }}</p>
+    <h2>{% if profile.display_name %}{{ profile.display_name }}{% else %}{{ request.user.email|default:request.user.username }}{% endif %}</h2>
+    <p>{{ request.user.email|default:'Administrador padrão' }}</p>
     <span class="profile-badge">Sessão protegida</span>
   </section>
   <section class="data-panel profile-card">

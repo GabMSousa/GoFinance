@@ -44,7 +44,7 @@
       </nav>
       <div class="sidebar-action"><a class="btn btn-accent w-100" href="#addModal" data-bs-toggle="modal">+ Adicionar</a></div>
       <div class="sidebar-footer">
-        {% with display_name=request.user.security_profile.display_name|default:request.user.get_full_name|default:request.user.username %}<a class="user-chip user-chip-link" href="{% url 'finance:profile' %}">{% if request.user.security_profile.avatar %}<img class="avatar avatar-image" src="{{ request.user.security_profile.avatar.url }}" alt="Foto de {{ display_name }}">{% else %}<span class="avatar">{{ display_name|slice:':1'|upper }}</span>{% endif %}<span class="text-truncate">{{ display_name }}</span></a>{% endwith %}
+        {% with display_name=request.user.security_profile.display_name|default:request.user.get_full_name|default:request.user.email|default:request.user.username %}<a class="user-chip user-chip-link" href="{% url 'finance:profile' %}">{% if request.user.security_profile.avatar %}<img class="avatar avatar-image" src="{{ request.user.security_profile.avatar.url }}" alt="Foto de {{ display_name }}">{% else %}<span class="avatar">{{ display_name|slice:':1'|upper }}</span>{% endif %}<span class="text-truncate">{{ display_name }}</span></a>{% endwith %}
         <button class="theme-button" type="button" data-theme-toggle>Tema: <span data-theme-label>Claro</span></button>
         <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="logout-link" type="submit">Sair</button></form>
       </div>

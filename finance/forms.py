@@ -4,7 +4,7 @@ import uuid
 
 from django import forms
 from django.contrib.auth import get_user_model
-from django.contrib.auth.forms import SetPasswordForm, UserCreationForm
+from django.contrib.auth.forms import AuthenticationForm, SetPasswordForm, UserCreationForm
 
 from .models import Category, CreditCardBill, CreditCardExpense, FinancialProfile, FixedExpense, Goal, Investment, InvestmentOperation, Person, Transaction, VRMovement
 from .ownership import get_current_user
@@ -25,7 +25,7 @@ class BrazilianDecimalField(forms.DecimalField):
 
 
 class ProfileForm(forms.Form):
-    username = forms.CharField(label='Nome de usuário', max_length=150)
+    email = forms.EmailField(label='E-mail', max_length=254)
     display_name = forms.CharField(label='Nome de exibição', max_length=120, required=False)
     first_name = forms.CharField(label='Primeiro nome', max_length=150, required=False)
     last_name = forms.CharField(label='Sobrenome', max_length=150, required=False)
@@ -37,7 +37,7 @@ class ProfileForm(forms.Form):
         super().__init__(*args, **kwargs)
         profile = getattr(user, 'security_profile', None)
         self.initial.update({
-            'username': user.username,
+            'email': user.email,
             'first_name': user.first_name,
             'last_name': user.last_name,
             'display_name': getattr(profile, 'display_name', ''),
@@ -45,13 +45,13 @@ class ProfileForm(forms.Form):
         for field in self.fields.values():
             field.widget.attrs['class'] = 'form-check-input' if isinstance(field.widget, forms.CheckboxInput) else 'form-control'
 
-    def clean_username(self):
-        value = self.cleaned_data['username'].strip()
-        if not value:
-            raise forms.ValidationError('Informe um nome de usuário.')
+    def clean_email(self):
+        value = self.cleaned_data['email'].strip().casefold()
+        if not value and not self.user.is_staff:
+            raise forms.ValidationError('Informe um e-mail.')
         User = get_user_model()
-        if User.objects.filter(username__iexact=value).exclude(pk=self.user.pk).exists():
-            raise forms.ValidationError('Este nome de usuário já está em uso.')
+        if value and User.objects.filter(email__iexact=value).exclude(pk=self.user.pk).exists():
+            raise forms.ValidationError('Este e-mail já está em uso.')
         return value
 
     def clean_avatar(self):
@@ -72,10 +72,10 @@ class ProfileForm(forms.Form):
 
     def save(self):
         user = self.user
-        user.username = self.cleaned_data['username']
+        user.email = self.cleaned_data['email'].strip().casefold()
         user.first_name = self.cleaned_data['first_name'].strip()
         user.last_name = self.cleaned_data['last_name'].strip()
-        user.save(update_fields=['username', 'first_name', 'last_name'])
+        user.save(update_fields=['email', 'first_name', 'last_name'])
         from .models import UserSecurityProfile
         profile, _ = UserSecurityProfile.objects.get_or_create(user=user)
         if self.cleaned_data['remove_avatar'] and profile.avatar:
@@ -100,6 +100,17 @@ class ProfilePasswordForm(SetPasswordForm):
             field.widget.attrs['class'] = 'form-control'
 
 
+class EmailLoginForm(AuthenticationForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['username'].label = 'E-mail'
+        self.fields['username'].widget.attrs.update({
+            'autocomplete': 'email',
+            'placeholder': 'seu@email.com ou admin',
+        })
+        self.fields['password'].label = 'Senha'
+
+
 class AdminUserCreationForm(UserCreationForm):
     display_name = forms.CharField(label='Nome de exibição', max_length=120)
 
@@ -109,9 +120,11 @@ class AdminUserCreationForm(UserCreationForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['username'].label = 'Usuário'
+        self.fields['username'].label = 'Identificador técnico'
+        self.fields['username'].required = False
+        self.fields['username'].widget = forms.HiddenInput()
         self.fields['email'].label = 'E-mail'
-        self.fields['email'].required = False
+        self.fields['email'].required = True
         for field in self.fields.values():
             field.widget.attrs['class'] = 'form-control'
 
@@ -120,6 +133,29 @@ class AdminUserCreationForm(UserCreationForm):
         if not value:
             raise forms.ValidationError('Informe o nome de exibição.')
         return value
+
+    def clean_email(self):
+        value = self.cleaned_data['email'].strip().casefold()
+        User = get_user_model()
+        if User.objects.filter(email__iexact=value).exists():
+            raise forms.ValidationError('Este e-mail já está cadastrado.')
+        return value
+
+    def save(self, commit=True):
+        email = self.cleaned_data['email']
+        supplied_username = self.cleaned_data.get('username', '').strip()
+        if supplied_username:
+            username = supplied_username
+        else:
+            User = get_user_model()
+            base = email.split('@', 1)[0].replace('.', '-').lower() or 'usuario'
+            username = base[:140]
+            suffix = 1
+            while User.objects.filter(username=username).exists():
+                suffix += 1
+                username = f'{base[:140-len(str(suffix))-1]}-{suffix}'
+            self.instance.username = username
+        return super().save(commit=commit)
 
 
 class BootstrapMixin:

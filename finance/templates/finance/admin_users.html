@@ -31,12 +31,11 @@
       <div class="panel-heading"><div><h2>Acessos cadastrados</h2><p>{{ users|length }} usuário{{ users|length|pluralize }} no sistema.</p></div></div>
       <div class="table-responsive">
         <table class="table align-middle mb-0">
-          <thead><tr><th>Nome</th><th>Usuário</th><th>E-mail</th><th>Status</th><th class="text-end">Ações</th></tr></thead>
+          <thead><tr><th>Nome</th><th>E-mail</th><th>Status</th><th class="text-end">Ações</th></tr></thead>
           <tbody>
             {% for user in users %}
               <tr>
-                <td><strong>{{ user.security_profile.display_name|default:user.get_full_name|default:user.username }}</strong></td>
-                <td>{{ user.username }}</td>
+                <td><strong>{{ user.security_profile.display_name|default:user.get_full_name|default:user.email|default:'Administrador padrão' }}</strong></td>
                 <td>{{ user.email|default:'—' }}</td>
                 <td>{% if user.is_active %}<span class="status status-positive">Ativo</span>{% else %}<span class="status status-muted">Inativo</span>{% endif %}</td>
                 <td>
@@ -58,7 +57,7 @@
                 </td>
               </tr>
             {% empty %}
-              <tr><td colspan="5" class="empty-state">Nenhum usuário cadastrado.</td></tr>
+              <tr><td colspan="4" class="empty-state">Nenhum acesso cadastrado.</td></tr>
             {% endfor %}
           </tbody>
         </table>
@@ -72,7 +71,7 @@
         <form method="post" action="{% url 'finance:admin_import_user_data' %}" enctype="multipart/form-data" class="csv-import-form admin-transfer-form">
           {% csrf_token %}
           <div class="admin-transfer-grid">
-            <div class="admin-transfer-field"><label for="target-user-id">Usuário de destino</label><select class="form-select" id="target-user-id" name="target_user_id" required><option value="">Selecione um usuário</option>{% for user in users %}<option value="{{ user.pk }}" data-user-email="{{ user.email|default:'' }}">{{ user.username }}{% if user.email %} — {{ user.email }}{% endif %}</option>{% endfor %}</select></div>
+            <div class="admin-transfer-field"><label for="target-user-id">E-mail de destino</label><select class="form-select" id="target-user-id" name="target_user_id" required><option value="">Selecione um e-mail</option>{% for user in users %}<option value="{{ user.pk }}" data-user-email="{{ user.email|default:'' }}">{{ user.security_profile.display_name|default:user.get_full_name|default:user.email|default:'Administrador padrão' }}{% if user.email %} — {{ user.email }}{% endif %}</option>{% endfor %}</select></div>
             <label class="csv-file-picker" for="admin-backup-file"><span class="csv-file-picker-title">Arquivo do perfil</span><span class="csv-file-picker-subtitle">JSON até 10 MB · <em data-admin-import-file-name>Nenhum arquivo selecionado</em></span><span class="csv-file-picker-button">Escolher arquivo</span><input id="admin-backup-file" type="file" name="backup_file" accept="application/json,.json" required data-admin-import-file></label>
           </div>
           <div class="transfer-warning admin-transfer-warning"><label class="transfer-check"><input class="form-check-input" type="checkbox" name="replace_existing" value="1"><span><strong>Substituir os dados atuais</strong><small>Use somente para restaurar este perfil por completo.</small></span></label><label class="form-label" for="admin-replace-confirmation">E-mail do usuário de destino</label><input class="form-control" id="admin-replace-confirmation" type="email" name="replace_confirmation" placeholder="Informe o e-mail somente se marcar a opção acima" autocomplete="off"></div>

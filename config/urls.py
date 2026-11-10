@@ -7,6 +7,8 @@ from django.conf.urls.static import static
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.urls import include, path
 
+from finance.forms import EmailLoginForm
+
 
 @ensure_csrf_cookie
 def login_view(request: HttpRequest) -> HttpResponse:
@@ -14,6 +16,7 @@ def login_view(request: HttpRequest) -> HttpResponse:
         logout(request)
     return auth_views.LoginView.as_view(
         template_name='registration/login.html',
+        authentication_form=EmailLoginForm,
         redirect_authenticated_user=True,
     )(request)
 

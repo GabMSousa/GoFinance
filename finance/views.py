@@ -173,7 +173,7 @@ def admin_users(request):
                 salary_advance_amount=0,
                 vr_monthly_credit=0,
             )
-        messages.success(request, f'Usuário {user.username} criado com sucesso.')
+        messages.success(request, f'Acesso para {user.email or user.username} criado com sucesso.')
         return redirect('finance:admin_users')
 
     users = get_user_model().objects.select_related('security_profile').order_by('username')
@@ -228,11 +228,11 @@ def admin_import_user_data(request):
             reset_current_user(ownership_token)
     except (TypeError, ValueError, ValidationError, IntegrityError) as exc:
         detail = exc.messages[0] if isinstance(exc, ValidationError) else str(exc)
-        messages.error(request, f'Importação não realizada para {target_user.username}: {detail}')
+        messages.error(request, f'Importação não realizada para {target_user.email or target_user.username}: {detail}')
         return redirect('finance:admin_users')
     messages.success(
         request,
-        f"Dados importados para {target_user.username}: "
+        f"Dados importados para {target_user.email or target_user.username}: "
         f"{summary['transactions']} lançamentos, {summary['card_expenses']} compras no cartão, "
         f"{summary['fixed_expenses']} contas fixas e {summary['investments']} investimentos.",
     )
@@ -256,7 +256,7 @@ def admin_user_toggle_active(request, pk):
         user.is_active = not user.is_active
         user.save(update_fields=['is_active'])
         state = 'ativado' if user.is_active else 'desativado'
-        messages.success(request, f'Usuário {user.username} {state}.')
+        messages.success(request, f'Acesso {user.email or user.username} {state}.')
     return redirect('finance:admin_users')
 
 
@@ -271,7 +271,7 @@ def admin_user_reset_password(request, pk):
         user=user,
         defaults={'must_change_password': True},
     )
-    messages.success(request, f'Senha temporária de {user.username}: {temporary_password}')
+    messages.success(request, f'Senha temporária de {user.email or user.username}: {temporary_password}')
     return redirect('finance:admin_users')
 
 

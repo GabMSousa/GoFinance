@@ -15,8 +15,8 @@
     <p class="login-intro">Entre para acompanhar o seu mês com clareza.</p>
     <form method="post">
       {% csrf_token %}
-      {% if form.non_field_errors %}<div class="alert alert-danger">Usuário ou senha inválidos.</div>{% endif %}
-      <div class="field-group login-field"><label for="id_username">Usuário</label>{{ form.username }}</div>
+      {% if form.non_field_errors %}<div class="alert alert-danger">E-mail ou senha inválidos.</div>{% endif %}
+      <div class="field-group login-field"><label for="id_username">E-mail</label>{{ form.username }}<small class="login-hint">Administrador padrão: admin</small></div>
       <div class="field-group login-field"><label for="id_password">Senha</label>{{ form.password }}</div>
       <button class="btn btn-primary login-submit w-100 mt-3" type="submit">Entrar no painel</button>
     </form>

@@ -153,6 +153,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/login/'
+AUTHENTICATION_BACKENDS = ['finance.authentication.EmailOrDefaultAdminBackend']
 
 VR_INITIAL_BALANCE = os.environ.get('VR_INITIAL_BALANCE', '0')
 VR_MONTHLY_CREDIT = os.environ.get('VR_MONTHLY_CREDIT', '0')
