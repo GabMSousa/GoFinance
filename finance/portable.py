@@ -294,6 +294,6 @@ def import_snapshot(payload, user, replace_existing=False):
         'transactions': len(_records_for(payload, 'transaction')),
         'fixed_expenses': len(_records_for(payload, 'fixedexpense')),
         'card_expenses': len(_records_for(payload, 'creditcardexpense')),
-        'investments': len(_records_for(payload, 'investment')),
+        'investments': len(_records_for(payload, 'investments')),
         'vr_movements': len(_records_for(payload, 'vrmovement')),
     }
