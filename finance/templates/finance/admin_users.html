@@ -52,6 +52,7 @@
                       {% csrf_token %}
                       <button class="admin-action admin-action-reset" type="submit">Resetar senha</button>
                     </form>
+                    <a class="admin-action admin-action-export" href="{% url 'finance:admin_export_user_data' user.pk %}">Exportar dados</a>
                 </div>
               </td>
             </tr>
@@ -63,4 +64,16 @@
     </div>
   </section>
 </div>
+<section class="data-panel admin-transfer-panel mt-3">
+  <div class="panel-heading"><div><h2>Transferir dados de usuário</h2><p>Importe um perfil JSON para o usuário selecionado. Esta função é exclusiva do administrador.</p></div></div>
+  <form method="post" action="{% url 'finance:admin_import_user_data' %}" enctype="multipart/form-data" class="admin-transfer-form">
+    {% csrf_token %}
+    <div class="admin-transfer-grid">
+      <div><label for="target-user-id">Usuário de destino</label><select class="form-select" id="target-user-id" name="target_user_id" required><option value="">Selecione um usuário</option>{% for user in users %}<option value="{{ user.pk }}">{{ user.username }}{% if user.security_profile.display_name %} — {{ user.security_profile.display_name }}{% endif %}</option>{% endfor %}</select></div>
+      <label class="csv-file-picker" for="admin-backup-file"><span class="csv-file-picker-title">Arquivo do perfil</span><span class="csv-file-picker-subtitle">JSON até 10 MB</span><span class="csv-file-picker-button">Escolher arquivo</span><input id="admin-backup-file" type="file" name="backup_file" accept="application/json,.json" required></label>
+    </div>
+    <div class="transfer-warning"><label class="transfer-check"><input class="form-check-input" type="checkbox" name="replace_existing" value="1"><span><strong>Substituir os dados atuais do usuário</strong><small>Use somente para restaurar este perfil por completo.</small></span></label><label class="form-label" for="admin-replace-confirmation">Confirmação opcional</label><input class="form-control" id="admin-replace-confirmation" type="text" name="replace_confirmation" placeholder="Digite SUBSTITUIR somente se marcar a opção acima"></div>
+    <button class="btn btn-accent" type="submit">Importar para o usuário selecionado</button>
+  </form>
+</section>
 {% endblock %}

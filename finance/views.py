@@ -49,6 +49,7 @@ from .forms import (
 )
 from .investment_radar import get_investment_radar
 from .models import Category, CreditCardBill, CreditCardExpense, FinancialProfile, FixedExpense, Goal, Investment, InvestmentOperation, Person, SalarySnapshot, Transaction, UserSecurityProfile, VRMovement
+from .ownership import reset_current_user, set_current_user
 from .importers import import_preview_rows, normalize, preview_csv
 from .reporting import build_financial_pdf
 from .portable import MAX_IMPORT_BYTES, build_export, import_snapshot
@@ -180,6 +181,59 @@ def admin_users(request):
         'form': form,
         'users': users,
     })
+
+
+@staff_required
+@require_GET
+def admin_export_user_data(request, pk):
+    target_user = get_object_or_404(get_user_model(), pk=pk)
+    ownership_token = set_current_user(target_user)
+    try:
+        payload = build_export(target_user)
+    finally:
+        reset_current_user(ownership_token)
+    response = HttpResponse(json.dumps(payload, ensure_ascii=False, indent=2), content_type='application/json; charset=utf-8')
+    response['Content-Disposition'] = f'attachment; filename="gofinance-{target_user.username}-export.json"'
+    return response
+
+
+def _read_import_request(request):
+    uploaded = request.FILES.get('backup_file')
+    if not uploaded:
+        raise ValidationError('Selecione um arquivo JSON exportado pelo GoFinance.')
+    if uploaded.size > MAX_IMPORT_BYTES:
+        raise ValidationError('O arquivo excede o limite de 10 MB.')
+    replace_existing = request.POST.get('replace_existing') == '1'
+    if replace_existing and request.POST.get('replace_confirmation', '').strip().upper() != 'SUBSTITUIR':
+        raise ValidationError('Para substituir os dados atuais, digite SUBSTITUIR na confirmação.')
+    try:
+        return json.loads(uploaded.read().decode('utf-8-sig')), replace_existing
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValidationError(f'Arquivo JSON inválido: {exc}') from exc
+
+
+@staff_required
+@require_POST
+def admin_import_user_data(request):
+    target_user = get_object_or_404(get_user_model(), pk=request.POST.get('target_user_id'))
+    try:
+        payload, replace_existing = _read_import_request(request)
+        ownership_token = set_current_user(target_user)
+        try:
+            summary = import_snapshot(payload, target_user, replace_existing=replace_existing)
+        finally:
+            reset_current_user(ownership_token)
+    except (TypeError, ValueError, ValidationError, IntegrityError) as exc:
+        detail = exc.messages[0] if isinstance(exc, ValidationError) else str(exc)
+        messages.error(request, f'Importação não realizada para {target_user.username}: {detail}')
+        return redirect('finance:admin_users')
+    messages.success(
+        request,
+        f"Dados importados para {target_user.username}: "
+        f"{summary['transactions']} lançamentos, {summary['card_expenses']} compras no cartão, "
+        f"{summary['fixed_expenses']} contas fixas e {summary['investments']} investimentos.",
+    )
+    return redirect('finance:admin_users')
 
 
 def _temporary_password(length=16):
@@ -607,21 +661,10 @@ def export_data(request):
 @staff_required
 @require_POST
 def import_data(request):
-    uploaded = request.FILES.get('backup_file')
-    if not uploaded:
-        messages.error(request, 'Selecione um arquivo JSON exportado pelo GoFinance.')
-        return redirect('finance:settings')
-    if uploaded.size > MAX_IMPORT_BYTES:
-        messages.error(request, 'O arquivo excede o limite de 10 MB.')
-        return redirect('finance:settings')
-    replace_existing = request.POST.get('replace_existing') == '1'
-    if replace_existing and request.POST.get('replace_confirmation', '').strip().upper() != 'SUBSTITUIR':
-        messages.error(request, 'Para substituir os dados atuais, digite SUBSTITUIR na confirmação.')
-        return redirect('finance:settings')
     try:
-        payload = json.loads(uploaded.read().decode('utf-8-sig'))
+        payload, replace_existing = _read_import_request(request)
         summary = import_snapshot(payload, request.user, replace_existing=replace_existing)
-    except (UnicodeDecodeError, json.JSONDecodeError, TypeError, ValueError, ValidationError, IntegrityError) as exc:
+    except (TypeError, ValueError, ValidationError, IntegrityError) as exc:
         detail = exc.messages[0] if isinstance(exc, ValidationError) else str(exc)
         messages.error(request, f'Importação não realizada: {detail}')
         return redirect('finance:settings')
