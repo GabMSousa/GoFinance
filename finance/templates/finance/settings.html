@@ -14,6 +14,15 @@ document.querySelector('[data-import-file]')?.addEventListener('change', functio
   if (name) name.textContent = this.files?.[0]?.name || 'Nenhum arquivo selecionado';
 });
 </script>
+<script>
+  const replaceConfirmation = document.querySelector('#replace-confirmation');
+  if (replaceConfirmation) {
+    replaceConfirmation.type = 'email';
+    replaceConfirmation.placeholder = 'Informe seu e-mail somente se marcar a opção acima';
+    replaceConfirmation.previousElementSibling.textContent = 'E-mail da sua conta';
+    replaceConfirmation.autocomplete = 'off';
+  }
+</script>
 <section class="data-panel settings-card settings-help-panel mt-3"><div class="panel-heading"><div><h2>Como funciona</h2><p>Atalhos para manter o painel organizado.</p></div></div><div class="settings-help-grid"><div class="settings-insight"><span>Layout</span><strong>Adaptável</strong><small>Os blocos se reorganizam conforme a largura da tela.</small></div><div class="settings-insight"><span>Tema</span><strong>Por navegador</strong><small>A preferência visual fica salva somente neste dispositivo.</small></div><div class="settings-insight"><span>Dados</span><strong>Preservados</strong><small>Salvar estas preferências não altera seus lançamentos financeiros.</small></div></div></section>
 {% include 'finance/_people_edit.html' %}
 {% endblock %}

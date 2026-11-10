@@ -26,54 +26,73 @@
     </form>
   </section>
 
-  <section class="data-panel admin-user-list-panel">
-    <div class="panel-heading"><div><h2>Acessos cadastrados</h2><p>{{ users|length }} usuário{{ users|length|pluralize }} no sistema.</p></div></div>
-    <div class="table-responsive">
-      <table class="table align-middle mb-0">
-        <thead><tr><th>Nome</th><th>Usuário</th><th>E-mail</th><th>Status</th><th class="text-end">Ações</th></tr></thead>
-        <tbody>
-          {% for user in users %}
-            <tr>
-              <td><strong>{{ user.security_profile.display_name|default:user.get_full_name|default:user.username }}</strong></td>
-              <td>{{ user.username }}</td>
-              <td>{{ user.email|default:'—' }}</td>
-              <td>{% if user.is_active %}<span class="status status-positive">Ativo</span>{% else %}<span class="status status-muted">Inativo</span>{% endif %}</td>
-              <td>
-                <div class="admin-user-actions">
-                  {% if user.pk != request.user.pk %}
-                    <form method="post" action="{% url 'finance:admin_user_toggle_active' user.pk %}" data-confirm-submit="{% if user.is_active %}Desativar este usuário? Ele não conseguirá mais entrar no sistema.{% else %}Ativar este usuário novamente?{% endif %}">
-                      {% csrf_token %}
-                      <button class="admin-action {% if user.is_active %}admin-action-danger{% else %}admin-action-positive{% endif %}" type="submit">{% if user.is_active %}Desativar{% else %}Ativar{% endif %}</button>
-                    </form>
-                  {% else %}
-                    <span class="admin-action-note">Sessão atual</span>
-                  {% endif %}
-                    <form method="post" action="{% url 'finance:admin_user_reset_password' user.pk %}" data-confirm-submit="Gerar uma nova senha temporária para este usuário? A senha atual deixará de funcionar.">
-                      {% csrf_token %}
-                      <button class="admin-action admin-action-reset" type="submit">Resetar senha</button>
-                    </form>
-                    <a class="admin-action admin-action-export" href="{% url 'finance:admin_export_user_data' user.pk %}">Exportar dados</a>
-                </div>
-              </td>
-            </tr>
-          {% empty %}
-            <tr><td colspan="5" class="empty-state">Nenhum usuário cadastrado.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </section>
+  <div class="admin-right-column">
+    <section class="data-panel admin-user-list-panel">
+      <div class="panel-heading"><div><h2>Acessos cadastrados</h2><p>{{ users|length }} usuário{{ users|length|pluralize }} no sistema.</p></div></div>
+      <div class="table-responsive">
+        <table class="table align-middle mb-0">
+          <thead><tr><th>Nome</th><th>Usuário</th><th>E-mail</th><th>Status</th><th class="text-end">Ações</th></tr></thead>
+          <tbody>
+            {% for user in users %}
+              <tr>
+                <td><strong>{{ user.security_profile.display_name|default:user.get_full_name|default:user.username }}</strong></td>
+                <td>{{ user.username }}</td>
+                <td>{{ user.email|default:'—' }}</td>
+                <td>{% if user.is_active %}<span class="status status-positive">Ativo</span>{% else %}<span class="status status-muted">Inativo</span>{% endif %}</td>
+                <td>
+                  <div class="admin-user-actions">
+                    {% if user.pk != request.user.pk %}
+                      <form method="post" action="{% url 'finance:admin_user_toggle_active' user.pk %}" data-confirm-submit="{% if user.is_active %}Desativar este usuário? Ele não conseguirá mais entrar no sistema.{% else %}Ativar este usuário novamente?{% endif %}">
+                        {% csrf_token %}
+                        <button class="admin-action {% if user.is_active %}admin-action-danger{% else %}admin-action-positive{% endif %}" type="submit">{% if user.is_active %}Desativar{% else %}Ativar{% endif %}</button>
+                      </form>
+                    {% else %}
+                      <span class="admin-action-note">Sessão atual</span>
+                    {% endif %}
+                      <form method="post" action="{% url 'finance:admin_user_reset_password' user.pk %}" data-confirm-submit="Gerar uma nova senha temporária para este usuário? A senha atual deixará de funcionar.">
+                        {% csrf_token %}
+                        <button class="admin-action admin-action-reset" type="submit">Resetar senha</button>
+                      </form>
+                      <a class="admin-action admin-action-export" href="{% url 'finance:admin_export_user_data' user.pk %}">Exportar dados</a>
+                  </div>
+                </td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="5" class="empty-state">Nenhum usuário cadastrado.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="data-panel admin-transfer-panel">
+      <div class="panel-heading"><div><h2>Transferir dados</h2><p>Exporte ou restaure o perfil financeiro de um usuário.</p></div><span class="admin-transfer-badge">Somente admin</span></div>
+      <div class="admin-transfer-content">
+        <div class="admin-transfer-help"><strong>Como funciona</strong><p>O arquivo JSON inclui lançamentos, categorias, contas fixas, faturas, VR, metas e investimentos. Senhas, tokens e segredos nunca são exportados.</p></div>
+        <form method="post" action="{% url 'finance:admin_import_user_data' %}" enctype="multipart/form-data" class="admin-transfer-form">
+          {% csrf_token %}
+          <div class="admin-transfer-grid">
+            <div><label for="target-user-id">Usuário de destino</label><select class="form-select" id="target-user-id" name="target_user_id" required><option value="">Selecione um usuário</option>{% for user in users %}<option value="{{ user.pk }}" data-user-email="{{ user.email|default:'' }}">{{ user.username }}{% if user.email %} — {{ user.email }}{% endif %}</option>{% endfor %}</select></div>
+            <label class="csv-file-picker" for="admin-backup-file"><span class="csv-file-picker-title">Arquivo do perfil</span><span class="csv-file-picker-subtitle">JSON até 10 MB · <em data-admin-import-file-name>Nenhum arquivo selecionado</em></span><span class="csv-file-picker-button">Escolher arquivo</span><input id="admin-backup-file" type="file" name="backup_file" accept="application/json,.json" required data-admin-import-file></label>
+          </div>
+          <div class="transfer-warning"><label class="transfer-check"><input class="form-check-input" type="checkbox" name="replace_existing" value="1"><span><strong>Substituir os dados atuais</strong><small>Use somente para restaurar este perfil por completo.</small></span></label><label class="form-label" for="admin-replace-confirmation">E-mail do usuário de destino</label><input class="form-control" id="admin-replace-confirmation" type="email" name="replace_confirmation" placeholder="Informe o e-mail somente se marcar a opção acima" autocomplete="off"></div>
+          <button class="btn btn-accent" type="submit">Importar no usuário selecionado</button>
+        </form>
+      </div>
+    </section>
+  </div>
 </div>
-<section class="data-panel admin-transfer-panel mt-3">
-  <div class="panel-heading"><div><h2>Transferir dados de usuário</h2><p>Importe um perfil JSON para o usuário selecionado. Esta função é exclusiva do administrador.</p></div></div>
-  <form method="post" action="{% url 'finance:admin_import_user_data' %}" enctype="multipart/form-data" class="admin-transfer-form">
-    {% csrf_token %}
-    <div class="admin-transfer-grid">
-      <div><label for="target-user-id">Usuário de destino</label><select class="form-select" id="target-user-id" name="target_user_id" required><option value="">Selecione um usuário</option>{% for user in users %}<option value="{{ user.pk }}">{{ user.username }}{% if user.security_profile.display_name %} — {{ user.security_profile.display_name }}{% endif %}</option>{% endfor %}</select></div>
-      <label class="csv-file-picker" for="admin-backup-file"><span class="csv-file-picker-title">Arquivo do perfil</span><span class="csv-file-picker-subtitle">JSON até 10 MB</span><span class="csv-file-picker-button">Escolher arquivo</span><input id="admin-backup-file" type="file" name="backup_file" accept="application/json,.json" required></label>
-    </div>
-    <div class="transfer-warning"><label class="transfer-check"><input class="form-check-input" type="checkbox" name="replace_existing" value="1"><span><strong>Substituir os dados atuais do usuário</strong><small>Use somente para restaurar este perfil por completo.</small></span></label><label class="form-label" for="admin-replace-confirmation">Confirmação opcional</label><input class="form-control" id="admin-replace-confirmation" type="text" name="replace_confirmation" placeholder="Digite SUBSTITUIR somente se marcar a opção acima"></div>
-    <button class="btn btn-accent" type="submit">Importar para o usuário selecionado</button>
-  </form>
-</section>
+{% endblock %}
+{% block scripts %}
+<script>
+  document.querySelector('[data-admin-import-file]')?.addEventListener('change', function () {
+    const name = document.querySelector('[data-admin-import-file-name]');
+    if (name) name.textContent = this.files?.[0]?.name || 'Nenhum arquivo selecionado';
+  });
+  document.querySelector('#target-user-id')?.addEventListener('change', function () {
+    const email = this.selectedOptions[0]?.dataset.userEmail || '';
+    const confirmation = document.querySelector('#admin-replace-confirmation');
+    if (confirmation) confirmation.placeholder = email ? `Confirme com: ${email}` : 'O usuário precisa ter e-mail cadastrado';
+  });
+</script>
 {% endblock %}

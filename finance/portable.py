@@ -25,7 +25,6 @@ from .models import (
     Person,
     SalarySnapshot,
     Transaction,
-    UserSecurityProfile,
     VRMovement,
 )
 
@@ -104,10 +103,6 @@ def build_export(user):
         InvestmentOperation,
         InvestmentOperation.objects.filter(user=user),
     )
-    security = UserSecurityProfile.objects.filter(user=user).first()
-    payload['data']['user_profile'] = {
-        'display_name': security.display_name if security else '',
-    }
     return payload
 
 
@@ -260,12 +255,6 @@ def import_snapshot(payload, user, replace_existing=False):
         _import_records(model, _records_for(payload, model._meta.model_name), user, maps)
     _import_investment_operations(_records_for(payload, 'investment_operations'), user, maps)
     _import_records(VRMovement, _records_for(payload, 'vrmovement'), user, maps)
-
-    profile_data = payload.get('data', {}).get('user_profile', {})
-    if isinstance(profile_data, dict):
-        security, _ = UserSecurityProfile.objects.get_or_create(user=user)
-        security.display_name = str(profile_data.get('display_name', ''))[:120]
-        security.save(update_fields=['display_name', 'updated_at'])
 
     return {
         'categories': len(_records_for(payload, 'category')),

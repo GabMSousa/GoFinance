@@ -197,15 +197,18 @@ def admin_export_user_data(request, pk):
     return response
 
 
-def _read_import_request(request):
+def _read_import_request(request, confirmation_email=''):
     uploaded = request.FILES.get('backup_file')
     if not uploaded:
         raise ValidationError('Selecione um arquivo JSON exportado pelo GoFinance.')
     if uploaded.size > MAX_IMPORT_BYTES:
         raise ValidationError('O arquivo excede o limite de 10 MB.')
     replace_existing = request.POST.get('replace_existing') == '1'
-    if replace_existing and request.POST.get('replace_confirmation', '').strip().upper() != 'SUBSTITUIR':
-        raise ValidationError('Para substituir os dados atuais, digite SUBSTITUIR na confirmação.')
+    if replace_existing:
+        submitted_email = request.POST.get('replace_confirmation', '').strip().casefold()
+        expected_email = (confirmation_email or '').strip().casefold()
+        if not expected_email or submitted_email != expected_email:
+            raise ValidationError('Para substituir os dados atuais, informe exatamente o e-mail do usuário de destino.')
     try:
         return json.loads(uploaded.read().decode('utf-8-sig')), replace_existing
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
@@ -217,7 +220,7 @@ def _read_import_request(request):
 def admin_import_user_data(request):
     target_user = get_object_or_404(get_user_model(), pk=request.POST.get('target_user_id'))
     try:
-        payload, replace_existing = _read_import_request(request)
+        payload, replace_existing = _read_import_request(request, target_user.email)
         ownership_token = set_current_user(target_user)
         try:
             summary = import_snapshot(payload, target_user, replace_existing=replace_existing)
@@ -662,7 +665,7 @@ def export_data(request):
 @require_POST
 def import_data(request):
     try:
-        payload, replace_existing = _read_import_request(request)
+        payload, replace_existing = _read_import_request(request, request.user.email)
         summary = import_snapshot(payload, request.user, replace_existing=replace_existing)
     except (TypeError, ValueError, ValidationError, IntegrityError) as exc:
         detail = exc.messages[0] if isinstance(exc, ValidationError) else str(exc)
