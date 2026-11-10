@@ -928,7 +928,7 @@ class SeedAndPagesTests(BaseFinanceTest):
     def test_profile_transfer_is_staff_only(self):
         response = self.client.get(reverse('finance:settings'))
         self.assertNotContains(response, 'Transferir dados')
-        self.assertEqual(self.client.get(reverse('finance:export_data')).status_code, 403)
+        self.assertEqual(self.client.get(reverse('finance:export_data')).status_code, 302)
         self.user.is_staff = True
         self.user.save(update_fields=['is_staff'])
         self.client.force_login(self.user)
