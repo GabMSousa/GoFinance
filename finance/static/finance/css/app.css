@@ -135,23 +135,23 @@
 .admin-transfer-panel{margin-top:0}
 .admin-transfer-panel .panel-heading{padding-bottom:14px}
 .admin-transfer-badge{border:1px solid rgba(77,210,200,.45);border-radius:999px;color:#4dd2c8;font-size:.66rem;font-weight:800;letter-spacing:.06em;padding:6px 9px;white-space:nowrap}
-.admin-transfer-content{padding:0 21px 22px}
+.admin-transfer-content{display:grid;gap:18px;padding:0 24px 26px}
 .admin-transfer-help{border:1px solid rgba(77,210,200,.22);border-radius:10px;background:rgba(77,210,200,.07);padding:11px 13px;margin-bottom:15px}
 .admin-transfer-help strong{display:block;color:#4dd2c8;font-size:.76rem;margin-bottom:4px}
 .admin-transfer-help p{color:var(--muted);font-size:.72rem;line-height:1.45;margin:0}
-.admin-transfer-form{padding:0;gap:14px}
-.admin-transfer-grid{grid-template-columns:minmax(160px,.85fr) minmax(0,1.15fr);gap:12px}
+.admin-transfer-form{padding:18px;gap:18px;border:1px solid var(--border);border-radius:12px;background:color-mix(in srgb,var(--canvas) 78%,var(--surface))}
+.admin-transfer-grid{grid-template-columns:minmax(170px,.85fr) minmax(0,1.15fr);gap:18px;align-items:start}
 .admin-transfer-grid>div,.admin-transfer-grid>.csv-file-picker{min-width:0}
-.admin-transfer-grid>div>label,.admin-transfer-grid>.csv-file-picker{margin-bottom:0}
-.admin-transfer-form select{width:100%;margin-top:4px}
-.admin-transfer-form .csv-file-picker{min-height:78px;padding:13px 15px}
-.admin-transfer-form .transfer-warning{display:grid;gap:10px;margin-top:2px;padding:15px 16px}
+.admin-transfer-grid>div>label,.admin-transfer-grid>.csv-file-picker{margin-bottom:8px}
+.admin-transfer-form select{width:100%;margin-top:0;min-height:46px}
+.admin-transfer-form .csv-file-picker{min-height:82px;padding:14px 16px}
+.admin-transfer-form .transfer-warning{display:grid;gap:11px;margin-top:0;padding:16px}
 .admin-transfer-form .transfer-check{line-height:1.35;padding-bottom:2px}
 .admin-transfer-form .transfer-check span{gap:5px}
 .admin-transfer-form .transfer-warning .form-label{margin:2px 0 0}
 .admin-transfer-form .transfer-warning .form-control{width:100%;min-height:44px}
-.admin-transfer-form>.btn{min-height:44px;margin-top:2px;padding-inline:16px}
-@media(max-width:800px){.admin-transfer-grid{grid-template-columns:1fr}}
+.admin-transfer-form>.btn{min-height:46px;margin-top:0;padding-inline:18px;justify-self:stretch}
+@media(max-width:800px){.admin-transfer-content{padding-inline:16px}.admin-transfer-form{padding:14px}.admin-transfer-grid{grid-template-columns:1fr;gap:16px}}
 
 html[data-theme="dark"] .vr-highlight {
   background: #21172f !important;
