@@ -925,6 +925,17 @@ class SeedAndPagesTests(BaseFinanceTest):
         self.assertNotContains(response, 'Gastos fixos')
         self.assertNotContains(response, 'Contas recorrentes, assinaturas e seus status.')
 
+    def test_profile_transfer_is_staff_only(self):
+        response = self.client.get(reverse('finance:settings'))
+        self.assertNotContains(response, 'Transferir dados')
+        self.assertEqual(self.client.get(reverse('finance:export_data')).status_code, 403)
+        self.user.is_staff = True
+        self.user.save(update_fields=['is_staff'])
+        self.client.force_login(self.user)
+        response = self.client.get(reverse('finance:settings'))
+        self.assertContains(response, 'Transferir dados')
+        self.assertEqual(self.client.get(reverse('finance:export_data')).status_code, 200)
+
     def test_receivable_card_opens_filters_without_changing_selected_period(self):
         response = self.client.get(reverse('finance:dashboard'), {'year': 2026, 'month': 12, 'person': 'other'})
         self.assertEqual(response.status_code, 200)

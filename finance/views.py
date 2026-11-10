@@ -593,6 +593,7 @@ def settings_page(request):
     })
 
 
+@staff_required
 @require_GET
 def export_data(request):
     response = HttpResponse(
@@ -603,6 +604,7 @@ def export_data(request):
     return response
 
 
+@staff_required
 @require_POST
 def import_data(request):
     uploaded = request.FILES.get('backup_file')
