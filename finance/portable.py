@@ -215,13 +215,6 @@ def _import_records(model, records, user, maps):
             raise ValidationError(f'Registro inválido no bloco {model._meta.model_name}.')
         source_id = str(record['id'])
         obj = _target_for(model, user, record['id'])
-        if obj is None and model is VRMovement:
-            raw = record.get('fields', {})
-            obj = VRMovement.objects.filter(
-                owner=user,
-                reference_month=_load_value(VRMovement._meta.get_field('reference_month'), raw.get('reference_month')),
-                movement_type=raw.get('movement_type'),
-            ).first()
         if obj is None:
             obj = _new_object(model, user, record['id'])
         _apply_fields(model, obj, record.get('fields', {}), maps)
