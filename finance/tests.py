@@ -893,6 +893,12 @@ class SeedAndPagesTests(BaseFinanceTest):
         self.assertContains(response, 'Consórcio')
         self.assertEqual(FixedExpense.objects.count(), 0)
 
+    def test_settings_does_not_duplicate_fixed_expenses(self):
+        response = self.client.get(reverse('finance:settings'))
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'Gastos fixos')
+        self.assertNotContains(response, 'Contas recorrentes, assinaturas e seus status.')
+
     def test_receivable_card_opens_filters_without_changing_selected_period(self):
         response = self.client.get(reverse('finance:dashboard'), {'year': 2026, 'month': 12, 'person': 'other'})
         self.assertEqual(response.status_code, 200)

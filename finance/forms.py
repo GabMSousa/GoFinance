@@ -305,7 +305,8 @@ class FixedExpenseForm(BootstrapModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['category'].queryset = Category.objects.filter(active=True)
+        owner = get_current_user()
+        self.fields['category'].queryset = Category.objects.filter(owner=owner, active=True).order_by('name')
 
 
 class GoalForm(BootstrapModelForm):

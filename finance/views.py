@@ -586,7 +586,6 @@ def settings_page(request):
     return render(request, 'finance/settings.html', {
         'form': form,
         **period_context(year, month),
-        'fixed_items': FixedExpense.objects.select_related('category').all(),
         'categories': Category.objects.all(),
         'people': Person.objects.all(),
     })
