@@ -161,19 +161,33 @@ def import_preview_rows(rows, invoice_month=None, source_name='CSV'):
     seen_hashes = set()
     for row in rows:
         import_hash = row['import_hash']
-        if (
-            row.get('duplicate')
-            or import_hash in seen_hashes
-            or CreditCardExpense.objects.filter(import_hash=import_hash).exists()
-        ):
-            skipped += 1
-            continue
-        seen_hashes.add(import_hash)
         purchase_date = date.fromisoformat(row['purchase_date'])
         current, total = int(row['current_installment']), int(row['total_installments'])
         row_invoice_month = date.fromisoformat(row['invoice_month']) if row.get('invoice_month') else invoice_month_for_purchase(purchase_date)
         vr_amount = Decimal(row.get('vr_amount') or '0.00')
         card_amount = (Decimal(row['amount']) - vr_amount).quantize(Decimal('0.01'))
+        matching = CreditCardExpense.objects.filter(
+            purchase_date=purchase_date,
+            description=row['description'],
+            amount=card_amount,
+            current_installment=current,
+            total_installments=total,
+        ).order_by('id')
+        if (
+            row.get('duplicate')
+            or import_hash in seen_hashes
+            or CreditCardExpense.objects.filter(import_hash=import_hash).exists()
+        ):
+            keeper = matching.first()
+            if keeper:
+                # A CSV row represents the statement being imported. Keep its
+                # competence even when an older import put the installment in
+                # a future month, and remove duplicate copies of that row.
+                CreditCardExpense.objects.filter(pk=keeper.pk).update(invoice_month=row_invoice_month)
+                matching.exclude(pk=keeper.pk).delete()
+            skipped += 1
+            continue
+        seen_hashes.add(import_hash)
         expense = CreditCardExpense.objects.create(
             date=purchase_date, purchase_date=purchase_date, invoice_month=row_invoice_month,
             description=row['description'], amount=card_amount,
@@ -184,6 +198,9 @@ def import_preview_rows(rows, invoice_month=None, source_name='CSV'):
             vr_amount=vr_amount,
             import_hash=row['import_hash'],
         )
+        # CreditCardExpense.save() applies the manual-installment rule. CSV
+        # imports must retain the statement competence calculated above.
+        CreditCardExpense.objects.filter(pk=expense.pk).update(invoice_month=row_invoice_month)
         sync_card_vr(expense)
         created += 1
     return created, skipped
