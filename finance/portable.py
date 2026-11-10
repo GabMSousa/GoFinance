@@ -148,6 +148,11 @@ def _delete_user_data(user):
 
 
 def _target_for(model, user, source_id):
+    if model is FinancialProfile:
+        # The destination receives one financial profile. Reuse the existing
+        # bootstrap row so an import cannot leave the dashboard reading an
+        # older empty profile.
+        return FinancialProfile.objects.filter(owner=user).order_by('pk').first()
     if model is Investment:
         return Investment.objects.filter(user=user, pk=source_id).first()
     if model is InvestmentOperation:

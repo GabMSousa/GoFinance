@@ -43,6 +43,7 @@
 .login-card--minimal .login-submit:hover,.login-card--minimal .login-submit:focus{background:#6be0d7;color:#0b0d12}
 .login-recovery-link{display:block;margin-top:18px;text-align:center;color:#9ba8bd;font-size:.78rem;text-decoration:underline;text-underline-offset:3px}.login-recovery-link:hover,.login-recovery-link:focus{color:#4dd2c8}
 .login-hint{display:block;margin-top:7px;color:var(--muted);font-size:.7rem;line-height:1.35}
+.feedback-modal{position:fixed;inset:0;z-index:2000;display:grid;place-items:center;padding:20px;background:rgba(5,8,15,.72);backdrop-filter:blur(5px)}.feedback-modal[hidden]{display:none}.feedback-modal-card{width:min(100%,440px);padding:26px;border:1px solid var(--border);border-radius:14px;background:var(--surface);box-shadow:0 24px 70px rgba(0,0,0,.4);color:var(--ink)}.feedback-modal-kicker{color:var(--accent-dark);font-size:.66rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px}.feedback-modal-card h2{font-size:1.15rem;margin:0 0 10px}.feedback-modal-card p{color:var(--muted);line-height:1.5;margin:0 0 20px}.feedback-modal-card .btn{min-width:96px}
 
 .page-wrap:has(.profile-grid){max-width:1220px}.page-wrap:has(.profile-grid)>.page-heading{max-width:1040px;margin-bottom:28px}
 .profile-grid{max-width:1040px;grid-template-columns:280px minmax(0,1fr);gap:20px;margin:0}

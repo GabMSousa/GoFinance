@@ -78,7 +78,15 @@
         </div>
       </div>
       <div class="page-wrap">
-        {% for message in messages %}<div class="alert alert-{{ message.tags|default:'info' }} app-alert">{{ message }}</div>{% endfor %}
+        {% for message in messages %}<div class="alert alert-{{ message.tags|default:'info' }} app-alert{% if 'import-result' in message.tags %} import-result-alert{% endif %}"{% if 'import-result' in message.tags %} data-import-result="{{ message.tags }}"{% endif %}>{{ message }}</div>{% endfor %}
+        <div class="feedback-modal" data-feedback-modal hidden role="dialog" aria-modal="true" aria-labelledby="feedback-modal-title">
+          <div class="feedback-modal-card">
+            <div class="feedback-modal-kicker">Resultado da importação</div>
+            <h2 id="feedback-modal-title" data-feedback-modal-title>Importação concluída</h2>
+            <p data-feedback-modal-message></p>
+            <button type="button" class="btn btn-accent" data-feedback-modal-ok>OK</button>
+          </div>
+        </div>
         {% block content %}{% endblock %}
       </div>
     </main>
@@ -88,6 +96,21 @@
   <script src="{% static 'finance/js/app.js' %}?v=20261019-salary-mode-2"></script>
   <script src="{% static 'finance/js/investment-radar.js' %}?v=20261017-radar-1"></script>
   <script src="{% static 'finance/js/investment-radar-explorer.js' %}?v=20261018-radar-explorer-1"></script>
+  <script>
+    (() => {
+      const alert = document.querySelector('[data-import-result]');
+      const modal = document.querySelector('[data-feedback-modal]');
+      if (!alert || !modal) return;
+      const isError = alert.classList.contains('alert-error') || alert.classList.contains('alert-danger');
+      modal.querySelector('[data-feedback-modal-title]').textContent = isError ? 'Importação não concluída' : 'Importação concluída';
+      modal.querySelector('[data-feedback-modal-message]').textContent = alert.textContent.trim();
+      modal.hidden = false;
+      const close = () => { modal.hidden = true; };
+      modal.querySelector('[data-feedback-modal-ok]').addEventListener('click', close);
+      modal.addEventListener('click', event => { if (event.target === modal) close(); });
+      modal.querySelector('[data-feedback-modal-ok]').focus();
+    })();
+  </script>
   {% if request.resolver_match.url_name == 'dashboard' %}<script src="{% static 'finance/js/dashboard-calculator.js' %}?v=20261018-calculator-1"></script>{% endif %}
   {% block scripts %}{% endblock %}
 </body>

@@ -228,13 +228,14 @@ def admin_import_user_data(request):
             reset_current_user(ownership_token)
     except (TypeError, ValueError, ValidationError, IntegrityError) as exc:
         detail = exc.messages[0] if isinstance(exc, ValidationError) else str(exc)
-        messages.error(request, f'Importação não realizada para {target_user.email or target_user.username}: {detail}')
+        messages.error(request, f'Importação não realizada para {target_user.email or target_user.username}: {detail}', extra_tags='import-result')
         return redirect('finance:admin_users')
     messages.success(
         request,
         f"Dados importados para {target_user.email or target_user.username}: "
         f"{summary['transactions']} lançamentos, {summary['card_expenses']} compras no cartão, "
         f"{summary['fixed_expenses']} contas fixas e {summary['investments']} investimentos.",
+        extra_tags='import-result',
     )
     return redirect('finance:admin_users')
 
@@ -669,13 +670,14 @@ def import_data(request):
         summary = import_snapshot(payload, request.user, replace_existing=replace_existing)
     except (TypeError, ValueError, ValidationError, IntegrityError) as exc:
         detail = exc.messages[0] if isinstance(exc, ValidationError) else str(exc)
-        messages.error(request, f'Importação não realizada: {detail}')
+        messages.error(request, f'Importação não realizada: {detail}', extra_tags='import-result')
         return redirect('finance:settings')
     messages.success(
         request,
         'Importação concluída: '
         f"{summary['transactions']} lançamentos, {summary['card_expenses']} compras no cartão, "
         f"{summary['fixed_expenses']} contas fixas e {summary['investments']} investimentos.",
+        extra_tags='import-result',
     )
     return redirect('finance:settings')
 
