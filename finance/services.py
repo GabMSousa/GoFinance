@@ -16,9 +16,7 @@ from django.utils import timezone
 from .models import Category, CreditCardExpense, FinancialProfile, FixedExpense, Investment, InvestmentOperation, Person, SalarySnapshot, Transaction, VRMovement
 
 ZERO = Decimal('0.00')
-CARD_INVOICE_LAG_MONTHS = 1
-VR_COMPETENCE_LAG_MONTHS = 1
-SALARY_COMPETENCE_LAG_MONTHS = 1
+from .rules import SALARY_COMPETENCE_LAG_MONTHS, VR_COMPETENCE_LAG_MONTHS, invoice_month_for_purchase as universal_invoice_month_for_purchase
 
 DEFAULT_CATEGORY_NAMES = (
     'Alimentação',
@@ -128,9 +126,7 @@ def transactions_for_display_period(year, month):
 
 def invoice_month_for_installment(purchase_date, installment=1):
     """Return the statement month for a real purchase and its installment."""
-    installment_number = max(int(installment or 1), 1)
-    offset = CARD_INVOICE_LAG_MONTHS + installment_number - 1
-    return add_months(purchase_date.replace(day=1), offset)
+    return universal_invoice_month_for_purchase(purchase_date, installment)
 
 
 def invoice_month_for_purchase(purchase_date):

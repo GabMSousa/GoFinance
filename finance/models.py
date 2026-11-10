@@ -316,6 +316,11 @@ class FinancialProfile(UserOwnedModel):
     def __str__(self):
         return 'Dados financeiros'
 
+    def save(self, *args, **kwargs):
+        from .rules import SALARY_COMPETENCE_LAG_MONTHS
+        self.salary_competence_lag_months = SALARY_COMPETENCE_LAG_MONTHS
+        return super().save(*args, **kwargs)
+
     @classmethod
     def current(cls, user=None):
         profile = cls.objects.filter(owner=user).first() if user else cls.objects.first()
@@ -357,6 +362,11 @@ class SalarySnapshot(UserOwnedModel):
 
     class Meta:
         ordering = ['-month']
+
+    def save(self, *args, **kwargs):
+        from .rules import SALARY_COMPETENCE_LAG_MONTHS
+        self.salary_competence_lag_months = SALARY_COMPETENCE_LAG_MONTHS
+        return super().save(*args, **kwargs)
 
 
 class CreditCardBill(UserOwnedModel):
@@ -442,7 +452,11 @@ class CreditCardExpense(UserOwnedModel):
         return f'{self.description} ({self.current_installment}/{self.total_installments})'
 
     def save(self, *args, **kwargs):
+        from .rules import invoice_month_for_purchase
         self.series_id = normalize_uuid_hex(self.series_id)
+        purchase_date = self.purchase_date or self.date
+        if purchase_date:
+            self.invoice_month = invoice_month_for_purchase(purchase_date, self.current_installment)
         return super().save(*args, **kwargs)
 
     @property
@@ -679,6 +693,12 @@ class VRMovement(UserOwnedModel):
                 name='unique_vr_credit_reference_month',
             ),
         ]
+
+    def save(self, *args, **kwargs):
+        from .rules import vr_reference_month
+        if self.movement_type == self.Type.CREDIT and self.date:
+            self.reference_month = vr_reference_month(self.date)
+        return super().save(*args, **kwargs)
 
     def __str__(self):
         return f'{self.date} - {self.description}'

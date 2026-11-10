@@ -27,7 +27,7 @@ from .models import (
     Transaction,
     VRMovement,
 )
-from .services import CARD_INVOICE_LAG_MONTHS, SALARY_COMPETENCE_LAG_MONTHS, VR_COMPETENCE_LAG_MONTHS
+from .rules import SALARY_COMPETENCE_LAG_MONTHS, invoice_month_for_purchase, vr_reference_month
 
 
 SCHEMA = 'gofinance.portable'
@@ -70,13 +70,6 @@ def _load_value(field, value):
     return value
 
 
-def _shift_month_start(value, months):
-    month_index = value.month - 1 + months
-    year = value.year + (month_index // 12)
-    month = month_index % 12 + 1
-    return date(year, month, 1)
-
-
 def _normalize_universal_rules(model, obj):
     """Keep imported records aligned with the system-wide financial rules."""
     if model is FinancialProfile:
@@ -87,10 +80,10 @@ def _normalize_universal_rules(model, obj):
         purchase_date = obj.purchase_date or obj.date
         if purchase_date:
             # A purchase made in November belongs to the December invoice.
-            obj.invoice_month = _shift_month_start(purchase_date, CARD_INVOICE_LAG_MONTHS)
+            obj.invoice_month = invoice_month_for_purchase(purchase_date, obj.current_installment)
     elif model is VRMovement and obj.movement_type == VRMovement.Type.CREDIT and obj.date:
         # A credit received in November is shown in the December competence.
-        obj.reference_month = _shift_month_start(obj.date, VR_COMPETENCE_LAG_MONTHS)
+        obj.reference_month = vr_reference_month(obj.date)
 
 
 def _record(model, obj):
