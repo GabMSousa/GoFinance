@@ -165,12 +165,21 @@ def _new_object(model, user, source_id):
     # the same records while still avoiding collisions with another user.
     if model is Investment:
         collision = Investment.objects.filter(pk=source_id).exclude(user=user).exists()
-        return model(pk=None if collision else source_id, user=user)
-    if model is InvestmentOperation:
+        obj = model(pk=None if collision else source_id, user=user)
+    elif model is InvestmentOperation:
         collision = InvestmentOperation.objects.filter(pk=source_id).exclude(user=user).exists()
-        return model(pk=None if collision else source_id, user=user)
-    collision = model.objects.filter(pk=source_id).exclude(owner=user).exists()
-    return model(pk=None if collision else source_id, owner=user)
+        obj = model(pk=None if collision else source_id, user=user)
+    else:
+        collision = model.objects.filter(pk=source_id).exclude(owner=user).exists()
+        obj = model(pk=None if collision else source_id, owner=user)
+
+    # Some installations have NOT NULL created_at columns without a database
+    # default. Set it explicitly so imports also work across schemas.
+    now = timezone.now()
+    for field in model._meta.concrete_fields:
+        if getattr(field, 'auto_now_add', False):
+            setattr(obj, field.name, now)
+    return obj
 
 
 def _apply_fields(model, obj, raw_fields, maps):
