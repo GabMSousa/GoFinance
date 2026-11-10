@@ -284,7 +284,8 @@ def import_snapshot(payload, user, replace_existing=False):
         CreditCardExpense,
     )
     for model in order:
-        _import_records(model, _records_for(payload, model._meta.model_name), user, maps)
+        block_name = 'investments' if model is Investment else model._meta.model_name
+        _import_records(model, _records_for(payload, block_name), user, maps)
     _import_investment_operations(_records_for(payload, 'investment_operations'), user, maps)
     _import_records(VRMovement, _records_for(payload, 'vrmovement'), user, maps)
 
