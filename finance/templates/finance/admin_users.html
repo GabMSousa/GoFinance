@@ -66,17 +66,17 @@
     </section>
 
     <section class="data-panel admin-transfer-panel">
-      <div class="panel-heading"><div><h2>Transferir dados</h2><p>Exporte ou restaure o perfil financeiro de um usuário.</p></div><span class="admin-transfer-badge">Somente admin</span></div>
+      <div class="panel-heading"><div><p class="admin-transfer-kicker">Transferência segura</p><h2>Importar dados financeiros</h2><p>Restaure os dados de um usuário sem alterar login, permissões ou regras do sistema.</p></div><span class="admin-transfer-badge">Somente admin</span></div>
       <div class="admin-transfer-content">
-        <div class="admin-transfer-help"><strong>Como funciona</strong><p>O arquivo JSON inclui lançamentos, categorias, contas fixas, faturas, VR, metas e investimentos. Senhas, tokens e segredos nunca são exportados.</p></div>
-        <form method="post" action="{% url 'finance:admin_import_user_data' %}" enctype="multipart/form-data" class="admin-transfer-form">
+        <div class="csv-import-intro admin-transfer-intro"><span class="csv-import-icon" aria-hidden="true">⇧</span><div><p>Selecione o arquivo JSON do perfil para importar os dados financeiros.</p><small>Usuário, senha, permissões e regras universais nunca são importados.</small></div></div>
+        <form method="post" action="{% url 'finance:admin_import_user_data' %}" enctype="multipart/form-data" class="csv-import-form admin-transfer-form">
           {% csrf_token %}
           <div class="admin-transfer-grid">
-            <div><label for="target-user-id">Usuário de destino</label><select class="form-select" id="target-user-id" name="target_user_id" required><option value="">Selecione um usuário</option>{% for user in users %}<option value="{{ user.pk }}" data-user-email="{{ user.email|default:'' }}">{{ user.username }}{% if user.email %} — {{ user.email }}{% endif %}</option>{% endfor %}</select></div>
+            <div class="admin-transfer-field"><label for="target-user-id">Usuário de destino</label><select class="form-select" id="target-user-id" name="target_user_id" required><option value="">Selecione um usuário</option>{% for user in users %}<option value="{{ user.pk }}" data-user-email="{{ user.email|default:'' }}">{{ user.username }}{% if user.email %} — {{ user.email }}{% endif %}</option>{% endfor %}</select></div>
             <label class="csv-file-picker" for="admin-backup-file"><span class="csv-file-picker-title">Arquivo do perfil</span><span class="csv-file-picker-subtitle">JSON até 10 MB · <em data-admin-import-file-name>Nenhum arquivo selecionado</em></span><span class="csv-file-picker-button">Escolher arquivo</span><input id="admin-backup-file" type="file" name="backup_file" accept="application/json,.json" required data-admin-import-file></label>
           </div>
-          <div class="transfer-warning"><label class="transfer-check"><input class="form-check-input" type="checkbox" name="replace_existing" value="1"><span><strong>Substituir os dados atuais</strong><small>Use somente para restaurar este perfil por completo.</small></span></label><label class="form-label" for="admin-replace-confirmation">E-mail do usuário de destino</label><input class="form-control" id="admin-replace-confirmation" type="email" name="replace_confirmation" placeholder="Informe o e-mail somente se marcar a opção acima" autocomplete="off"></div>
-          <button class="btn btn-accent" type="submit">Importar no usuário selecionado</button>
+          <div class="transfer-warning admin-transfer-warning"><label class="transfer-check"><input class="form-check-input" type="checkbox" name="replace_existing" value="1"><span><strong>Substituir os dados atuais</strong><small>Use somente para restaurar este perfil por completo.</small></span></label><label class="form-label" for="admin-replace-confirmation">E-mail do usuário de destino</label><input class="form-control" id="admin-replace-confirmation" type="email" name="replace_confirmation" placeholder="Informe o e-mail somente se marcar a opção acima" autocomplete="off"></div>
+          <button class="btn btn-accent csv-preview-button admin-transfer-submit" type="submit"><span>Importar dados financeiros</span><span aria-hidden="true">→</span></button>
         </form>
       </div>
     </section>
