@@ -885,6 +885,14 @@ class SeedAndPagesTests(BaseFinanceTest):
             response = self.client.get(url)
             self.assertEqual(response.status_code, 200, url)
 
+    def test_fixed_expense_form_provides_generic_categories_for_new_users(self):
+        Category.objects.all().delete()
+        response = self.client.get(reverse('finance:fixed_create'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Financiamento')
+        self.assertContains(response, 'Consórcio')
+        self.assertEqual(FixedExpense.objects.count(), 0)
+
     def test_financial_profile_is_editable(self):
         response = self.client.post(reverse('finance:settings') + '?year=2026&month=9', {
             'salary_gross': '3000.00',

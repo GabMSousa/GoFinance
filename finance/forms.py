@@ -7,7 +7,8 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.forms import SetPasswordForm, UserCreationForm
 
 from .models import Category, CreditCardBill, CreditCardExpense, FinancialProfile, FixedExpense, Goal, Investment, InvestmentOperation, Person, Transaction, VRMovement
-from .services import add_months, invoice_month_for_purchase, to_decimal, vr_balance_for_date
+from .ownership import get_current_user
+from .services import add_months, ensure_default_categories, invoice_month_for_purchase, to_decimal, vr_balance_for_date
 
 RESPONSIBLE_CHOICES = (('SELF', 'Eu'), ('OTHER', 'Outro'))
 
@@ -135,6 +136,7 @@ class BootstrapMixin:
 class BootstrapModelForm(BootstrapMixin, forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        ensure_default_categories(get_current_user())
         self.apply_bootstrap()
 
 

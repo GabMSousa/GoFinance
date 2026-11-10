@@ -5,6 +5,7 @@ from django.core.management.base import BaseCommand, CommandError
 
 from finance.models import Category, Person, UserSecurityProfile
 from finance.ownership import get_current_user
+from finance.services import DEFAULT_CATEGORY_NAMES
 
 
 class Command(BaseCommand):
@@ -38,11 +39,7 @@ class Command(BaseCommand):
         else:
             self.stdout.write('DJANGO_ADMIN_PASSWORD não definida; usuário inicial não foi criado/alterado.')
 
-        categories = [
-            'Alimentação', 'Restaurante', 'Mercado', 'Combustível', 'Transporte',
-            'Assinaturas', 'Compras', 'Lazer', 'Saúde', 'Investimentos', 'Outros',
-        ]
-        for name in categories:
+        for name in DEFAULT_CATEGORY_NAMES:
             Category.objects.get_or_create(
                 owner=owner_user,
                 name=name,

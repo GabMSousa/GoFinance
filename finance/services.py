@@ -13,9 +13,35 @@ from django.db import transaction as db_transaction
 from django.db.models import Q, Sum
 from django.utils import timezone
 
-from .models import CreditCardExpense, FinancialProfile, FixedExpense, Investment, InvestmentOperation, Person, SalarySnapshot, Transaction, VRMovement
+from .models import Category, CreditCardExpense, FinancialProfile, FixedExpense, Investment, InvestmentOperation, Person, SalarySnapshot, Transaction, VRMovement
 
 ZERO = Decimal('0.00')
+
+DEFAULT_CATEGORY_NAMES = (
+    'Alimentação',
+    'Restaurante',
+    'Mercado',
+    'Combustível',
+    'Transporte',
+    'Assinaturas',
+    'Compras',
+    'Lazer',
+    'Saúde',
+    'Investimentos',
+    'Financiamento',
+    'Consórcio',
+    'Outros',
+)
+
+
+def ensure_default_categories(owner):
+    """Ensure generic categories exist for a user, without creating financial records."""
+    if not getattr(owner, 'is_authenticated', False):
+        return
+    existing = set(Category.objects.filter(owner=owner).values_list('name', flat=True))
+    for name in DEFAULT_CATEGORY_NAMES:
+        if name not in existing:
+            Category.objects.create(owner=owner, name=name, active=True)
 
 
 def _normalize_match_text(value):
