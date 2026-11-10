@@ -2,6 +2,7 @@ import calendar
 import csv
 import io
 import json
+import logging
 import string
 import secrets
 import uuid
@@ -54,6 +55,9 @@ from .importers import import_preview_rows, normalize, preview_csv
 from .reporting import build_financial_pdf
 from .portable import MAX_IMPORT_BYTES, build_export, import_snapshot
 from .services import VR_COMPETENCE_LAG_MONTHS, add_months, apply_investment_operation, card_expenses_for_period, investment_scope, invoice_month_for_installment, invoice_month_for_purchase, month_bounds, month_datetime_bounds, monthly_summary, money_sum, split_installment_values, sync_card_vr, sync_transaction_vr, third_party_by_person, to_decimal, transactions_for_display_period, vr_balance_for_date, vr_credit_for_month, vr_receipt_exists, vr_movements_for_display_period
+
+
+logger = logging.getLogger(__name__)
 
 
 def selected_period(request):
@@ -757,7 +761,14 @@ def csv_import_confirm(request):
         request.session.pop('csv_preview_months', None)
         messages.error(request, f'Esta fatura já foi paga. A fatura de {paid_bill.invoice_month:%m/%Y} precisa ser reaberta antes de importar.')
         return redirect(f"{reverse('finance:dashboard')}?year={paid_bill.invoice_month.year}&month={paid_bill.invoice_month.month}")
-    created, skipped = import_preview_rows(rows)
+    try:
+        created, skipped = import_preview_rows(rows)
+    except Exception as exc:
+        logger.exception('Falha ao confirmar importação CSV')
+        request.session.pop('csv_preview_rows', None)
+        request.session.pop('csv_preview_months', None)
+        messages.error(request, f'Importação do CSV não realizada: {exc}')
+        return redirect('finance:dashboard')
     request.session.pop('csv_preview_rows', None)
     request.session.pop('csv_preview_months', None)
     messages.success(request, f'CSV importado: {created} novos registros, {skipped} duplicados ignorados.')

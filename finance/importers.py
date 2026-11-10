@@ -7,6 +7,7 @@ from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 
 from django.db.models import Q
+from django.db import transaction
 
 from .models import Category, CreditCardExpense, Person
 from .services import invoice_month_for_purchase, sync_card_vr
@@ -150,6 +151,7 @@ def preview_csv(content, invoice_month=None):
     return rows
 
 
+@transaction.atomic
 def import_preview_rows(rows, invoice_month=None, source_name='CSV'):
     category_map = {item.name: item for item in Category.objects.all()}
     for name in {row['category'] for row in rows}:
