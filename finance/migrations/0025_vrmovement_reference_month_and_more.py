@@ -34,7 +34,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='vrmovement',
             name='reference_month',
-            field=models.DateField(blank=True, db_index=True, null=True, verbose_name='MÃªs de referÃªncia'),
+            field=models.DateField(blank=True, db_index=True, null=True, verbose_name='Mês de referência'),
         ),
         migrations.RunPython(backfill_credit_reference_month, migrations.RunPython.noop),
         migrations.AddConstraint(
