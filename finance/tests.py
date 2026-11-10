@@ -1031,7 +1031,7 @@ class BalanceVrInvestmentTests(BaseFinanceTest):
         self.assertContains(response, 'Simulador')
         return
         self.assertNotContains(response, 'Indicadores de mercado e consulta rápida.')
-        self.assertContains(response, 'Simulador rÃ¡pido')
+        self.assertContains(response, 'Simulador rápido')
         self.assertNotContains(response, 'data-radar-search')
         self.assertEqual(response.context['summary']['investment_month'], Decimal('0.00'))
 
@@ -1219,7 +1219,7 @@ class BalanceVrInvestmentTests(BaseFinanceTest):
         response = self.client.post(reverse('finance:csv_import_preview'), {'csv_file': upload}, follow=True)
         self.assertRedirects(response, reverse('finance:dashboard') + '?year=2026&month=10')
         self.assertEqual(CreditCardExpense.objects.count(), 0)
-        self.assertContains(response, 'Esta fatura jÃ¡ foi paga')
+        self.assertContains(response, 'Esta fatura já foi paga')
 
     def test_reports_use_current_period_data(self):
         self.assertEqual(self.client.get(reverse('finance:report_csv'), {'year': 2026, 'month': 9}).status_code, 200)
@@ -1564,14 +1564,14 @@ class AuthenticationTests(TestCase):
         created = get_user_model().objects.get(username='new-user')
         self.assertEqual(created.security_profile.display_name, 'Novo Usuário')
         self.assertTrue(created.security_profile.must_change_password)
-        self.assertFalse(Transaction.objects.filter(person__name='Novo UsuÃ¡rio').exists())
+        self.assertFalse(Transaction.objects.filter(person__name='Novo Usuário').exists())
 
     def test_staff_can_create_user_with_default_financial_profile(self):
         admin = get_user_model().objects.create_user(username='profile-admin', password='Strong-test-password-123!', is_staff=True)
         self.client.force_login(admin)
         response = self.client.post(reverse('finance:admin_users'), {
             'username': 'configured-user', 'email': 'configured@example.com',
-            'display_name': 'UsuÃ¡rio Configurado',
+            'display_name': 'Usuário Configurado',
             'password1': 'New-user-password-456!', 'password2': 'New-user-password-456!',
             'salary_gross': '3200.00', 'salary_net': '2751.20', 'previous_net_salary': '2299.00',
             'salary_advance_amount': '1200.00', 'salary_advance_day': '15',

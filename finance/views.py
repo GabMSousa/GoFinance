@@ -1262,7 +1262,7 @@ def vr_receipt_create(request):
             'description': f'Recebimento mensal de VR {received_period:%m/%Y}',
             'amount': form.cleaned_data['amount'],
             'movement_type': VRMovement.Type.CREDIT,
-            'notes': 'Recebimento mensal informado pelo usuÃ¡rio.',
+            'notes': 'Recebimento mensal informado pelo usuário.',
             'reference_month': display_period,
         }
         with db_transaction.atomic():
@@ -1278,7 +1278,7 @@ def vr_receipt_create(request):
                 VRMovement.objects.create(**defaults)
         messages.success(request, 'Recebimento mensal de VR registrado.')
     else:
-        messages.error(request, 'Informe um mÃªs, valor e data vÃ¡lidos para o recebimento do VR.')
+        messages.error(request, 'Informe um mês, valor e data válidos para o recebimento do VR.')
     return redirect(f'{reverse("finance:dashboard")}?year={display_period.year}&month={display_period.month}')
 
 
