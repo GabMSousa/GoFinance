@@ -156,6 +156,7 @@
 .admin-transfer-form .transfer-warning .form-label{margin:2px 0 0}
 .admin-transfer-form .transfer-warning .form-control{width:100%;min-height:44px}
 .admin-transfer-submit{display:flex;align-items:center;justify-content:space-between;width:100%;min-height:46px;margin-top:0;padding:11px 16px 11px 18px;justify-self:stretch}
+.admin-transfer-form .csv-file-picker{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px 16px;align-items:center;line-height:1.35}.admin-transfer-form .csv-file-picker-title{display:block;grid-column:1;color:var(--ink);white-space:nowrap}.admin-transfer-form .csv-file-picker-subtitle{display:block;grid-column:1;line-height:1.45;white-space:normal}.admin-transfer-form .csv-file-picker-button{grid-column:2;grid-row:1 / span 2;white-space:nowrap}
 @media(max-width:800px){.admin-transfer-content{padding-inline:16px}.admin-transfer-form{padding:14px}.admin-transfer-grid{grid-template-columns:1fr;gap:16px}}
 
 html[data-theme="dark"] .vr-highlight {
