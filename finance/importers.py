@@ -70,8 +70,10 @@ def installment_for(description, raw=''):
     return (int(match.group(1)), int(match.group(2))) if match else (1, 1)
 
 
-def import_hash(purchase_date, description, amount, current, total, invoice_month):
+def import_hash(purchase_date, description, amount, current, total, invoice_month, occurrence=1):
     raw = f'{purchase_date.isoformat()}|{normalize(description)}|{amount:.2f}|{current}/{total}|{invoice_month.isoformat()}'
+    if occurrence > 1:
+        raw += f'|occurrence:{occurrence}'
     return hashlib.sha256(raw.encode('utf-8')).hexdigest()
 
 
@@ -96,7 +98,7 @@ def preview_csv(content, invoice_month=None):
     if missing:
         raise ValueError(f'Colunas obrigatórias ausentes: {", ".join(missing)}')
     rows = []
-    seen_hashes = set()
+    occurrences = {}
     for row_number, raw in enumerate(reader, start=2):
         if row_number > 10000:
             raise ValueError('O arquivo CSV excede o limite de 10.000 linhas.')
@@ -117,36 +119,30 @@ def preview_csv(content, invoice_month=None):
         current, total = installment_for(description, raw.get(fields.get('installment', ''), ''))
         # A data do CSV pertence à fatura importada; parcelas novas avançam no cadastro manual.
         row_invoice_month = invoice_month_for_purchase(purchase_date)
-        fingerprint = import_hash(purchase_date, description, amount, current, total, row_invoice_month)
-        manual_duplicate = any(
-            normalize(item.description) == normalized_description
-            and item.total_installments == total
-            and (
-                item.total_amount == (amount * total).quantize(Decimal('0.01'))
-                or (total == 1 and item.amount == amount)
-            )
-            for item in CreditCardExpense.objects.filter(
+        card_amount = (amount - vr_amount).quantize(Decimal('0.01'))
+        occurrence_key = (purchase_date, normalized_description, card_amount, current, total, row_invoice_month)
+        occurrences[occurrence_key] = occurrences.get(occurrence_key, 0) + 1
+        occurrence = occurrences[occurrence_key]
+        fingerprint = import_hash(purchase_date, description, amount, current, total, row_invoice_month, occurrence)
+        existing = [
+            item for item in CreditCardExpense.objects.filter(
                 Q(purchase_date=purchase_date) | Q(date=purchase_date),
                 total_installments=total,
+                current_installment=current,
             )
-        )
-        legacy_duplicate = CreditCardExpense.objects.filter(
-            invoice_month=row_invoice_month, description=description, amount=amount,
-        ).exists() or CreditCardExpense.objects.filter(
-            date=row_invoice_month, description=description, amount=amount,
-        ).exists() or manual_duplicate
+            if normalize(item.description) == normalized_description
+            and item.amount == card_amount
+        ]
         duplicate = bool(
-            fingerprint in seen_hashes
+            len(existing) >= occurrence
             or CreditCardExpense.objects.filter(import_hash=fingerprint).exists()
-            or legacy_duplicate
         )
-        seen_hashes.add(fingerprint)
         rows.append({
             'purchase_date': purchase_date.isoformat(), 'description': description,
             'amount': str(amount), 'vr_amount': str(vr_amount), 'current_installment': current, 'total_installments': total,
             'invoice_month': row_invoice_month.isoformat(), 'category': category_for(description),
             'duplicate': duplicate, 'duplicate_reason': '',
-            'import_hash': fingerprint,
+            'import_hash': fingerprint, 'occurrence': occurrence,
         })
     return rows
 
@@ -158,36 +154,33 @@ def import_preview_rows(rows, invoice_month=None, source_name='CSV'):
         category_map.setdefault(name, Category.objects.get_or_create(name=name, defaults={'active': True})[0])
     person, _ = Person.objects.get_or_create(name='Eu', defaults={'active': True})
     created = skipped = 0
-    seen_hashes = set()
     for row in rows:
         import_hash = row['import_hash']
         purchase_date = date.fromisoformat(row['purchase_date'])
         current, total = int(row['current_installment']), int(row['total_installments'])
+        occurrence = int(row.get('occurrence') or 1)
         row_invoice_month = date.fromisoformat(row['invoice_month']) if row.get('invoice_month') else invoice_month_for_purchase(purchase_date)
         vr_amount = Decimal(row.get('vr_amount') or '0.00')
         card_amount = (Decimal(row['amount']) - vr_amount).quantize(Decimal('0.01'))
-        matching = CreditCardExpense.objects.filter(
+        matching = list(CreditCardExpense.objects.filter(
             purchase_date=purchase_date,
             description=row['description'],
             amount=card_amount,
             current_installment=current,
             total_installments=total,
-        ).order_by('id')
+        ).order_by('id'))
         if (
             row.get('duplicate')
-            or import_hash in seen_hashes
             or CreditCardExpense.objects.filter(import_hash=import_hash).exists()
         ):
-            keeper = matching.first()
+            keeper = matching[occurrence - 1] if len(matching) >= occurrence else (matching[0] if matching else None)
             if keeper:
                 # A CSV row represents the statement being imported. Keep its
                 # competence even when an older import put the installment in
                 # a future month, and remove duplicate copies of that row.
                 CreditCardExpense.objects.filter(pk=keeper.pk).update(invoice_month=row_invoice_month)
-                matching.exclude(pk=keeper.pk).delete()
             skipped += 1
             continue
-        seen_hashes.add(import_hash)
         expense = CreditCardExpense.objects.create(
             date=purchase_date, purchase_date=purchase_date, invoice_month=row_invoice_month,
             description=row['description'], amount=card_amount,

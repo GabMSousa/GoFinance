@@ -1347,17 +1347,19 @@ class BalanceVrInvestmentTests(BaseFinanceTest):
         rows_again = preview_csv(content, date(2026, 10, 1))
         self.assertTrue(all(row['duplicate'] for row in rows_again))
 
-    def test_csv_preview_marks_duplicates_inside_same_file(self):
+    def test_csv_preview_preserves_repeated_purchases_inside_same_file(self):
         content = (
             'DATE,DESCRIPTION,AMOUNT\n'
             '05/10/2026,MERCADO CONDOR,"-80,00"\n'
             '05/10/2026,MERCADO CONDOR,"-80,00"\n'
         )
         rows = preview_csv(content)
-        self.assertEqual([row['duplicate'] for row in rows], [False, True])
+        self.assertEqual([row['duplicate'] for row in rows], [False, False])
         from .importers import import_preview_rows
-        self.assertEqual(import_preview_rows(rows), (1, 1))
-        self.assertEqual(CreditCardExpense.objects.filter(description='MERCADO CONDOR').count(), 1)
+        self.assertEqual(import_preview_rows(rows), (2, 0))
+        self.assertEqual(CreditCardExpense.objects.filter(description='MERCADO CONDOR').count(), 2)
+        rows_again = preview_csv(content)
+        self.assertTrue(all(row['duplicate'] for row in rows_again))
 
     def test_manual_card_entry_does_not_create_the_same_purchase_twice(self):
         data = {
