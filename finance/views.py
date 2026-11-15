@@ -1490,6 +1490,26 @@ def investment_list(request):
     return render(request, 'finance/investment_list.html', context)
 
 
+def investment_withdrawal(request):
+    year, month = investment_selected_period(request)
+    positions = investment_scope(request.user).filter(active=True).order_by('description', 'id')
+    if request.method == 'POST':
+        investment_id = request.POST.get('investment_id')
+        if not positions.filter(pk=investment_id).exists():
+            messages.error(request, 'Selecione uma posição ativa para registrar o resgate.')
+        else:
+            return redirect(
+                f"{reverse('finance:investment_operation', args=[investment_id, InvestmentOperation.OperationType.WITHDRAWAL])}"
+                f"?year={year}&month={month}"
+            )
+    return render(request, 'finance/investment_withdrawal.html', {
+        'positions': positions,
+        'balance_total': positions.aggregate(total=Sum('current_balance'))['total'] or 0,
+        'year': year,
+        'month': month,
+    })
+
+
 def investment_create(request):
     form = InvestmentForm(request.POST or None, initial={'date': localdate()})
     if form.is_valid():

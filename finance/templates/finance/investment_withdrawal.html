@@ -1,0 +1,19 @@
+{% extends 'finance/base.html' %}
+{% block title %}Resgatar saldo{% endblock %}
+{% block content %}
+<div class="page-heading"><div><p class="eyebrow">Investimentos</p><h1>Resgatar saldo</h1><p class="page-subtitle">Escolha a posição de origem para manter o histórico financeiro correto.</p></div></div>
+<section class="data-panel investment-operation-panel">
+  <div class="panel-heading"><div><h2>Saldo acumulado</h2><p>Disponível para resgate: <strong>R$ {{ balance_total|floatformat:2 }}</strong></p></div></div>
+  <div class="p-3">
+    <form method="post">
+      {% csrf_token %}
+      <label class="form-label" for="investment-id">Posição de origem</label>
+      <select class="form-select" id="investment-id" name="investment_id" required>
+        <option value="">Selecione a posição</option>
+        {% for position in positions %}<option value="{{ position.id }}">{{ position.description }} — R$ {{ position.current_balance|floatformat:2 }}</option>{% endfor %}
+      </select>
+      <div class="mt-4"><button class="btn btn-primary" type="submit">Continuar para o resgate</button> <a class="btn btn-outline-secondary" href="{% url 'finance:investment_list' %}?year={{ year }}&amp;month={{ month }}">Cancelar</a></div>
+    </form>
+  </div>
+</section>
+{% endblock %}

@@ -24,15 +24,8 @@
   </div>
 </section>
 <section class="data-panel investment-redemption-panel">
-  <div class="panel-heading"><div><h2>Resgatar investimentos</h2><p>Registre um resgate separado das ações de manutenção do saldo.</p></div></div>
-  <div class="investment-redemption-list">
-    {% for position in managed_positions %}{% if position.active %}
-    <article class="investment-redemption-row">
-      <div><strong>{{ position.description }}</strong><span>Saldo disponível: R$ {{ position.current_balance|floatformat:2 }}</span></div>
-      <a class="btn btn-sm btn-outline-warning" href="{% url 'finance:investment_operation' position.id 'WITHDRAWAL' %}?year={{ year }}&amp;month={{ month }}">Resgatar</a>
-    </article>
-    {% endif %}{% empty %}<p class="empty-state">Nenhuma posição ativa disponível para resgate.</p>{% endfor %}
-  </div>
+  <div class="panel-heading"><div><h2>Resgatar saldo acumulado</h2><p>As posições ativas aparecem somadas aqui; o histórico continua preservado por posição.</p></div><a class="btn btn-sm btn-outline-warning" href="{% url 'finance:investment_withdrawal' %}?year={{ year }}&amp;month={{ month }}">Resgatar saldo</a></div>
+  <div class="investment-redemption-summary"><span>Saldo acumulado disponível</span><strong>R$ {{ balance_total|floatformat:2 }}</strong></div>
 </section>
 <section class="data-panel investment-table-panel investment-operations-panel">
   <div class="panel-heading"><div><h2>Movimentações de investimentos</h2><p>Aportes, resgates e ajustes registrados no período selecionado.</p></div><a class="btn btn-sm btn-outline-secondary" href="{% url 'finance:investment_history' %}?year={{ year }}&amp;month={{ month }}">Filtros e histórico</a></div>

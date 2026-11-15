@@ -59,6 +59,7 @@ urlpatterns = [
     path('investimentos/<int:pk>/editar/', login_required(views.investment_edit), name='investment_edit'),
     path('investimentos/<int:pk>/excluir/', login_required(views.investment_delete), name='investment_delete'),
     path('investimentos/<int:pk>/operacao/<str:operation_type>/', login_required(views.investment_operation), name='investment_operation'),
+    path('investimentos/resgatar/', login_required(views.investment_withdrawal), name='investment_withdrawal'),
     path('investimentos/historico/', login_required(views.investment_history), name='investment_history'),
     path('receitas/', login_required(views.revenue_list), name='revenue_list'),
     path('receitas/novo/', login_required(views.revenue_create), name='revenue_create'),
