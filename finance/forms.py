@@ -106,7 +106,7 @@ class EmailLoginForm(AuthenticationForm):
         self.fields['username'].label = 'E-mail'
         self.fields['username'].widget.attrs.update({
             'autocomplete': 'email',
-            'placeholder': 'seu@email.com ou admin',
+            'placeholder': 'seu@email.com',
         })
         self.fields['password'].label = 'Senha'
 
