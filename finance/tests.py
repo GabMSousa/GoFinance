@@ -1679,6 +1679,18 @@ class AuthenticationTests(TestCase):
     def test_staff_can_remove_another_user_but_not_self(self):
         admin = get_user_model().objects.create_user(username='delete-admin', password='Strong-test-password-123!', is_staff=True)
         target = get_user_model().objects.create_user(username='delete-target', email='delete@example.com', password='Strong-test-password-123!')
+        category = Category.objects.create(owner=target, name='Categoria temporaria')
+        person = Person.objects.create(owner=target, name='Eu')
+        Transaction.objects.create(
+            owner=target,
+            date=date(2026, 11, 15),
+            description='Lancamento temporario',
+            type=Transaction.Type.EXPENSE,
+            payment_method=Transaction.PaymentMethod.PIX,
+            amount=Decimal('10.00'),
+            category=category,
+            person=person,
+        )
         self.client.force_login(admin)
 
         response = self.client.post(reverse('finance:admin_user_delete', args=[target.pk]))

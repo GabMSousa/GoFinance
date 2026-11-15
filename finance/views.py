@@ -265,6 +265,26 @@ def admin_user_toggle_active(request, pk):
     return redirect('finance:admin_users')
 
 
+def _delete_user_account_data(user):
+    """Remove one user's data in dependency order before deleting the account."""
+    operation_filter = Q(user=user) | Q(investment__user=user)
+    operations = InvestmentOperation.objects.filter(operation_filter)
+    # Reversal links are PROTECT, so break the self-references first.
+    operations.update(reverses=None)
+    operations.delete()
+
+    Investment.objects.filter(user=user).delete()
+    CreditCardExpense.objects.filter(owner=user).delete()
+    Transaction.objects.filter(owner=user).delete()
+    FixedExpense.objects.filter(owner=user).delete()
+    Goal.objects.filter(owner=user).delete()
+    SalarySnapshot.objects.filter(owner=user).delete()
+    CreditCardBill.objects.filter(owner=user).delete()
+    FinancialProfile.objects.filter(owner=user).delete()
+    Category.objects.filter(owner=user).delete()
+    Person.objects.filter(owner=user).delete()
+
+
 @staff_required
 @require_POST
 def admin_user_delete(request, pk):
@@ -276,7 +296,9 @@ def admin_user_delete(request, pk):
         messages.error(request, 'Mantenha pelo menos um administrador ativo no sistema.')
     else:
         label = user.email or user.username
-        user.delete()
+        with db_transaction.atomic():
+            _delete_user_account_data(user)
+            user.delete()
         messages.success(request, f'Acesso {label} removido permanentemente.')
     return redirect('finance:admin_users')
 
