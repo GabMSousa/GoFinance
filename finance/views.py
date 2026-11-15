@@ -300,10 +300,18 @@ def admin_user_delete(request, pk):
         messages.error(request, 'Mantenha pelo menos um administrador ativo no sistema.')
     else:
         label = user.email or user.username
-        with db_transaction.atomic():
-            _delete_user_account_data(user)
-            user.delete()
-        messages.success(request, f'Acesso {label} removido permanentemente.')
+        try:
+            with db_transaction.atomic():
+                _delete_user_account_data(user)
+                user.delete()
+        except ProtectedError:
+            messages.error(
+                request,
+                f'NÃ£o foi possÃ­vel remover {label} porque ainda existem dados protegidos. '
+                'Nenhuma informaÃ§Ã£o foi alterada; tente novamente apÃ³s atualizar a pÃ¡gina.',
+            )
+        else:
+            messages.success(request, f'Acesso {label} removido permanentemente.')
     return redirect('finance:admin_users')
 
 
