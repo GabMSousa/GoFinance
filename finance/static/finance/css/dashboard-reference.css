@@ -769,6 +769,13 @@ html:not([data-theme="dark"]) .movement-account-summary .account-summary-card { 
 .investment-positions-panel, .investment-operations-panel { margin-bottom: 14px; }
 .investment-positions-panel > .panel-heading, .investment-operations-panel > .panel-heading { padding: 15px 18px 11px; margin-bottom: 0; }
 .investment-position-list { padding: 0 18px; }
+.investment-redemption-panel { margin-bottom: 14px; }
+.investment-redemption-panel > .panel-heading { padding: 15px 18px 11px; margin-bottom: 0; }
+.investment-redemption-list { padding: 0 18px; }
+.investment-redemption-row { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 13px 0; border-top: 1px solid var(--dashboard-divider); }
+.investment-redemption-row > div { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.investment-redemption-row strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.investment-redemption-row span { color: var(--dashboard-muted); font-size: .72rem; }
 .investment-position-row { display: grid; grid-template-columns: minmax(240px, 1.4fr) minmax(150px, .7fr) auto minmax(300px, 1.4fr); align-items: center; gap: 18px; padding: 14px 0; border-top: 1px solid var(--dashboard-divider); }
 .investment-position-main { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .investment-position-main strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

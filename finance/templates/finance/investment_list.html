@@ -13,8 +13,7 @@
       <div class="investment-position-balance"><span>Saldo atual</span><strong>R$ {{ position.current_balance|floatformat:2 }}</strong></div>
       <span class="badge {% if position.active %}ok{% else %}muted{% endif %}">{% if position.active %}Ativa{% else %}Encerrada{% endif %}</span>
       <div class="investment-row-actions">
-        {% if position.active %}<a class="btn btn-sm btn-outline-success" href="{% url 'finance:investment_operation' position.id 'CONTRIBUTION' %}?year={{ year }}&amp;month={{ month }}">Aportar</a><a class="btn btn-sm btn-outline-warning" href="{% url 'finance:investment_operation' position.id 'WITHDRAWAL' %}?year={{ year }}&amp;month={{ month }}">Resgatar</a><a class="btn btn-sm btn-outline-secondary" href="{% url 'finance:investment_operation' position.id 'ADJUSTMENT' %}?year={{ year }}&amp;month={{ month }}">Ajustar saldo</a>{% endif %}
-        <a class="btn btn-sm btn-outline-primary" href="{% url 'finance:investment_edit' position.id %}?year={{ year }}&amp;month={{ month }}">Editar</a>
+        {% if position.active %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'finance:investment_operation' position.id 'ADJUSTMENT' %}?year={{ year }}&amp;month={{ month }}">Ajustar saldo</a>{% endif %}
         <form method="post" action="{% url 'finance:investment_delete' position.id %}" data-confirm-submit="Apagar este investimento? Esta ação só será concluída se não houver movimentações históricas associadas.">
           {% csrf_token %}
           <button class="btn btn-sm btn-outline-danger" type="submit" aria-label="Apagar {{ position.description }}">Apagar</button>
@@ -22,6 +21,17 @@
       </div>
     </article>
     {% empty %}<p class="empty-state investment-empty-state">Nenhuma posição associada ao usuário. Cadastre uma nova posição para começar.</p>{% endfor %}
+  </div>
+</section>
+<section class="data-panel investment-redemption-panel">
+  <div class="panel-heading"><div><h2>Resgatar investimentos</h2><p>Registre um resgate separado das ações de manutenção do saldo.</p></div></div>
+  <div class="investment-redemption-list">
+    {% for position in managed_positions %}{% if position.active %}
+    <article class="investment-redemption-row">
+      <div><strong>{{ position.description }}</strong><span>Saldo disponível: R$ {{ position.current_balance|floatformat:2 }}</span></div>
+      <a class="btn btn-sm btn-outline-warning" href="{% url 'finance:investment_operation' position.id 'WITHDRAWAL' %}?year={{ year }}&amp;month={{ month }}">Resgatar</a>
+    </article>
+    {% endif %}{% empty %}<p class="empty-state">Nenhuma posição ativa disponível para resgate.</p>{% endfor %}
   </div>
 </section>
 <section class="data-panel investment-table-panel investment-operations-panel">
