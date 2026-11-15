@@ -4,6 +4,7 @@ import uuid
 
 from django import forms
 from django.contrib.auth import get_user_model
+from django.contrib.auth import password_validation
 from django.contrib.auth.forms import AuthenticationForm, SetPasswordForm, UserCreationForm
 
 from .models import Category, CreditCardBill, CreditCardExpense, FinancialProfile, FixedExpense, Goal, Investment, InvestmentOperation, Person, Transaction, VRMovement
@@ -109,6 +110,25 @@ class EmailLoginForm(AuthenticationForm):
             'placeholder': 'seu@email.com',
         })
         self.fields['password'].label = 'Senha'
+
+
+class AdminPasswordForm(forms.Form):
+    new_password = forms.CharField(label='Nova senha', strip=False, widget=forms.PasswordInput(attrs={'autocomplete': 'new-password'}))
+    confirm_password = forms.CharField(label='Confirme a nova senha', strip=False, widget=forms.PasswordInput(attrs={'autocomplete': 'new-password'}))
+
+    def __init__(self, user, *args, **kwargs):
+        self.user = user
+        super().__init__(*args, **kwargs)
+
+    def clean(self):
+        cleaned_data = super().clean()
+        password = cleaned_data.get('new_password')
+        confirmation = cleaned_data.get('confirm_password')
+        if password and confirmation and password != confirmation:
+            raise forms.ValidationError('As senhas nÃ£o conferem.')
+        if password:
+            password_validation.validate_password(password, self.user)
+        return cleaned_data
 
 
 class AdminUserCreationForm(UserCreationForm):

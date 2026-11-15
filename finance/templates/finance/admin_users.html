@@ -52,6 +52,12 @@
                         {% csrf_token %}
                         <button class="admin-action admin-action-reset" type="submit">Resetar senha</button>
                       </form>
+                      <form method="post" action="{% url 'finance:admin_user_set_password' user.pk %}" class="admin-password-form" data-confirm-submit="Definir esta nova senha para o usuÃ¡rio?">
+                        {% csrf_token %}
+                        <input class="admin-password-input" type="password" name="new_password" minlength="10" placeholder="Nova senha" autocomplete="new-password" required>
+                        <input class="admin-password-input" type="password" name="confirm_password" minlength="10" placeholder="Confirme a senha" autocomplete="new-password" required>
+                        <button class="admin-action admin-action-reset" type="submit">Definir senha</button>
+                      </form>
                       <a class="admin-action admin-action-export" href="{% url 'finance:admin_export_user_data' user.pk %}">Exportar dados</a>
                       {% if user.pk != request.user.pk %}
                         <form method="post" action="{% url 'finance:admin_user_delete' user.pk %}" data-confirm-submit="Remover este usuÃ¡rio permanentemente? Todos os dados financeiros dele tambÃ©m serÃ£o removidos e esta aÃ§Ã£o nÃ£o pode ser desfeita.">

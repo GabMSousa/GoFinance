@@ -1713,6 +1713,20 @@ class AuthenticationTests(TestCase):
         self.assertTrue(target.security_profile.must_change_password)
         self.assertFalse(self.client.login(username='reset-target', password='Old-password-123!'))
 
+    def test_staff_can_set_a_manual_password_without_forcing_change(self):
+        admin = get_user_model().objects.create_user(username='manual-password-admin', password='Strong-test-password-123!', is_staff=True)
+        target = get_user_model().objects.create_user(username='manual-password-target', email='manual@example.com', password='Old-password-123!')
+        UserSecurityProfile.objects.create(user=target, must_change_password=True)
+        self.client.force_login(admin)
+        response = self.client.post(reverse('finance:admin_user_set_password', args=[target.pk]), {
+            'new_password': 'New-manual-password-456!',
+            'confirm_password': 'New-manual-password-456!',
+        })
+        self.assertRedirects(response, reverse('finance:admin_users'))
+        target.refresh_from_db()
+        self.assertTrue(target.check_password('New-manual-password-456!'))
+        self.assertFalse(target.security_profile.must_change_password)
+
     def test_staff_can_see_and_reset_own_password(self):
         admin = get_user_model().objects.create_user(username='self-reset-admin', password='Old-password-123!', is_staff=True)
         self.client.force_login(admin)

@@ -41,6 +41,7 @@ from .forms import (
     ProfileForm,
     ProfilePasswordForm,
     AdminUserCreationForm,
+    AdminPasswordForm,
     QuickExpenseForm,
     ReimbursementForm,
     RevenueForm,
@@ -327,6 +328,25 @@ def admin_user_reset_password(request, pk):
         defaults={'must_change_password': True},
     )
     messages.success(request, f'Senha temporária de {user.email or user.username}: {temporary_password}')
+    return redirect('finance:admin_users')
+
+
+@staff_required
+@require_POST
+def admin_user_set_password(request, pk):
+    user = get_object_or_404(get_user_model(), pk=pk)
+    form = AdminPasswordForm(user, request.POST)
+    if form.is_valid():
+        user.set_password(form.cleaned_data['new_password'])
+        user.save(update_fields=['password'])
+        UserSecurityProfile.objects.update_or_create(
+            user=user,
+            defaults={'must_change_password': False},
+        )
+        messages.success(request, f'Senha de {user.email or user.username} atualizada com sucesso.')
+    else:
+        detail = ' '.join(error for errors in form.errors.values() for error in errors)
+        messages.error(request, f'Não foi possível atualizar a senha de {user.email or user.username}: {detail}')
     return redirect('finance:admin_users')
 
 

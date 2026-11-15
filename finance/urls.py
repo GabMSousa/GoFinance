@@ -15,6 +15,7 @@ urlpatterns = [
     path('usuarios/<int:pk>/alternar-status/', views.admin_user_toggle_active, name='admin_user_toggle_active'),
     path('usuarios/<int:pk>/remover/', views.admin_user_delete, name='admin_user_delete'),
     path('usuarios/<int:pk>/resetar-senha/', views.admin_user_reset_password, name='admin_user_reset_password'),
+    path('usuarios/<int:pk>/definir-senha/', views.admin_user_set_password, name='admin_user_set_password'),
     path('usuarios/<int:pk>/exportar-dados/', views.admin_export_user_data, name='admin_export_user_data'),
     path('usuarios/importar-dados/', views.admin_import_user_data, name='admin_import_user_data'),
     path('configuracoes/', login_required(views.settings_page), name='settings'),
