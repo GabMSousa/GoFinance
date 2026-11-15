@@ -267,22 +267,26 @@ def admin_user_toggle_active(request, pk):
 
 def _delete_user_account_data(user):
     """Remove one user's data in dependency order before deleting the account."""
-    operation_filter = Q(user=user) | Q(investment__user=user)
+    categories = Category._base_manager.filter(owner_id=user.pk)
+    people = Person._base_manager.filter(owner_id=user.pk)
+    investments = Investment._base_manager.filter(Q(user=user) | Q(category__in=categories))
+    operation_filter = Q(user=user) | Q(investment__in=investments)
     operations = InvestmentOperation._base_manager.filter(operation_filter)
     # Reversal links are PROTECT, so break the self-references first.
     operations.update(reverses=None)
     operations.delete()
 
-    Investment._base_manager.filter(user=user).delete()
-    CreditCardExpense._base_manager.filter(owner=user).delete()
-    Transaction._base_manager.filter(owner=user).delete()
-    FixedExpense._base_manager.filter(owner=user).delete()
+    investments.delete()
+    related_records = Q(owner=user) | Q(category__in=categories) | Q(person__in=people)
+    CreditCardExpense._base_manager.filter(related_records).delete()
+    Transaction._base_manager.filter(related_records).delete()
+    FixedExpense._base_manager.filter(Q(owner=user) | Q(category__in=categories)).delete()
     Goal._base_manager.filter(owner=user).delete()
     SalarySnapshot._base_manager.filter(owner=user).delete()
     CreditCardBill._base_manager.filter(owner=user).delete()
     FinancialProfile._base_manager.filter(owner=user).delete()
-    Category._base_manager.filter(owner=user).delete()
-    Person._base_manager.filter(owner=user).delete()
+    categories.delete()
+    people.delete()
 
 
 @staff_required
