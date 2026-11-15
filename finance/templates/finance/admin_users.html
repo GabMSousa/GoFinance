@@ -53,6 +53,12 @@
                         <button class="admin-action admin-action-reset" type="submit">Resetar senha</button>
                       </form>
                       <a class="admin-action admin-action-export" href="{% url 'finance:admin_export_user_data' user.pk %}">Exportar dados</a>
+                      {% if user.pk != request.user.pk %}
+                        <form method="post" action="{% url 'finance:admin_user_delete' user.pk %}" data-confirm-submit="Remover este usuÃ¡rio permanentemente? Todos os dados financeiros dele tambÃ©m serÃ£o removidos e esta aÃ§Ã£o nÃ£o pode ser desfeita.">
+                          {% csrf_token %}
+                          <button class="admin-action admin-action-danger" type="submit">Remover</button>
+                        </form>
+                      {% endif %}
                   </div>
                 </td>
               </tr>

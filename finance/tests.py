@@ -1676,6 +1676,19 @@ class AuthenticationTests(TestCase):
         admin.refresh_from_db()
         self.assertTrue(admin.is_active)
 
+    def test_staff_can_remove_another_user_but_not_self(self):
+        admin = get_user_model().objects.create_user(username='delete-admin', password='Strong-test-password-123!', is_staff=True)
+        target = get_user_model().objects.create_user(username='delete-target', email='delete@example.com', password='Strong-test-password-123!')
+        self.client.force_login(admin)
+
+        response = self.client.post(reverse('finance:admin_user_delete', args=[target.pk]))
+        self.assertRedirects(response, reverse('finance:admin_users'))
+        self.assertFalse(get_user_model().objects.filter(pk=target.pk).exists())
+
+        response = self.client.post(reverse('finance:admin_user_delete', args=[admin.pk]))
+        self.assertRedirects(response, reverse('finance:admin_users'))
+        self.assertTrue(get_user_model().objects.filter(pk=admin.pk).exists())
+
     def test_staff_can_reset_password_and_force_change(self):
         admin = get_user_model().objects.create_user(username='reset-admin', password='Strong-test-password-123!', is_staff=True)
         target = get_user_model().objects.create_user(username='reset-target', password='Old-password-123!')

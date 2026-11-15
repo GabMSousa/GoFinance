@@ -267,6 +267,22 @@ def admin_user_toggle_active(request, pk):
 
 @staff_required
 @require_POST
+def admin_user_delete(request, pk):
+    user_model = get_user_model()
+    user = get_object_or_404(user_model, pk=pk)
+    if user.pk == request.user.pk:
+        messages.error(request, 'VocÃª nÃ£o pode remover o prÃ³prio acesso administrativo.')
+    elif user.is_staff and user_model.objects.filter(is_active=True, is_staff=True).count() <= 1:
+        messages.error(request, 'Mantenha pelo menos um administrador ativo no sistema.')
+    else:
+        label = user.email or user.username
+        user.delete()
+        messages.success(request, f'Acesso {label} removido permanentemente.')
+    return redirect('finance:admin_users')
+
+
+@staff_required
+@require_POST
 def admin_user_reset_password(request, pk):
     user = get_object_or_404(get_user_model(), pk=pk)
     temporary_password = _temporary_password()
