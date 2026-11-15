@@ -994,6 +994,7 @@ class BalanceVrInvestmentTests(BaseFinanceTest):
         caixinha = Investment.objects.get(description='Reserva de Emergência')
         self.assertEqual(caixinha.type, Investment.Type.CAIXINHA)
         self.assertEqual(caixinha.current_balance, Decimal('250.00'))
+        self.assertEqual(caixinha.payment_method, Transaction.PaymentMethod.DEBIT)
         self.assertEqual(caixinha.user, self.user)
 
     def test_caixinha_rescue_keeps_existing_reason_validation(self):

@@ -1,0 +1,46 @@
+{% extends 'finance/base.html' %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="page-heading"><div><p class="eyebrow">Investimentos</p><h1>{{ title }}</h1><p class="page-subtitle">O saldo é controlado pelas operações de aporte, resgate e ajuste.</p></div></div>
+<section class="data-panel investment-form-panel">
+  <form method="post" class="investment-form" data-investment-form>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors|striptags }}</div>{% endif %}
+    <div class="investment-form-grid">
+      <div class="investment-form-field">{{ form.date.label_tag }}{{ form.date }}{% if form.date.errors %}<div class="text-danger small">{{ form.date.errors|striptags }}</div>{% endif %}</div>
+      <div class="investment-form-field">{{ form.description.label_tag }}{{ form.description }}{% if form.description.errors %}<div class="text-danger small">{{ form.description.errors|striptags }}</div>{% endif %}</div>
+      <div class="investment-form-field">{{ form.type.label_tag }}{{ form.type }}{% if form.type.errors %}<div class="text-danger small">{{ form.type.errors|striptags }}</div>{% endif %}</div>
+      {% if form.amount %}<div class="investment-form-field">{{ form.amount.label_tag }}{{ form.amount }}<small data-investment-amount-help>{{ form.amount.help_text }}</small>{% if form.amount.errors %}<div class="text-danger small">{{ form.amount.errors|striptags }}</div>{% endif %}</div>{% endif %}
+      <div class="investment-form-field">{{ form.recurrence.label_tag }}{{ form.recurrence }}{% if form.recurrence.errors %}<div class="text-danger small">{{ form.recurrence.errors|striptags }}</div>{% endif %}</div>
+      <div class="investment-form-field">{{ form.due_day.label_tag }}{{ form.due_day }}<small data-investment-due-help>Use apenas para aportes recorrentes.</small>{% if form.due_day.errors %}<div class="text-danger small">{{ form.due_day.errors|striptags }}</div>{% endif %}</div>
+      <div class="investment-form-field investment-form-field-notes">{{ form.notes.label_tag }}{{ form.notes }}{% if form.notes.errors %}<div class="text-danger small">{{ form.notes.errors|striptags }}</div>{% endif %}</div>
+      <div class="investment-form-field investment-form-field-active"><div class="form-check">{{ form.active }} {{ form.active.label_tag }}</div>{% if form.active.errors %}<div class="text-danger small">{{ form.active.errors|striptags }}</div>{% endif %}</div>
+    </div>
+    {% if is_edit %}<div class="investment-form-note">Para alterar o saldo atual, use “Ajustar saldo” na lista de investimentos.</div>{% endif %}
+    <div class="mt-4"><button class="btn btn-primary" type="submit">Salvar</button> <a href="javascript:history.back()" class="btn btn-outline-secondary">Cancelar</a></div>
+  </form>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+  const investmentType = document.querySelector('[name="type"]');
+  const amountLabel = document.querySelector('label[for="id_amount"]');
+  const amountHelp = document.querySelector('[data-investment-amount-help]');
+  const recurrenceLabel = document.querySelector('label[for="id_recurrence"]');
+  const dueHelp = document.querySelector('[data-investment-due-help]');
+  const copyByType = {
+    CAIXINHA: ['Valor inicial na caixinha', 'O saldo acumulado começa por este valor.', 'Periodicidade do depósito', 'Use apenas para depósitos recorrentes.'],
+    SAVINGS: ['Valor inicial depositado', 'O saldo acumulado começa por este valor.', 'Periodicidade do depósito', 'Use apenas para depósitos recorrentes.'],
+    DEFAULT: ['Valor investido', 'O saldo da posição começa por este valor.', 'Periodicidade do aporte', 'Use apenas para aportes recorrentes.']
+  };
+  function updateInvestmentCopy() {
+    const copy = copyByType[investmentType?.value] || copyByType.DEFAULT;
+    if (amountLabel) amountLabel.textContent = copy[0];
+    if (amountHelp) amountHelp.textContent = copy[1];
+    if (recurrenceLabel) recurrenceLabel.textContent = copy[2];
+    if (dueHelp) dueHelp.textContent = copy[3];
+  }
+  investmentType?.addEventListener('change', updateInvestmentCopy);
+  updateInvestmentCopy();
+</script>
+{% endblock %}

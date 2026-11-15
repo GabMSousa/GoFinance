@@ -527,8 +527,8 @@ class InvestmentForm(BootstrapModelForm):
     class Meta:
         model = Investment
         fields = [
-            'date', 'description', 'type', 'amount', 'current_balance',
-            'payment_method', 'recurrence', 'due_day', 'active', 'notes',
+            'date', 'description', 'type', 'amount',
+            'recurrence', 'due_day', 'active', 'notes',
         ]
         widgets = {
             'date': forms.DateInput(attrs={'type': 'date'}),
@@ -538,13 +538,13 @@ class InvestmentForm(BootstrapModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['type'].label = 'Tipo de investimento'
-        self.fields['amount'].label = 'Valor inicial aplicado'
-        self.fields['current_balance'].label = 'Saldo atual'
-        self.fields['payment_method'].label = 'Conta de origem'
+        self.fields['amount'].label = 'Valor inicial'
         self.fields['recurrence'].label = 'Periodicidade do aporte'
         self.fields['due_day'].label = 'Dia do aporte'
         self.fields['notes'].label = 'Observações do investimento'
-        self.fields['current_balance'].help_text = 'Saldo acumulado desta posição.'
+        self.fields['amount'].help_text = 'O saldo atual será iniciado por este valor e poderá ser ajustado depois na tela de investimentos.'
+        if self.instance and self.instance.pk:
+            self.fields.pop('amount')
 
 
 class InvestmentOperationForm(BootstrapMixin, forms.Form):

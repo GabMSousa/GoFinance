@@ -1515,6 +1515,7 @@ def investment_create(request):
     if form.is_valid():
         investment = form.save(commit=False)
         investment.user = request.user
+        investment.payment_method = Transaction.PaymentMethod.DEBIT
         if 'active' not in request.POST:
             investment.active = True
         initial_amount = investment.amount
@@ -1533,12 +1534,17 @@ def investment_create(request):
             )
         messages.success(request, 'Investimento cadastrado para o usuário autenticado.')
         return investment_period_redirect(request)
-    return render(request, 'finance/form.html', {'form': form, 'title': 'Novo investimento'})
+    return render(request, 'finance/investment_form.html', {'form': form, 'title': 'Novo investimento', 'is_edit': False})
 
 
 def investment_edit(request, pk):
     investment = get_object_or_404(Investment, pk=pk, user=request.user)
-    return model_form_edit(request, Investment, InvestmentForm, investment.pk, 'Editar investimento', 'finance:investment_list')
+    form = InvestmentForm(request.POST or None, instance=investment)
+    if form.is_valid():
+        form.save()
+        messages.success(request, 'Investimento atualizado.')
+        return investment_period_redirect(request)
+    return render(request, 'finance/investment_form.html', {'form': form, 'title': 'Editar investimento', 'is_edit': True})
 
 
 def investment_delete(request, pk):

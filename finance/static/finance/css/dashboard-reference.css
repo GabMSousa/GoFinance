@@ -778,6 +778,14 @@ html:not([data-theme="dark"]) .movement-account-summary .account-summary-card { 
 .investment-redemption-row span { color: var(--dashboard-muted); font-size: .72rem; }
 .investment-redemption-summary { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; padding: 14px 18px; border-top: 1px solid var(--dashboard-divider); color: var(--dashboard-muted); }
 .investment-redemption-summary strong { color: var(--dashboard-ink); font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+.investment-form-panel { padding: 18px; }
+.investment-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.investment-form-field { display: flex; flex-direction: column; gap: 6px; }
+.investment-form-field-notes { grid-column: 1 / -1; }
+.investment-form-field-active { align-self: end; }
+.investment-form-field small, .investment-form-note { color: var(--dashboard-muted); font-size: .75rem; }
+.investment-form-note { margin-top: 14px; padding: 10px 12px; border-left: 2px solid var(--accent); background: rgba(12, 233, 62, .06); }
+@media (max-width: 700px) { .investment-form-grid { grid-template-columns: 1fr; } .investment-form-field-notes { grid-column: auto; } }
 .investment-position-row { display: grid; grid-template-columns: minmax(240px, 1.4fr) minmax(150px, .7fr) auto minmax(300px, 1.4fr); align-items: center; gap: 18px; padding: 14px 0; border-top: 1px solid var(--dashboard-divider); }
 .investment-position-main { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .investment-position-main strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
