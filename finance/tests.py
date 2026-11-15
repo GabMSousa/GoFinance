@@ -1709,16 +1709,48 @@ class AuthenticationTests(TestCase):
         self.assertFalse(response.wsgi_request.user.is_authenticated)
 
     def test_valid_login_opens_the_finance_area(self):
-        get_user_model().objects.create_user(username='login-user', password='Strong-test-password-123!')
+        get_user_model().objects.create_user(
+            username='login-user', email='login@example.com', password='Strong-test-password-123!'
+        )
         response = self.client.post(reverse('login'), {
-            'username': 'login-user',
+            'username': 'login@example.com',
             'password': 'Strong-test-password-123!',
         })
         self.assertRedirects(response, '/')
         self.assertTrue(response.wsgi_request.user.is_authenticated)
 
+    def test_regular_user_cannot_login_with_technical_username(self):
+        get_user_model().objects.create_user(
+            username='login-user', email='login@example.com', password='Strong-test-password-123!'
+        )
+        response = self.client.post(reverse('login'), {
+            'username': 'login-user',
+            'password': 'Strong-test-password-123!',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.wsgi_request.user.is_authenticated)
+
+    def test_default_admin_can_login_only_with_admin_identifier(self):
+        get_user_model().objects.create_user(
+            username='admin', email='admin@example.com', password='Strong-test-password-123!', is_staff=True
+        )
+        response = self.client.post(reverse('login'), {
+            'username': 'admin',
+            'password': 'Strong-test-password-123!',
+        })
+        self.assertRedirects(response, '/')
+        self.client.logout()
+        response = self.client.post(reverse('login'), {
+            'username': 'admin@example.com',
+            'password': 'Strong-test-password-123!',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.wsgi_request.user.is_authenticated)
+
     def test_first_login_requires_password_change(self):
-        user = get_user_model().objects.create_user(username='first-login', password='Old-password-123!')
+        user = get_user_model().objects.create_user(
+            username='first-login', email='first-login@example.com', password='Old-password-123!'
+        )
         UserSecurityProfile.objects.create(user=user, must_change_password=True)
         self.client.force_login(user)
         response = self.client.get(reverse('finance:dashboard'))
@@ -1732,7 +1764,7 @@ class AuthenticationTests(TestCase):
         self.assertRedirects(response, '/')
         self.assertFalse(UserSecurityProfile.objects.get(user=user).must_change_password)
         self.client.logout()
-        self.assertTrue(self.client.login(username='first-login', password='New-password-456!'))
+        self.assertTrue(self.client.login(username='first-login@example.com', password='New-password-456!'))
 
     def test_profile_updates_user_data_and_avatar(self):
         user = get_user_model().objects.create_user(username='profile-user', password='Strong-test-password-123!')

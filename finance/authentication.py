@@ -11,7 +11,12 @@ class EmailOrDefaultAdminBackend(ModelBackend):
 
         identifier = username.strip()
         user_model = get_user_model()
-        user = user_model.objects.filter(email__iexact=identifier).first()
+        # Usuários financeiros entram exclusivamente pelo e-mail. O único
+        # login por identificador é o administrador padrão ``admin``.
+        user = user_model.objects.filter(
+            email__iexact=identifier,
+            is_staff=False,
+        ).first()
         if user is None and identifier.casefold() == 'admin':
             user = user_model.objects.filter(username='admin', is_staff=True).first()
         if user is not None and user.check_password(password) and self.user_can_authenticate(user):
