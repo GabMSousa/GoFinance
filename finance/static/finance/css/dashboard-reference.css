@@ -796,6 +796,12 @@ html:not([data-theme="dark"]) .movement-account-summary .account-summary-card { 
 .investment-position-balance strong { font-variant-numeric: tabular-nums; }
 .investment-empty-state { padding: 28px 16px !important; }
 .investment-operations-panel .table th, .investment-operations-panel .table td { padding: 11px 14px; }
+.investment-operations-panel tr.investment-entry .investment-operation-type,
+.investment-operations-panel tr.investment-entry .investment-operation-value { color: #20c875; font-weight: 750; }
+.investment-operations-panel tr.investment-exit .investment-operation-type,
+.investment-operations-panel tr.investment-exit .investment-operation-value { color: #ff5c6c; font-weight: 750; }
+.investment-operations-panel tr.investment-adjustment .investment-operation-type,
+.investment-operations-panel tr.investment-adjustment .investment-operation-value { color: #e7b84b; font-weight: 750; }
 .investment-legacy-notice { display: flex; flex-direction: column; gap: 4px; margin: 0 0 14px; padding: 11px 16px; border: 1px solid #e1a91d; border-radius: 9px; background: #8b670f61; color: var(--dashboard-muted); font-size: .75rem; }
 .investment-legacy-notice strong { color: #e1a91d; }
 .investment-operation-panel, .investment-history-panel { margin-top: 18px; }
