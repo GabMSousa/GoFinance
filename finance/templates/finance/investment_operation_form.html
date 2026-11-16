@@ -1,7 +1,7 @@
 {% extends 'finance/base.html' %}
 {% block title %}{{ operation_label }}{% endblock %}
 {% block content %}
-<div class="page-heading"><div><p class="eyebrow">Investimentos</p><h1>{{ operation_label }}</h1><p class="page-subtitle">{{ investment.description }} · Saldo atual: R$ {{ investment.current_balance|floatformat:2 }}</p></div></div>
+<div class="page-heading"><div><p class="eyebrow">Investimentos</p><h1>{{ operation_label }}</h1><p class="page-subtitle">{% if investment_label %}{{ investment_label }}{% else %}{{ investment.description }}{% endif %} · Saldo atual: R$ {% if balance_display %}{{ balance_display|floatformat:2 }}{% else %}{{ investment.current_balance|floatformat:2 }}{% endif %}</p></div></div>
 <section class="data-panel investment-operation-panel">
   <div class="panel-heading"><div><h2>Confirmar operação</h2><p>A operação será registrada com saldo anterior e posterior.</p></div></div>
   <div class="p-3">

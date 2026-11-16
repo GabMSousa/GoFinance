@@ -1,9 +1,16 @@
 {% extends 'finance/base.html' %}
 {% block title %}Resgatar saldo{% endblock %}
 {% block content %}
-<div class="page-heading"><div><p class="eyebrow">Investimentos</p><h1>Resgatar saldo</h1><p class="page-subtitle">Escolha a posição de origem para manter o histórico financeiro correto.</p></div></div>
+<div class="page-heading"><div><p class="eyebrow">Investimentos</p><h1>Resgatar saldo</h1><p class="page-subtitle">Caixinhas usam um saldo consolidado; os demais investimentos mantêm sua origem individual.</p></div></div>
 <section class="data-panel investment-operation-panel">
   <div class="panel-heading"><div><h2>Saldo acumulado</h2><p>Disponível para resgate: <strong>R$ {{ balance_total|floatformat:2 }}</strong></p></div></div>
+  {% if caixinha_positions %}
+  <div class="investment-withdrawal-pool">
+    <div><strong>Caixinhas consolidadas</strong><span>{{ caixinha_positions|length }} posição(ões) · saldo distribuído automaticamente</span><small>O histórico de cada caixinha continua preservado.</small></div>
+    <a class="btn btn-outline-warning" href="{% url 'finance:investment_caixinha_withdrawal' %}?year={{ year }}&amp;month={{ month }}">Resgatar caixinhas</a>
+  </div>
+  {% endif %}
+  {% if positions %}
   <div class="p-3">
     <form method="post">
       {% csrf_token %}
@@ -15,5 +22,8 @@
       <div class="mt-4"><button class="btn btn-primary" type="submit">Continuar para o resgate</button> <a class="btn btn-outline-secondary" href="{% url 'finance:investment_list' %}?year={{ year }}&amp;month={{ month }}">Cancelar</a></div>
     </form>
   </div>
+  {% elif not caixinha_positions %}
+  <p class="empty-state p-3">Nenhum investimento ativo disponível para resgate.</p>
+  {% endif %}
 </section>
 {% endblock %}

@@ -1493,9 +1493,11 @@ def investment_list(request):
 def investment_withdrawal(request):
     year, month = investment_selected_period(request)
     positions = investment_scope(request.user).filter(active=True).order_by('description', 'id')
+    caixinha_positions = positions.filter(type=Investment.Type.CAIXINHA)
+    other_positions = positions.exclude(type=Investment.Type.CAIXINHA)
     if request.method == 'POST':
         investment_id = request.POST.get('investment_id')
-        if not positions.filter(pk=investment_id).exists():
+        if not other_positions.filter(pk=investment_id).exists():
             messages.error(request, 'Selecione uma posição ativa para registrar o resgate.')
         else:
             return redirect(
@@ -1503,10 +1505,51 @@ def investment_withdrawal(request):
                 f"?year={year}&month={month}"
             )
     return render(request, 'finance/investment_withdrawal.html', {
-        'positions': positions,
+        'positions': other_positions,
+        'caixinha_positions': caixinha_positions,
         'balance_total': positions.aggregate(total=Sum('current_balance'))['total'] or 0,
         'year': year,
         'month': month,
+    })
+
+
+def investment_caixinha_withdrawal(request):
+    year, month = investment_selected_period(request)
+    positions = investment_scope(request.user).filter(active=True, type=Investment.Type.CAIXINHA).order_by('description', 'id')
+    balance_total = positions.aggregate(total=Sum('current_balance'))['total'] or Decimal('0.00')
+    form = InvestmentOperationForm(request.POST or None, operation_type=InvestmentOperation.OperationType.WITHDRAWAL, initial={'operation_date': localdate()})
+    if request.method == 'POST' and form.is_valid():
+        amount = form.cleaned_data['amount']
+        if amount > balance_total:
+            form.add_error('amount', 'O resgate nÃ£o pode ser maior que o saldo consolidado das caixinhas.')
+        else:
+            remaining = amount
+            reason_type = form.cleaned_data.get('reason_type')
+            reason = WITHDRAWAL_REASON_LABELS.get(reason_type, form.cleaned_data.get('reason', ''))
+            if reason_type == 'OTHER':
+                reason = form.cleaned_data.get('reason_other', '')
+            with db_transaction.atomic():
+                for position in positions.select_for_update():
+                    portion = min(position.current_balance, remaining)
+                    if portion <= 0:
+                        continue
+                    apply_investment_operation(
+                        user=request.user, investment_id=position.pk,
+                        operation_type=InvestmentOperation.OperationType.WITHDRAWAL,
+                        operation_key=uuid.uuid4(), amount=portion,
+                        destination=form.cleaned_data.get('destination'), reason=reason,
+                        notes=form.cleaned_data.get('notes'), occurred_on=form.cleaned_data.get('operation_date'),
+                    )
+                    remaining -= portion
+                    if remaining <= 0:
+                        break
+            messages.success(request, 'Resgate consolidado das caixinhas registrado com sucesso.')
+            return investment_period_redirect(request)
+    return render(request, 'finance/investment_operation_form.html', {
+        'form': form, 'investment': positions.first(),
+        'investment_label': 'Caixinhas (saldo consolidado)', 'balance_display': balance_total,
+        'operation_type': InvestmentOperation.OperationType.WITHDRAWAL,
+        'operation_label': 'Resgatar saldo', 'pool_withdrawal': True,
     })
 
 

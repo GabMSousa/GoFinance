@@ -1008,3 +1008,7 @@ html[data-theme="dark"] #vrReceiptModal .form-control:focus { color: #fff; backg
   .csv-import-intro { padding: 12px; }
 }
  .brand-mark { background: #eef2f7 !important; border-radius: 50% !important; padding: 3px !important; }
+.investment-withdrawal-pool { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin: 0 18px 6px; padding: 16px; border: 1px solid rgba(245, 190, 55, .35); border-radius: 12px; background: rgba(245, 190, 55, .06); }
+.investment-withdrawal-pool div { display: grid; gap: 4px; }
+.investment-withdrawal-pool span, .investment-withdrawal-pool small { color: var(--dashboard-muted); font-size: .8rem; }
+@media (max-width: 700px) { .investment-withdrawal-pool { align-items: stretch; flex-direction: column; } }

@@ -13,7 +13,7 @@
       <div class="investment-position-balance"><span>Saldo atual</span><strong>R$ {{ position.current_balance|floatformat:2 }}</strong></div>
       <span class="badge {% if position.active %}ok{% else %}muted{% endif %}">{% if position.active %}Ativa{% else %}Encerrada{% endif %}</span>
       <div class="investment-row-actions">
-        {% if position.active %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'finance:investment_operation' position.id 'ADJUSTMENT' %}?year={{ year }}&amp;month={{ month }}">Ajustar saldo</a>{% endif %}
+        {% if position.active and position.type != 'CAIXINHA' %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'finance:investment_operation' position.id 'ADJUSTMENT' %}?year={{ year }}&amp;month={{ month }}">Ajustar saldo</a>{% endif %}
         <form method="post" action="{% url 'finance:investment_delete' position.id %}" data-confirm-submit="Apagar este investimento? Esta ação só será concluída se não houver movimentações históricas associadas.">
           {% csrf_token %}
           <button class="btn btn-sm btn-outline-danger" type="submit" aria-label="Apagar {{ position.description }}">Apagar</button>
