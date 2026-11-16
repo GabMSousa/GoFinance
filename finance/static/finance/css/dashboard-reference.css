@@ -796,12 +796,14 @@ html:not([data-theme="dark"]) .movement-account-summary .account-summary-card { 
 .investment-position-balance strong { font-variant-numeric: tabular-nums; }
 .investment-empty-state { padding: 28px 16px !important; }
 .investment-operations-panel .table th, .investment-operations-panel .table td { padding: 11px 14px; }
+.investment-operations-panel tr.investment-entry > td { background-color: rgba(32, 200, 117, .08) !important; }
 .investment-operations-panel tr.investment-entry .investment-operation-type,
-.investment-operations-panel tr.investment-entry .investment-operation-value { color: #20c875; font-weight: 750; }
+.investment-operations-panel tr.investment-entry .investment-operation-value { color: #20c875 !important; font-weight: 750; }
+.investment-operations-panel tr.investment-exit > td { background-color: rgba(255, 92, 108, .09) !important; }
 .investment-operations-panel tr.investment-exit .investment-operation-type,
-.investment-operations-panel tr.investment-exit .investment-operation-value { color: #ff5c6c; font-weight: 750; }
+.investment-operations-panel tr.investment-exit .investment-operation-value { color: #ff5c6c !important; font-weight: 750; }
 .investment-operations-panel tr.investment-adjustment .investment-operation-type,
-.investment-operations-panel tr.investment-adjustment .investment-operation-value { color: #e7b84b; font-weight: 750; }
+.investment-operations-panel tr.investment-adjustment .investment-operation-value { color: #e7b84b !important; font-weight: 750; }
 .investment-legacy-notice { display: flex; flex-direction: column; gap: 4px; margin: 0 0 14px; padding: 11px 16px; border: 1px solid #e1a91d; border-radius: 9px; background: #8b670f61; color: var(--dashboard-muted); font-size: .75rem; }
 .investment-legacy-notice strong { color: #e1a91d; }
 .investment-operation-panel, .investment-history-panel { margin-top: 18px; }
@@ -1015,9 +1017,9 @@ html[data-theme="dark"] #vrReceiptModal .form-control:focus { color: #fff; backg
 }
 @media(max-width:800px){
   .investment-summary-strip { gap: 16px; }
-  .investment-summary-strip > div:nth-child(3) { order: -1; padding: 0 0 14px; border-right: 0; border-bottom: 1px solid var(--border); }
-  .investment-summary-strip > div:nth-child(3) span { font-size: .78rem; font-weight: 700; }
-  .investment-summary-strip > div:nth-child(3) strong { color: var(--accent-dark); font-size: 1.45rem; }
+  .investment-summary-strip > div:first-child { padding: 0 0 14px; border-right: 0; border-bottom: 1px solid var(--border); }
+  .investment-summary-strip > div:first-child span { font-size: .78rem; font-weight: 700; }
+  .investment-summary-strip > div:first-child strong { color: var(--accent-dark); font-size: 1.6rem; }
 }
  .brand-mark { background: #eef2f7 !important; border-radius: 50% !important; padding: 3px !important; }
 .investment-withdrawal-pool { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin: 0 18px 6px; padding: 16px; border: 1px solid rgba(245, 190, 55, .35); border-radius: 12px; background: rgba(245, 190, 55, .06); }

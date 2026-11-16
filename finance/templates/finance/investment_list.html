@@ -3,7 +3,7 @@
 {% block content %}
 <div class="page-heading investment-page-heading"><div><p class="eyebrow">Aplicações</p><h1>Investimentos</h1><p class="page-subtitle">Registre aportes, resgates e ajustes sem misturá-los às despesas comuns.</p></div><div class="investment-page-actions"><a class="btn btn-outline-secondary" href="{% url 'finance:investment_history' %}?year={{ year }}&amp;month={{ month }}">Ver histórico</a><a class="btn btn-primary" href="{% url 'finance:investment_create' %}?year={{ year }}&amp;month={{ month }}">+ Novo investimento</a></div></div>
 {% include 'finance/_period.html' %}
-<div class="summary-strip investment-summary-strip"><div><span>Total aportado no mês</span><strong>R$ {{ month_total|floatformat:2 }}</strong></div><div><span>Posições ativas</span><strong>{{ active_count }}</strong></div><div><span>Saldo aplicado</span><strong>R$ {{ balance_total|floatformat:2 }}</strong></div></div>
+<div class="summary-strip investment-summary-strip"><div><span>Saldo aplicado</span><strong>R$ {{ balance_total|floatformat:2 }}</strong></div><div><span>Total aportado no mês</span><strong>R$ {{ month_total|floatformat:2 }}</strong></div><div><span>Posições ativas</span><strong>{{ active_count }}</strong></div></div>
 <section class="data-panel investment-positions-panel">
   <div class="panel-heading"><div><h2>Posições e ações</h2><p>O saldo aplicado soma somente posições ativas pertencentes ao usuário.</p></div></div>
   <div class="investment-position-list">
