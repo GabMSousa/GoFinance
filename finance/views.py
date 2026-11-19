@@ -804,14 +804,14 @@ def csv_import_preview(request):
     except ValueError as exc:
         messages.error(request, str(exc))
         return redirect('finance:dashboard')
-    invoice_months = sorted({date.fromisoformat(row['invoice_month']) for row in rows})
+    invoice_months = sorted({date.fromisoformat(row['invoice_month']) for row in rows if row.get('invoice_month')})
     paid_bill = CreditCardBill.objects.filter(invoice_month__in=invoice_months, status=CreditCardBill.Status.PAID).order_by('invoice_month').first()
     if paid_bill:
         messages.error(request, f'Esta fatura já foi paga. A fatura de {paid_bill.invoice_month:%m/%Y} precisa ser reaberta antes de importar.')
         return redirect(f"{reverse('finance:dashboard')}?year={paid_bill.invoice_month.year}&month={paid_bill.invoice_month.month}")
     request.session['csv_preview_rows'] = rows
     request.session['csv_preview_months'] = [item.isoformat() for item in invoice_months]
-    preview_month = invoice_months[0] if invoice_months else date.today().replace(day=1)
+    preview_month = invoice_months[0] if invoice_months else date.fromisoformat(rows[0]['purchase_date']).replace(day=1)
     context = period_context(preview_month.year, preview_month.month)
     context.update({'rows': rows, 'invoice_months': invoice_months, 'new_count': sum(not row['duplicate'] for row in rows), 'duplicate_count': sum(row['duplicate'] for row in rows), 'filename': form.cleaned_data['csv_file'].name})
     return render(request, 'finance/import_preview.html', context)
@@ -821,7 +821,7 @@ def csv_import_preview(request):
 def csv_import_confirm(request):
     rows = request.session.get('csv_preview_rows', [])
     month_values = request.session.get('csv_preview_months', [])
-    if not rows or not month_values:
+    if not rows:
         messages.error(request, 'A prévia expirou. Selecione o CSV novamente.')
         return redirect('finance:dashboard')
     invoice_months = [date.fromisoformat(value) for value in month_values]
@@ -842,7 +842,7 @@ def csv_import_confirm(request):
     request.session.pop('csv_preview_rows', None)
     request.session.pop('csv_preview_months', None)
     messages.success(request, f'CSV importado: {created} novos registros, {skipped} duplicados ignorados.')
-    preview_month = invoice_months[0]
+    preview_month = invoice_months[0] if invoice_months else date.fromisoformat(rows[0]['purchase_date']).replace(day=1)
     return redirect(f"{reverse('finance:dashboard')}?year={preview_month.year}&month={preview_month.month}")
 
 
