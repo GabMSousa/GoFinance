@@ -54,7 +54,7 @@ def parse_signed_amount(value):
 
 def parse_date(value):
     raw = str(value or '').strip()
-    for fmt in ('%Y-%m-%d', '%d/%m/%Y', '%Y/%m/%d', '%d-%m-%Y'):
+    for fmt in ('%Y-%m-%d', '%d/%m/%Y', '%d/%m/%y', '%Y/%m/%d', '%d-%m-%Y'):
         try:
             return datetime.strptime(raw, fmt).date()
         except ValueError:
@@ -224,7 +224,7 @@ def preview_csv(content, invoice_month=None):
 def _preview_bank_lines(lines):
     """Convert text lines from a bank statement PDF into transaction rows."""
     money_pattern = re.compile(r'(?P<value>[-(]?\s*(?:R\$\s*)?\d{1,3}(?:(?:\.\d{3})|(?:,\d{3}))*[.,]\d{2}\s*\)?)')
-    date_pattern = re.compile(r'(?P<date>\d{2}/\d{2}/(?:\d{2}|\d{4}))')
+    date_pattern = re.compile(r'(?P<date>\d{2}/\d{2}/(?:\d{4}|\d{2}))')
     rows = []
     for line in lines:
         line = re.sub(r'\s+', ' ', line or '').strip()
