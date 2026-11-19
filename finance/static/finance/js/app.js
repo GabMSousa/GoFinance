@@ -48,6 +48,22 @@ function initSecurityInteractions() {
   });
 }
 
+function initMovementFilterMenu() {
+  const menus = document.querySelectorAll('details.movement-filter-menu');
+  if (!menus.length) return;
+  menus.forEach((menu) => {
+    document.addEventListener('pointerdown', (event) => {
+      if (menu.open && !menu.contains(event.target)) menu.open = false;
+    }, { passive: true });
+    menu.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && menu.open) {
+        menu.open = false;
+        menu.querySelector('summary')?.focus();
+      }
+    });
+  });
+}
+
 function initPurchaseFields() {
   const payment = document.getElementById('id_payment_method');
   const responsible = document.getElementById('id_responsible');
@@ -257,4 +273,4 @@ function initCharts() {
   }
 }
 
-document.addEventListener('DOMContentLoaded', () => { initPurchaseFields(); initPurchasePeriod(); initQuickPurchaseFeedback(); initTheme(); initSecurityInteractions(); initSalaryPaymentMode(); initCharts(); window.addEventListener('sf-theme-change', initCharts); });
+document.addEventListener('DOMContentLoaded', () => { initPurchaseFields(); initPurchasePeriod(); initQuickPurchaseFeedback(); initTheme(); initSecurityInteractions(); initMovementFilterMenu(); initSalaryPaymentMode(); initCharts(); window.addEventListener('sf-theme-change', initCharts); });
