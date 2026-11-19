@@ -1348,6 +1348,24 @@ class BalanceVrInvestmentTests(BaseFinanceTest):
         rows_again = preview_csv(content, date(2026, 10, 1))
         self.assertTrue(all(row['duplicate'] for row in rows_again))
 
+    def test_santander_statement_with_preamble_imports_bank_movements(self):
+        content = (
+            'Extrato de conta corrente\n'
+            'Cliente;Joao\n'
+            'Lançamentos:\n'
+            'Data;Descrição;Detalhe;Valor;Saldo\n'
+            '13/11/2026;Pix enviado;Mercado;-R$ 110,35;R$ 0,00\n'
+            '13/11/2026;Pix recebido;Salário;R$ 975,48;R$ 975,48\n'
+        )
+        rows = preview_csv(content)
+        self.assertEqual(len(rows), 2)
+        self.assertTrue(all(row['record_type'] == 'transaction' for row in rows))
+        self.assertEqual(rows[0]['type'], Transaction.Type.EXPENSE)
+        self.assertEqual(rows[1]['type'], Transaction.Type.REVENUE)
+        from .importers import import_preview_rows
+        self.assertEqual(import_preview_rows(rows), (2, 0))
+        self.assertEqual(Transaction.objects.filter(description__startswith='Pix').count(), 2)
+
     def test_csv_preview_preserves_repeated_purchases_inside_same_file(self):
         content = (
             'DATE,DESCRIPTION,AMOUNT\n'

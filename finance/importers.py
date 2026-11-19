@@ -9,16 +9,18 @@ from decimal import Decimal, InvalidOperation
 from django.db.models import Q
 from django.db import transaction
 
-from .models import Category, CreditCardExpense, Person
+from .models import Category, CreditCardExpense, Person, Transaction
 from .services import invoice_month_for_purchase, sync_card_vr
 
 csv.field_size_limit(1024 * 1024)
 
 
 ALIASES = {
-    'date': {'date', 'data', 'transactiondate', 'purchasedate'},
-    'description': {'description', 'descricao', 'descrição', 'title', 'titulo', 'merchant', 'name'},
-    'amount': {'amount', 'valor', 'value', 'total'},
+    'date': {'date', 'data', 'transactiondate', 'purchasedate', 'datamovimento', 'datadolancamento'},
+    'description': {'description', 'descricao', 'descrição', 'title', 'titulo', 'merchant', 'name', 'historico', 'histórico', 'lancamento', 'movimento'},
+    'detail': {'detail', 'detalhe', 'complemento', 'memo', 'observacao', 'observação'},
+    'amount': {'amount', 'valor', 'value', 'total', 'transactionamount', 'valorlancamento', 'debit', 'debito', 'credit', 'credito'},
+    'balance': {'balance', 'saldo', 'runningbalance', 'saldofinal'},
     'vr_amount': {'vr', 'vramount', 'valerefeicao', 'voucher'},
     'installment': {'installment', 'parcela', 'parcelas'},
 }
@@ -36,6 +38,18 @@ def parse_amount(value):
     elif ',' in raw:
         raw = raw.replace(',', '.')
     return abs(Decimal(raw).quantize(Decimal('0.01')))
+
+
+def parse_signed_amount(value):
+    raw = str(value or '').strip().replace('R$', '').replace(' ', '')
+    negative = raw.startswith('-') or raw.startswith('(') or raw.upper().endswith(('D', 'DR'))
+    raw = raw.strip('()').rstrip('DdRr')
+    if ',' in raw and '.' in raw:
+        raw = raw.replace('.', '').replace(',', '.')
+    elif ',' in raw:
+        raw = raw.replace(',', '.')
+    amount = Decimal(raw).quantize(Decimal('0.01'))
+    return -abs(amount) if negative else abs(amount)
 
 
 def parse_date(value):
@@ -87,35 +101,95 @@ def _field_map(fieldnames):
     return result
 
 
+def _decode_csv(content):
+    if isinstance(content, bytes):
+        for encoding in ('utf-8-sig', 'cp1252', 'latin-1'):
+            try:
+                return content.decode(encoding)
+            except UnicodeDecodeError:
+                continue
+        return content.decode('utf-8-sig', errors='replace')
+    return str(content)
+
+
+def _csv_rows_with_header(content):
+    """Read CSVs with preambles, BOMs and common bank delimiters."""
+    text = _decode_csv(content)
+    lines = [line for line in text.splitlines() if line.strip()]
+    if not lines:
+        raise ValueError('O arquivo CSV está vazio.')
+    candidates = []
+    for delimiter in (';', '\t', ','):
+        for index, line in enumerate(lines):
+            fields = next(csv.reader([line], delimiter=delimiter), [])
+            mapped = _field_map(fields)
+            if {'date', 'description', 'amount'} <= set(mapped):
+                candidates.append((index, delimiter))
+                break
+    if not candidates:
+        raise ValueError('Não encontrei um cabeçalho com colunas de data, descrição e valor no CSV.')
+    header_index, delimiter = min(candidates, key=lambda item: item[0])
+    reader = csv.DictReader(io.StringIO('\n'.join(lines[header_index:])), delimiter=delimiter)
+    return reader, _field_map(reader.fieldnames)
+
+
+def _bank_description(raw, fields):
+    description = (raw.get(fields['description']) or '').strip()
+    detail = (raw.get(fields.get('detail', '')) or '').strip() if fields.get('detail') else ''
+    if detail and normalize(detail) != normalize(description):
+        description = f'{description} - {detail}'
+    return description[:180]
+
+
+def _payment_method_for_bank(description):
+    normalized = normalize(description)
+    if 'pix' in normalized:
+        return Transaction.PaymentMethod.PIX
+    return Transaction.PaymentMethod.DEBIT
+
+
 def preview_csv(content, invoice_month=None):
     if hasattr(content, 'read'):
         content = content.read()
-    if isinstance(content, bytes):
-        content = content.decode('utf-8-sig', errors='replace')
-    reader = csv.DictReader(io.StringIO(content))
-    fields = _field_map(reader.fieldnames)
-    missing = [name for name in ('date', 'description', 'amount') if name not in fields]
-    if missing:
-        raise ValueError(f'Colunas obrigatórias ausentes: {", ".join(missing)}')
+    reader, fields = _csv_rows_with_header(content)
+    bank_statement = 'balance' in fields or 'detail' in fields
     rows = []
     occurrences = {}
     for row_number, raw in enumerate(reader, start=2):
         if row_number > 10000:
             raise ValueError('O arquivo CSV excede o limite de 10.000 linhas.')
-        description = (raw.get(fields['description']) or '').strip()
+        description = _bank_description(raw, fields)
         if not description:
             continue
         normalized_description = normalize(description)
-        if any(word in normalized_description for word in ('pagamentorecebido', 'pagamentodefatura', 'estorno')):
+        if bank_statement and any(word in normalized_description for word in ('abertura', 'saldoinicial', 'saldoanterior', 'encerramento')):
             continue
         try:
             purchase_date = parse_date(raw.get(fields['date']))
-            amount = parse_amount(raw.get(fields['amount']))
+            signed_amount = parse_signed_amount(raw.get(fields['amount']))
+            amount = abs(signed_amount)
+            if not amount:
+                continue
             vr_amount = parse_amount(raw.get(fields['vr_amount'])) if fields.get('vr_amount') else Decimal('0.00')
             if vr_amount > amount:
                 raise ValueError('O valor de VR não pode ser maior que o total da compra.')
         except (ValueError, InvalidOperation) as exc:
             raise ValueError(f'Linha inválida para {description}: {exc}') from exc
+        if bank_statement:
+            fingerprint = hashlib.sha256(f'bank|{purchase_date.isoformat()}|{normalized_description}|{signed_amount:.2f}'.encode('utf-8')).hexdigest()
+            transaction_type = Transaction.Type.REVENUE if signed_amount > 0 else Transaction.Type.EXPENSE
+            existing = Transaction.objects.filter(date=purchase_date, amount=amount, type=transaction_type)
+            duplicate = any(normalize(item.description) == normalized_description for item in existing)
+            rows.append({
+                'record_type': 'transaction', 'purchase_date': purchase_date.isoformat(),
+                'description': description, 'amount': str(amount), 'signed_amount': str(signed_amount),
+                'type': transaction_type, 'payment_method': _payment_method_for_bank(description),
+                'category': category_for(description), 'duplicate': duplicate, 'duplicate_reason': '',
+                'import_hash': fingerprint, 'occurrence': 1,
+            })
+            continue
+        if any(word in normalized_description for word in ('pagamentorecebido', 'pagamentodefatura', 'estorno')):
+            continue
         current, total = installment_for(description, raw.get(fields.get('installment', ''), ''))
         # A data do CSV pertence à fatura importada; parcelas novas avançam no cadastro manual.
         row_invoice_month = invoice_month_for_purchase(purchase_date)
@@ -155,6 +229,23 @@ def import_preview_rows(rows, invoice_month=None, source_name='CSV'):
     person, _ = Person.objects.get_or_create(name='Eu', defaults={'active': True})
     created = skipped = 0
     for row in rows:
+        if row.get('record_type') == 'transaction':
+            purchase_date = date.fromisoformat(row['purchase_date'])
+            amount = Decimal(row['amount'])
+            matching = Transaction.objects.filter(date=purchase_date, amount=amount, type=row['type'], payment_method=row['payment_method'])
+            if row.get('duplicate') or any(normalize(item.description) == normalize(row['description']) for item in matching):
+                skipped += 1
+                continue
+            person = Person.objects.get_or_create(name='Eu', defaults={'active': True})[0]
+            Transaction.objects.create(
+                date=purchase_date, description=row['description'], category=category_map.get(row['category']),
+                type=row['type'], payment_method=row['payment_method'], amount=amount,
+                paid=row['type'] == Transaction.Type.EXPENSE, received=row['type'] == Transaction.Type.REVENUE,
+                person=person, revenue_type=Transaction.RevenueType.OTHER if row['type'] == Transaction.Type.REVENUE else '',
+                notes=f'{source_name}; importado automaticamente do extrato CSV.',
+            )
+            created += 1
+            continue
         import_hash = row['import_hash']
         purchase_date = date.fromisoformat(row['purchase_date'])
         current, total = int(row['current_installment']), int(row['total_installments'])
