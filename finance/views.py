@@ -52,7 +52,7 @@ from .forms import (
 from .investment_radar import get_investment_radar
 from .models import Category, CreditCardBill, CreditCardExpense, FinancialProfile, FixedExpense, Goal, Investment, InvestmentOperation, Person, SalarySnapshot, Transaction, UserSecurityProfile, VRMovement
 from .ownership import reset_current_user, set_current_user
-from .importers import import_preview_rows, normalize, preview_csv
+from .importers import import_preview_rows, normalize, preview_statement
 from .reporting import build_financial_pdf
 from .portable import MAX_IMPORT_BYTES, build_export, import_snapshot
 from .services import VR_COMPETENCE_LAG_MONTHS, add_months, apply_investment_operation, card_expenses_for_period, investment_scope, invoice_month_for_installment, invoice_month_for_purchase, month_bounds, month_datetime_bounds, monthly_summary, money_sum, split_installment_values, sync_card_vr, sync_transaction_vr, third_party_by_person, to_decimal, transactions_for_display_period, vr_balance_for_date, vr_credit_for_month, vr_receipt_exists, vr_movements_for_display_period
@@ -800,7 +800,8 @@ def csv_import_preview(request):
         messages.error(request, 'Selecione um CSV válido.')
         return redirect('finance:dashboard')
     try:
-        rows = preview_csv(form.cleaned_data['csv_file'])
+        uploaded = form.cleaned_data['csv_file']
+        rows = preview_statement(uploaded, uploaded.name)
     except ValueError as exc:
         messages.error(request, str(exc))
         return redirect('finance:dashboard')

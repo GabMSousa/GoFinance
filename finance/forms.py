@@ -438,15 +438,19 @@ class CardBillPaymentForm(BootstrapMixin, forms.Form):
 
 
 class CsvImportForm(BootstrapMixin, forms.Form):
-    csv_file = forms.FileField(label='Arquivo CSV')
+    csv_file = forms.FileField(label='Arquivo CSV ou PDF')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['csv_file'].widget.attrs['accept'] = '.csv,.pdf'
 
     def clean_csv_file(self):
         uploaded = self.cleaned_data['csv_file']
-        if uploaded.size > 5 * 1024 * 1024:
+        if uploaded.size > 10 * 1024 * 1024:
             raise forms.ValidationError('O arquivo CSV deve ter no máximo 5 MB.')
-        if not uploaded.name.lower().endswith('.csv'):
+        if not uploaded.name.lower().endswith(('.csv', '.pdf')):
             raise forms.ValidationError('Envie um arquivo com extensão .csv.')
-        allowed_types = {'text/csv', 'application/csv', 'text/plain', ''}
+        allowed_types = {'text/csv', 'application/csv', 'text/plain', 'application/pdf', 'application/octet-stream', ''}
         if uploaded.content_type not in allowed_types:
             raise forms.ValidationError('O arquivo enviado não foi reconhecido como CSV.')
         return uploaded

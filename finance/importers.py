@@ -221,6 +221,77 @@ def preview_csv(content, invoice_month=None):
     return rows
 
 
+def _preview_bank_lines(lines):
+    """Convert text lines from a bank statement PDF into transaction rows."""
+    money_pattern = re.compile(r'(?P<value>[-(]?\s*(?:R\$\s*)?\d{1,3}(?:(?:\.\d{3})|(?:,\d{3}))*[.,]\d{2}\s*\)?)')
+    date_pattern = re.compile(r'(?P<date>\d{2}/\d{2}/(?:\d{2}|\d{4}))')
+    rows = []
+    for line in lines:
+        line = re.sub(r'\s+', ' ', line or '').strip()
+        date_match = date_pattern.search(line)
+        if not date_match:
+            continue
+        try:
+            movement_date = parse_date(date_match.group('date'))
+        except ValueError:
+            continue
+        rest = line[date_match.end():].strip(' -|')
+        money_match = money_pattern.search(rest)
+        if not money_match:
+            continue
+        description = rest[:money_match.start()].strip(' -|')[:180]
+        if not description:
+            continue
+        normalized_description = normalize(description)
+        if any(word in normalized_description for word in ('abertura', 'saldoinicial', 'saldoanterior', 'encerramento')):
+            continue
+        try:
+            signed_amount = parse_signed_amount(money_match.group('value'))
+        except (ValueError, InvalidOperation):
+            continue
+        if not signed_amount:
+            continue
+        amount = abs(signed_amount)
+        transaction_type = Transaction.Type.REVENUE if signed_amount > 0 else Transaction.Type.EXPENSE
+        existing = Transaction.objects.filter(date=movement_date, amount=amount, type=transaction_type)
+        duplicate = any(normalize(item.description) == normalized_description for item in existing)
+        fingerprint = hashlib.sha256(f'bank-pdf|{movement_date.isoformat()}|{normalized_description}|{signed_amount:.2f}'.encode('utf-8')).hexdigest()
+        rows.append({
+            'record_type': 'transaction', 'purchase_date': movement_date.isoformat(),
+            'description': description, 'amount': str(amount), 'signed_amount': str(signed_amount),
+            'type': transaction_type, 'payment_method': _payment_method_for_bank(description),
+            'category': category_for(description), 'duplicate': duplicate, 'duplicate_reason': '',
+            'import_hash': fingerprint, 'occurrence': 1,
+        })
+    return rows
+
+
+def preview_pdf(content):
+    """Extract text-based bank statement PDFs; scanned PDFs need OCR first."""
+    try:
+        from pypdf import PdfReader
+    except ImportError as exc:
+        raise ValueError('A importação de PDF precisa da dependência pypdf instalada.') from exc
+    if hasattr(content, 'read'):
+        content = content.read()
+    try:
+        reader = PdfReader(io.BytesIO(content))
+        text = '\n'.join(page.extract_text() or '' for page in reader.pages)
+    except Exception as exc:
+        raise ValueError(f'Não foi possível ler o PDF do extrato: {exc}') from exc
+    rows = _preview_bank_lines(text.splitlines())
+    if not rows:
+        raise ValueError('O PDF não contém texto de movimentações reconhecível. Use um PDF pesquisável ou exporte o extrato em CSV.')
+    return rows
+
+
+def preview_statement(content, filename=''):
+    """Dispatch CSV/PDF import while preserving the existing CSV card flow."""
+    if str(filename or '').lower().endswith('.pdf'):
+        return preview_pdf(content)
+    return preview_csv(content)
+
+
 @transaction.atomic
 def import_preview_rows(rows, invoice_month=None, source_name='CSV'):
     category_map = {item.name: item for item in Category.objects.all()}

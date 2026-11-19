@@ -12,7 +12,7 @@ from django.urls import reverse
 
 from .models import Category, CreditCardBill, CreditCardExpense, FinancialProfile, FixedExpense, Investment, InvestmentOperation, Person, SalarySnapshot, Transaction, UserSecurityProfile, VRMovement
 from .forms import InvestmentForm, QuickExpenseForm
-from .importers import preview_csv
+from .importers import preview_csv, preview_pdf
 from .investment_radar import _annualize_daily, _compound_monthly
 from .services import apply_investment_operation, invoice_month_for_installment, invoice_month_for_purchase, monthly_summary, split_installment_values, transactions_for_display_period, vr_balance_for_date, vr_movements_for_display_period
 from .views import DuplicateExpenseError, create_card_installments, default_open_period
@@ -1365,6 +1365,18 @@ class BalanceVrInvestmentTests(BaseFinanceTest):
         from .importers import import_preview_rows
         self.assertEqual(import_preview_rows(rows), (2, 0))
         self.assertEqual(Transaction.objects.filter(description__startswith='Pix').count(), 2)
+
+    def test_text_pdf_statement_creates_bank_movement_preview(self):
+        from io import BytesIO
+        from reportlab.pdfgen import canvas
+        stream = BytesIO()
+        document = canvas.Canvas(stream)
+        document.drawString(40, 780, '13/11/2026 Pix enviado Mercado -R$ 110,35 R$ 0,00')
+        document.save()
+        rows = preview_pdf(stream.getvalue())
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]['type'], Transaction.Type.EXPENSE)
+        self.assertEqual(rows[0]['amount'], '110.35')
 
     def test_csv_preview_preserves_repeated_purchases_inside_same_file(self):
         content = (
