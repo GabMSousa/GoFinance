@@ -419,7 +419,7 @@ class FinancialProfileForm(BootstrapModelForm):
             'salary_gross', 'salary_net', 'previous_net_salary',
             'salary_advance_amount', 'salary_advance_day',
             'salary_settlement_day', 'salary_competence_lag_months',
-            'vr_monthly_credit', 'vr_credit_day',
+            'vr_monthly_credit', 'vr_credit_day', 'receives_vr',
             'credit_card_due_day', 'primary_bank',
         ]
 

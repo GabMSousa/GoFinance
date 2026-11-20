@@ -306,6 +306,7 @@ class FinancialProfile(UserOwnedModel):
     vr_monthly_credit = models.DecimalField('Crédito mensal de VR', max_digits=12, decimal_places=2, default=0)
     vr_credit_day = models.PositiveSmallIntegerField('Dia do crédito de VR', default=1)
     credit_card_due_day = models.PositiveSmallIntegerField('Dia de vencimento do cartão', default=10)
+    receives_vr = models.BooleanField('Recebe VR', default=True)
     primary_bank = models.CharField('Banco principal', max_length=120, blank=True, default='')
     updated_at = models.DateTimeField('Atualizado em', auto_now=True)
 

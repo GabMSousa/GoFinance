@@ -521,6 +521,7 @@ def dashboard(request, purchase_form=None, period=None):
     year, month = period or selected_period(request)
     request.session['dashboard_period'] = [year, month]
     summary = monthly_summary(year, month)
+    financial_profile = FinancialProfile.current(request.user)
     search = request.GET.get('q', '').strip()
     category_id = request.GET.get('category', '')
     payment = request.GET.get('payment', '')
@@ -648,7 +649,7 @@ def dashboard(request, purchase_form=None, period=None):
         'investment_radar': get_investment_radar(),
         'bill_payment_form': CardBillPaymentForm(initial={'amount': to_decimal(summary['card_invoice']), 'paid_at': localdate()}),
         'csv_form': CsvImportForm(),
-        'vr_receipt_required': not vr_receipt_exists(year, month),
+        'vr_receipt_required': financial_profile.receives_vr and not vr_receipt_exists(year, month),
         'vr_receipt_period': selected_vr_period,
         'vr_receipt_form': VRReceiptForm(initial={
             'reference_month': form_receipt.date.replace(day=1) if form_receipt else add_months(selected_vr_period, -VR_COMPETENCE_LAG_MONTHS),
