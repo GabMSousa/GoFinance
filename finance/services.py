@@ -456,7 +456,6 @@ def monthly_summary(year, month):
     vr = VRMovement.objects.filter(date__range=(previous_start, previous_end))
 
     explicit_revenues = tx.filter(type=Transaction.Type.REVENUE)
-    explicit_salary = explicit_revenues.filter(revenue_type=Transaction.RevenueType.SALARY).exists()
     profile = financial_profile_for_month(year, month)
     salary_lag = SALARY_COMPETENCE_LAG_MONTHS
     salary_competence = add_months(date(year, month, 1), -salary_lag)
@@ -477,7 +476,14 @@ def monthly_summary(year, month):
         )
         salary_settlement = max(salary_net - salary_advance, ZERO)
     opening_balance = to_decimal(getattr(profile, 'opening_balance', 0))
-    automatic_salary = ZERO if explicit_salary else salary_net
+    salary_recorded = money_sum(
+        explicit_revenues.filter(revenue_type=Transaction.RevenueType.SALARY),
+        'amount',
+    )
+    # The configured salary is a projection. Manual salary receipts replace
+    # that projection progressively, so an advance does not make the rest of
+    # the monthly salary disappear and a full receipt is never duplicated.
+    automatic_salary = max(salary_net - salary_recorded, ZERO)
     revenues = money_sum(explicit_revenues, 'amount') + automatic_salary
     reimbursements_tx = money_sum(
         tx.filter(type=Transaction.Type.REIMBURSEMENT, received=True),
@@ -560,6 +566,8 @@ def monthly_summary(year, month):
     return {
         'revenues': revenues,
         'salary_net': salary_net,
+        'salary_recorded': salary_recorded,
+        'salary_pending': automatic_salary,
         'salary_payment_mode': salary_mode,
         'salary_advance': salary_advance,
         'salary_settlement': salary_settlement,

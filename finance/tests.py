@@ -11,7 +11,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from .models import Category, CreditCardBill, CreditCardExpense, FinancialProfile, FixedExpense, Investment, InvestmentOperation, Person, SalarySnapshot, Transaction, UserSecurityProfile, VRMovement
-from .forms import InvestmentForm, QuickExpenseForm
+from .forms import InvestmentForm, QuickExpenseForm, VRReceiptForm
 from .importers import preview_csv, preview_pdf
 from .investment_radar import _annualize_daily, _compound_monthly
 from .services import apply_investment_operation, invoice_month_for_installment, invoice_month_for_purchase, monthly_summary, split_installment_values, transactions_for_display_period, vr_balance_for_date, vr_movements_for_display_period
@@ -65,6 +65,46 @@ class UserDataIsolationTests(TestCase):
 
 
 class RevenueExpenseTests(BaseFinanceTest):
+    def test_partial_manual_salary_is_completed_without_duplication(self):
+        FinancialProfile.objects.create(salary_net=Decimal('2751.20'))
+        Transaction.objects.create(
+            date=date(2026, 11, 15),
+            description='Adiantamento salarial',
+            type=Transaction.Type.REVENUE,
+            revenue_type=Transaction.RevenueType.SALARY,
+            payment_method=Transaction.PaymentMethod.PIX,
+            amount=Decimal('1200.00'),
+            paid=True,
+            person=self.me,
+        )
+
+        summary = monthly_summary(2026, 11)
+
+        self.assertEqual(summary['salary_recorded'], Decimal('1200.00'))
+        self.assertEqual(summary['salary_pending'], Decimal('1551.20'))
+        self.assertEqual(summary['automatic_salary'], Decimal('1551.20'))
+        self.assertEqual(summary['revenues'], Decimal('2751.20'))
+
+    def test_full_manual_salary_replaces_automatic_salary(self):
+        FinancialProfile.objects.create(salary_net=Decimal('2751.20'))
+        Transaction.objects.create(
+            date=date(2026, 11, 5),
+            description='Salário integral',
+            type=Transaction.Type.REVENUE,
+            revenue_type=Transaction.RevenueType.SALARY,
+            payment_method=Transaction.PaymentMethod.PIX,
+            amount=Decimal('2751.20'),
+            paid=True,
+            person=self.me,
+        )
+
+        summary = monthly_summary(2026, 11)
+
+        self.assertEqual(summary['salary_recorded'], Decimal('2751.20'))
+        self.assertEqual(summary['salary_pending'], Decimal('0.00'))
+        self.assertEqual(summary['automatic_salary'], Decimal('0.00'))
+        self.assertEqual(summary['revenues'], Decimal('2751.20'))
+
     def test_revenue_increases_balance(self):
         Transaction.objects.create(
             date=self.today,
@@ -221,6 +261,10 @@ class ThirdPartyAndReimbursementTests(BaseFinanceTest):
 
 
 class VRTests(BaseFinanceTest):
+    def test_vr_receipt_date_initial_value_is_compatible_with_html_date_input(self):
+        form = VRReceiptForm(initial={'received_at': date(2026, 11, 20)})
+        self.assertEqual(form['received_at'].value(), '2026-11-20')
+
     def test_full_salary_mode_receives_salary_without_advance_split(self):
         FinancialProfile.objects.create(
             salary_net=Decimal('3000.00'),
@@ -1365,6 +1409,10 @@ class BalanceVrInvestmentTests(BaseFinanceTest):
         from .importers import import_preview_rows
         self.assertEqual(import_preview_rows(rows), (2, 0))
         self.assertEqual(Transaction.objects.filter(description__startswith='Pix').count(), 2)
+        self.assertEqual(
+            Transaction.objects.get(description__startswith='Pix recebido').revenue_type,
+            Transaction.RevenueType.SALARY,
+        )
 
     def test_text_pdf_statement_creates_bank_movement_preview(self):
         from io import BytesIO

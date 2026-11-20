@@ -148,6 +148,18 @@ def _payment_method_for_bank(description):
     return Transaction.PaymentMethod.DEBIT
 
 
+def _revenue_type_for_bank(description):
+    """Classify salary deposits so they replace, rather than add to, the fallback salary."""
+    normalized = normalize(description)
+    salary_terms = (
+        'salario', 'folha', 'provento', 'ordenado',
+        'adiantamentosalarial', 'pagamentosalarial',
+    )
+    if any(term in normalized for term in salary_terms):
+        return Transaction.RevenueType.SALARY
+    return Transaction.RevenueType.OTHER
+
+
 def preview_csv(content, invoice_month=None):
     if hasattr(content, 'read'):
         content = content.read()
@@ -312,7 +324,8 @@ def import_preview_rows(rows, invoice_month=None, source_name='CSV'):
                 date=purchase_date, description=row['description'], category=category_map.get(row['category']),
                 type=row['type'], payment_method=row['payment_method'], amount=amount,
                 paid=row['type'] == Transaction.Type.EXPENSE, received=row['type'] == Transaction.Type.REVENUE,
-                person=person, revenue_type=Transaction.RevenueType.OTHER if row['type'] == Transaction.Type.REVENUE else '',
+                person=person,
+                revenue_type=_revenue_type_for_bank(row['description']) if row['type'] == Transaction.Type.REVENUE else '',
                 notes=f'{source_name}; importado automaticamente do extrato CSV.',
             )
             created += 1
