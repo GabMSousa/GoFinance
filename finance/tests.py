@@ -65,6 +65,18 @@ class UserDataIsolationTests(TestCase):
 
 
 class RevenueExpenseTests(BaseFinanceTest):
+    def test_bank_deposit_matching_configured_salary_is_classified(self):
+        FinancialProfile.objects.create(
+            salary_net=Decimal('2751.20'),
+            salary_advance_amount=Decimal('1200.00'),
+        )
+        from .importers import _revenue_type_for_bank
+
+        self.assertEqual(
+            _revenue_type_for_bank('Transferencia recebida', Decimal('1200.00')),
+            Transaction.RevenueType.SALARY,
+        )
+
     def test_partial_manual_salary_is_completed_without_duplication(self):
         FinancialProfile.objects.create(salary_net=Decimal('2751.20'))
         Transaction.objects.create(

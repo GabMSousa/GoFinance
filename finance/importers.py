@@ -9,7 +9,7 @@ from decimal import Decimal, InvalidOperation
 from django.db.models import Q
 from django.db import transaction
 
-from .models import Category, CreditCardExpense, Person, Transaction
+from .models import Category, CreditCardExpense, FinancialProfile, Person, Transaction
 from .services import invoice_month_for_purchase, sync_card_vr
 
 csv.field_size_limit(1024 * 1024)
@@ -148,7 +148,7 @@ def _payment_method_for_bank(description):
     return Transaction.PaymentMethod.DEBIT
 
 
-def _revenue_type_for_bank(description):
+def _revenue_type_for_bank(description, amount=None):
     """Classify salary deposits so they replace, rather than add to, the fallback salary."""
     normalized = normalize(description)
     salary_terms = (
@@ -157,6 +157,17 @@ def _revenue_type_for_bank(description):
     )
     if any(term in normalized for term in salary_terms):
         return Transaction.RevenueType.SALARY
+    if amount is not None:
+        profile = FinancialProfile.objects.first()
+        if profile:
+            net = Decimal(profile.salary_net or 0).quantize(Decimal('0.01'))
+            advance = Decimal(profile.salary_advance_amount or 0).quantize(Decimal('0.01'))
+            candidates = {value for value in (net, advance, net - advance) if value > 0}
+            try:
+                if Decimal(str(amount)).quantize(Decimal('0.01')) in candidates:
+                    return Transaction.RevenueType.SALARY
+            except (InvalidOperation, ValueError):
+                pass
     return Transaction.RevenueType.OTHER
 
 
@@ -325,7 +336,7 @@ def import_preview_rows(rows, invoice_month=None, source_name='CSV'):
                 type=row['type'], payment_method=row['payment_method'], amount=amount,
                 paid=row['type'] == Transaction.Type.EXPENSE, received=row['type'] == Transaction.Type.REVENUE,
                 person=person,
-                revenue_type=_revenue_type_for_bank(row['description']) if row['type'] == Transaction.Type.REVENUE else '',
+                revenue_type=_revenue_type_for_bank(row['description'], amount) if row['type'] == Transaction.Type.REVENUE else '',
                 notes=f'{source_name}; importado automaticamente do extrato CSV.',
             )
             created += 1
