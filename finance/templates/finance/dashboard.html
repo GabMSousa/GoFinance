@@ -1,6 +1,11 @@
 {% extends 'finance/base.html' %}
 {% block title %}Início{% endblock %}
 {% block content %}
+<style>
+  .dashboard-summary .summary-balance .negative-balance {
+    color: #e85018 !important;
+  }
+</style>
 <div class="home-heading dashboard-heading">
   <div>
     <p class="eyebrow">Visão do mês</p>
@@ -16,7 +21,7 @@
 {% if bill and bill.is_paid %}<div class="alert alert-success py-2">Fatura de {{ month_name }} paga em {{ bill.paid_at|date:'d/m/Y' }} · R$ {{ bill.amount|floatformat:2 }}</div>{% endif %}
 
 <section class="summary-grid home-summary dashboard-summary">
-  <article class="summary-card summary-balance"><div class="summary-card-content"><span class="summary-icon summary-icon-card" aria-hidden="true"></span><div><div class="summary-label">Saldo</div><div class="summary-value">R$ {{ summary.final_balance|floatformat:2 }}</div></div></div></article>
+  <article class="summary-card summary-balance"><div class="summary-card-content"><span class="summary-icon summary-icon-card" aria-hidden="true"></span><div><div class="summary-label">Saldo</div><div class="summary-value {% if summary.final_balance < 0 %}negative-balance{% endif %}">R$ {{ summary.final_balance|floatformat:2 }}</div></div></div></article>
   <article class="summary-card summary-receipts"><div class="summary-card-content"><span class="summary-icon summary-icon-income" aria-hidden="true"></span><div><div class="summary-label">Receitas</div><div class="summary-value">R$ {{ summary.revenues|floatformat:2 }}</div></div></div></article>
   <article class="summary-card summary-expenses"><div class="summary-card-content"><span class="summary-icon summary-icon-expense" aria-hidden="true"></span><div><div class="summary-label">Despesas</div><div class="summary-value">R$ {{ summary.expenses|floatformat:2 }}</div></div></div></article>
   <article class="summary-card summary-receivable" aria-label="Valor a receber"><div class="summary-card-content"><span class="summary-icon summary-icon-receivable" aria-hidden="true"></span><div><div class="summary-label">A receber</div><div class="summary-value">R$ {{ summary.third_party_pending|floatformat:2 }}</div></div></div></article>
@@ -29,6 +34,7 @@
   <button class="btn btn-sm btn-accent" type="submit">Pesquisar</button><span class="search-count">{{ movements|length }}</span>
 </form>
 
+<form class="dashboard-sort-form mb-3" method="get" aria-label="Ordenar movimentações"><input type="hidden" name="year" value="{{ year }}"><input type="hidden" name="month" value="{{ month }}"><input type="hidden" name="q" value="{{ search }}"><input type="hidden" name="category" value="{{ category_id }}"><input type="hidden" name="date" value="{{ date_filter }}"><input type="hidden" name="payment" value="{{ payment }}"><input type="hidden" name="person" value="{{ person_filter }}"><label class="d-flex align-items-center gap-2">Ordenar por<select class="form-select form-select-sm" name="order" onchange="this.form.submit()"><option value="date_desc" {% if order == 'date_desc' %}selected{% endif %}>Mais recentes</option><option value="amount_desc" {% if order == 'amount_desc' %}selected{% endif %}>Maior valor</option><option value="amount_asc" {% if order == 'amount_asc' %}selected{% endif %}>Menor valor</option></select></label></form>
 <div class="home-layout dashboard-layout"><div class="home-main">
   <section class="data-panel movement-panel">
     <div class="panel-heading movement-panel-heading"><div><h2>Últimas movimentações</h2><p>Movimentações mais recentes da sua conta.</p></div><div class="account-summary movement-account-summary"><div class="account-summary-fixed"><span>Fixas pendentes</span><strong>R$ {{ summary.fixed_pending|floatformat:2 }}</strong></div><div class="account-summary-card"><span>Fatura do cartão</span><strong>R$ {{ summary.card_invoice|floatformat:2 }}</strong></div></div></div>
@@ -58,7 +64,7 @@
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header"><div><p class="eyebrow mb-1">Controle automático</p><h2 class="modal-title" id="vrReceiptTitle">Recebimento mensal do VR</h2></div><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-      <div class="modal-body"><p class="text-muted">Informe o valor realmente recebido no mês. O crédito será registrado uma única vez e entrará no saldo disponível.</p><form method="post" action="{% url 'finance:vr_receipt_create' %}">{% csrf_token %}<div class="mb-3">{{ vr_receipt_form.reference_month.label_tag }}{{ vr_receipt_form.reference_month }}</div><div class="mb-3">{{ vr_receipt_form.amount.label_tag }}{{ vr_receipt_form.amount }}</div><div class="mb-3">{{ vr_receipt_form.received_at.label_tag }}{{ vr_receipt_form.received_at }}</div><button class="btn btn-accent w-100" type="submit">Registrar recebimento</button></form></div>
+      <div class="modal-body"><p class="text-muted">Informe o valor realmente recebido no mês. O crédito será registrado uma única vez e entrará no saldo disponível.</p><form method="post" action="{% url 'finance:vr_receipt_create' %}">{% csrf_token %}<div class="mb-3">{{ vr_receipt_form.reference_month.label_tag }}{{ vr_receipt_form.reference_month }}{{ vr_receipt_form.reference_month.errors }}</div><div class="mb-3">{{ vr_receipt_form.amount.label_tag }}{{ vr_receipt_form.amount }}{{ vr_receipt_form.amount.errors }}</div><div class="mb-3">{{ vr_receipt_form.received_at.label_tag }}{{ vr_receipt_form.received_at }}{{ vr_receipt_form.received_at.errors }}</div>{% for error in vr_receipt_form.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}<button class="btn btn-accent w-100" type="submit">Registrar recebimento</button></form></div>
     </div>
   </div>
 </div>

@@ -690,7 +690,11 @@ class VRReceiptForm(forms.Form):
     )
     received_at = forms.DateField(
         label='Data do recebimento',
-        widget=forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+        widget=forms.DateInput(
+            format='%Y-%m-%d',
+            attrs={'type': 'date', 'class': 'form-control'},
+        ),
+        input_formats=['%Y-%m-%d', '%d/%m/%Y'],
     )
 
     def clean_reference_month(self):

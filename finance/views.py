@@ -477,6 +477,13 @@ def create_card_installments(data, amount_key='amount'):
 
 def create_transaction_installments(data, amount_key='amount'):
     """Create non-card installments without ever creating a card invoice."""
+    payment_method = data.get('payment_method')
+    if payment_method == Transaction.PaymentMethod.CREDIT_CARD:
+        raise ValidationError(
+            'Parcelas de cartão devem ser criadas pelo fluxo de compras no cartão.'
+        )
+    if payment_method == Transaction.PaymentMethod.VR:
+        raise ValidationError('O Vale Refeição não pode ser parcelado.')
     total = to_decimal(data[amount_key])
     count = int(data.get('total_installments') or data.get('installment_total') or 1)
     values = split_installment_values(total, count)
@@ -527,6 +534,9 @@ def dashboard(request, purchase_form=None, period=None):
     payment = request.GET.get('payment', '')
     person_filter = request.GET.get('person', '')
     date_filter = request.GET.get('date', '').strip()
+    order = request.GET.get('order', 'date_desc')
+    if order not in {'date_desc', 'amount_desc', 'amount_asc'}:
+        order = 'date_desc'
     tx_qs = transactions_for_display_period(year, month).select_related('category', 'person')
     card_qs = card_expenses_for_period(year, month).select_related('category', 'person')
     if search:
@@ -584,7 +594,12 @@ def dashboard(request, purchase_form=None, period=None):
             'vr_amount': item.vr_amount,
             'card_amount': item.amount,
         })
-    movements.sort(key=lambda item: item['date'], reverse=True)
+    if order == 'amount_desc':
+        movements.sort(key=lambda item: (item['amount'], item['date']), reverse=True)
+    elif order == 'amount_asc':
+        movements.sort(key=lambda item: (item['amount'], item['date']))
+    else:
+        movements.sort(key=lambda item: item['date'], reverse=True)
     vr_movement_indexes = [index for index, item in enumerate(movements) if item.get('uses_vr')]
     balance = summary['opening_balance'] + summary['revenues']
     balance_points = [{'label': '01/' + f'{month:02d}', 'value': float(balance)}]
@@ -635,6 +650,7 @@ def dashboard(request, purchase_form=None, period=None):
         'payment': payment,
         'person_filter': person_filter,
         'date_filter': date_filter,
+        'order': order,
         'vr_movement_indexes': vr_movement_indexes,
         'purchase_form': purchase_form or QuickExpenseForm(initial={'date': purchase_initial_date(year, month), 'installment_total': 1, 'vr_amount': 0}),
         'purchase_form_has_errors': bool(purchase_form and purchase_form.errors),
@@ -1048,6 +1064,13 @@ def transaction_list(request):
         qs = qs.filter(person_id=request.GET['person'])
     if request.GET.get('type'):
         qs = qs.filter(type=request.GET['type'])
+    order = request.GET.get('order', 'date_desc')
+    if order == 'amount_desc':
+        qs = qs.order_by('-amount', '-date', '-id')
+    elif order == 'amount_asc':
+        qs = qs.order_by('amount', '-date', '-id')
+    else:
+        qs = qs.order_by('-date', '-id')
     context = period_context(year, month)
     context.update({
         'items': qs,
@@ -1138,9 +1161,11 @@ def revenue_list(request):
         type__in=[Transaction.Type.REVENUE, Transaction.Type.REIMBURSEMENT],
     ).select_related('category', 'person')
     context = period_context(year, month)
+    summary = monthly_summary(year, month)
     context.update({
         'items': items,
-        'total': money_sum(items.filter(type=Transaction.Type.REVENUE), 'amount'),
+        'total': summary['revenues'],
+        'salary_summary': summary,
         'previous_net': '2.299,00',
         'new_gross': '3.000,00',
     })
@@ -1297,13 +1322,20 @@ def card_list(request):
         items = items.filter(person__name__iexact='Eu')
     elif person_filter == 'other':
         items = items.exclude(person__name__iexact='Eu')
+    order = request.GET.get('order', 'date_desc')
+    if order == 'amount_desc':
+        items = items.order_by('-amount', '-date', '-id')
+    elif order == 'amount_asc':
+        items = items.order_by('amount', '-date', '-id')
+    else:
+        items = items.order_by('-date', '-id')
     summary = monthly_summary(year, month)
     next_month = add_months(date(year, month, 1), 1)
     next_commitment = money_sum(card_expenses_for_period(next_month.year, next_month.month), 'amount')
     context = period_context(year, month)
     distinct_items = items.distinct()
     item_list = list(distinct_items)
-    context.update({'items': distinct_items, 'vr_card_indexes': [index for index, item in enumerate(item_list) if item.vr_amount > 0], 'vr_card_details': [{'total': str(item.movement_total), 'vr': str(item.vr_amount), 'card': str(item.amount)} for item in item_list], 'summary': summary, 'next_commitment': next_commitment, 'person_filter': person_filter, 'search': search, 'report_start': month_bounds(year, month)[0], 'report_end': month_bounds(year, month)[1]})
+    context.update({'items': distinct_items, 'vr_card_indexes': [index for index, item in enumerate(item_list) if item.vr_amount > 0], 'vr_card_details': [{'total': str(item.movement_total), 'vr': str(item.vr_amount), 'card': str(item.amount)} for item in item_list], 'summary': summary, 'next_commitment': next_commitment, 'person_filter': person_filter, 'search': search, 'order': order, 'report_start': month_bounds(year, month)[0], 'report_end': month_bounds(year, month)[1]})
     return render(request, 'finance/card_list.html', context)
 
 

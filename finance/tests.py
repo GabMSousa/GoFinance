@@ -15,7 +15,7 @@ from .forms import InvestmentForm, QuickExpenseForm, VRReceiptForm
 from .importers import preview_csv, preview_pdf
 from .investment_radar import _annualize_daily, _compound_monthly
 from .services import apply_investment_operation, invoice_month_for_installment, invoice_month_for_purchase, monthly_summary, split_installment_values, transactions_for_display_period, vr_balance_for_date, vr_movements_for_display_period
-from .views import DuplicateExpenseError, create_card_installments, default_open_period
+from .views import DuplicateExpenseError, create_card_installments, create_transaction_installments, default_open_period
 from .ownership import reset_current_user, set_current_user
 from .portable import build_export, import_snapshot
 
@@ -1653,6 +1653,27 @@ class BillingCycleTests(BaseFinanceTest):
         self.assertEqual(installments.count(), 8)
         self.assertEqual(sum(item.amount for item in installments), Decimal('500.00'))
         self.assertEqual(monthly_summary(2026, 11)['card_invoice'], Decimal('0.00'))
+
+    def test_apple_watch_debit_installments_stay_out_of_card_invoice(self):
+        created = create_transaction_installments({
+            'date': date(2026, 12, 8), 'description': 'Apple Watch',
+            'category': self.food, 'person': self.me, 'amount': Decimal('600.00'),
+            'payment_method': Transaction.PaymentMethod.DEBIT,
+            'total_installments': 4,
+        })
+        self.assertEqual([(item.installment_current, item.installment_total) for item in created], [(1, 4), (2, 4), (3, 4), (4, 4)])
+        self.assertEqual([item.date for item in created], [date(2026, 12, 8), date(2027, 1, 8), date(2027, 2, 8), date(2027, 3, 8)])
+        self.assertTrue(all(item.payment_method == Transaction.PaymentMethod.DEBIT for item in created))
+        self.assertEqual(monthly_summary(2026, 12)['card_invoice'], Decimal('0.00'))
+
+    def test_non_card_installment_service_rejects_credit_card(self):
+        with self.assertRaises(ValidationError):
+            create_transaction_installments({
+                'date': date(2026, 12, 8), 'description': 'Cartão indevido',
+                'category': self.food, 'person': self.me, 'amount': Decimal('100.00'),
+                'payment_method': Transaction.PaymentMethod.CREDIT_CARD,
+                'total_installments': 1,
+            })
 
     def test_invoice_payment_and_undo_do_not_create_or_change_purchases(self):
         item = create_card_installments({

@@ -36,6 +36,7 @@
   </div>
   <div class="col-md-1"><button class="btn btn-outline-secondary w-100">Filtrar</button></div>
 </form>
+<form method="get" class="mb-3 d-flex justify-content-end align-items-center gap-2" aria-label="Ordenar lançamentos"><input type="hidden" name="month" value="{{ month }}"><input type="hidden" name="year" value="{{ year }}"><input type="hidden" name="q" value="{{ filters.q }}"><input type="hidden" name="category" value="{{ filters.category }}"><input type="hidden" name="payment" value="{{ filters.payment }}"><input type="hidden" name="person" value="{{ filters.person }}"><input type="hidden" name="type" value="{{ filters.type }}"><label class="mb-0">Ordenar por <select class="form-select form-select-sm d-inline-block w-auto" name="order" onchange="this.form.submit()"><option value="date_desc" {% if filters.order == 'date_desc' or not filters.order %}selected{% endif %}>Mais recentes</option><option value="amount_desc" {% if filters.order == 'amount_desc' %}selected{% endif %}>Maior valor</option><option value="amount_asc" {% if filters.order == 'amount_asc' %}selected{% endif %}>Menor valor</option></select></label></form>
 <div class="table-responsive">
   <table class="table table-hover align-middle">
     <thead>

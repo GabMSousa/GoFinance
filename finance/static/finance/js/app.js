@@ -126,6 +126,42 @@ function initPurchaseFields() {
   sync();
 }
 
+function initReceivableQuickAction() {
+  const choices = document.getElementById('addChoices');
+  const purchasePanel = document.getElementById('purchaseFormPanel');
+  if (!choices || !purchasePanel || choices.querySelector('[data-receivable-choice]')) return;
+
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'quick-option';
+  button.dataset.receivableChoice = 'true';
+  button.dataset.bsTarget = '#purchaseFormPanel';
+  button.dataset.bsToggle = 'collapse';
+  button.innerHTML = '<strong>A receber</strong><span>Despesa paga para outra pessoa</span>';
+  choices.appendChild(button);
+
+  const revenueChoice = choices.querySelector('[data-bs-target="#revenueFormPanel"] span');
+  if (revenueChoice) revenueChoice.textContent = 'Dinheiro já recebido';
+
+  button.addEventListener('click', () => {
+    const responsible = document.getElementById('id_responsible');
+    const reimbursable = document.getElementById('id_reimbursable');
+    if (responsible) {
+      responsible.value = 'OTHER';
+      responsible.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    if (reimbursable) reimbursable.checked = true;
+    const submit = purchasePanel.querySelector('button[type="submit"]');
+    if (submit) submit.textContent = 'Salvar valor a receber';
+  });
+  choices.querySelectorAll('button:not([data-receivable-choice])').forEach((other) => {
+    other.addEventListener('click', () => {
+      const submit = purchasePanel.querySelector('button[type="submit"]');
+      if (submit) submit.textContent = 'Salvar compra';
+    });
+  });
+}
+
 function initPurchasePeriod() {
   const form = document.querySelector('#purchaseFormPanel form');
   if (!form) return;
@@ -273,4 +309,4 @@ function initCharts() {
   }
 }
 
-document.addEventListener('DOMContentLoaded', () => { initPurchaseFields(); initPurchasePeriod(); initQuickPurchaseFeedback(); initTheme(); initSecurityInteractions(); initMovementFilterMenu(); initSalaryPaymentMode(); initCharts(); window.addEventListener('sf-theme-change', initCharts); });
+document.addEventListener('DOMContentLoaded', () => { initReceivableQuickAction(); initPurchaseFields(); initPurchasePeriod(); initQuickPurchaseFeedback(); initTheme(); initSecurityInteractions(); initMovementFilterMenu(); initSalaryPaymentMode(); initCharts(); window.addEventListener('sf-theme-change', initCharts); });
