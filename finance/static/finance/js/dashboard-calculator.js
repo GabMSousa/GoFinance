@@ -13,35 +13,13 @@
 
   function render(value) {
     if (value === 'Erro' || value.endsWith(',')) {
-      display.textContent = value;
+      display.value = value;
       return;
     }
     const numeric = Number(value.replace(',', '.'));
-    display.textContent = value.length > 16 && Number.isFinite(numeric)
+    display.value = value.length > 16 && Number.isFinite(numeric)
       ? numeric.toLocaleString('pt-BR', { useGrouping: false, maximumFractionDigits: 2 })
       : value;
-  }
-
-  function clipboardValue() {
-    return display.textContent === 'Erro' ? '' : display.textContent;
-  }
-
-  async function copyValue() {
-    const value = clipboardValue();
-    if (!value) return;
-    try {
-      await navigator.clipboard.writeText(value);
-    } catch (error) {
-      const helper = document.createElement('textarea');
-      helper.value = value;
-      helper.setAttribute('readonly', '');
-      helper.style.position = 'fixed';
-      helper.style.opacity = '0';
-      document.body.appendChild(helper);
-      helper.select();
-      document.execCommand('copy');
-      helper.remove();
-    }
   }
 
   function parseClipboard(value) {
@@ -52,18 +30,6 @@
       : clean;
     const numeric = Number(normalized);
     return Number.isFinite(numeric) ? String(numeric).replace('.', ',') : null;
-  }
-
-  async function pasteValue() {
-    try {
-      const parsed = parseClipboard(await navigator.clipboard.readText());
-      if (parsed === null) return;
-      current = parsed;
-      waitingForOperand = false;
-      render(current);
-    } catch (error) {
-      display.focus?.();
-    }
   }
 
   function calculate(left, right, sign) {
@@ -150,13 +116,6 @@
   });
 
   root.addEventListener('click', function (event) {
-    const clipboardButton = event.target.closest('[data-calculator-clipboard]');
-    if (clipboardButton) {
-      event.preventDefault();
-      if (clipboardButton.dataset.calculatorClipboard === 'copy') copyValue();
-      else pasteValue();
-      return;
-    }
     const button = event.target.closest('[data-calculator-key]');
     if (!button) return;
     event.preventDefault();
@@ -170,16 +129,12 @@
     else if (action === 'percent') percent();
   });
 
-  document.addEventListener('keydown', function (event) {
-    if (!root.classList.contains('is-open')) return;
-    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'c') {
-      event.preventDefault();
-      copyValue();
-      return;
-    }
-    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'v') {
-      event.preventDefault();
-      pasteValue();
-    }
+  root.addEventListener('paste', function (event) {
+    const parsed = parseClipboard(event.clipboardData?.getData('text') || '');
+    if (parsed === null) return;
+    event.preventDefault();
+    current = parsed;
+    waitingForOperand = false;
+    render(current);
   });
 }());

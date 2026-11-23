@@ -182,10 +182,9 @@ body:has(.dashboard-heading) {
   font-weight: 300;
   font-variant-numeric: tabular-nums;
   text-align: right;
+  outline: none;
+  font-family: inherit;
 }
-.dashboard-calculator-tools { display: flex; justify-content: flex-end; gap: 6px; }
-.dashboard-calculator-tool { border: 1px solid #4b4b4f; border-radius: 7px; background: transparent; color: #c9c9cc; padding: 4px 8px; font: inherit; font-size: .68rem; cursor: pointer; }
-.dashboard-calculator-tool:hover,.dashboard-calculator-tool:focus-visible { color: #fff; border-color: #ff9f0a; outline: none; }
 .dashboard-calculator-keys { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; }
 .dashboard-calculator-key {
   min-height: 48px;
