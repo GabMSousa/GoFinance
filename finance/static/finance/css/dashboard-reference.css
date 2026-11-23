@@ -168,10 +168,11 @@ body:has(.dashboard-heading) {
 }
 
 .dashboard-calculator.is-open .dashboard-calculator-panel { display: block; }
+.dashboard-calculator-display-row { display: grid; gap: 6px; margin-bottom: 14px; }
 .dashboard-calculator-display {
   width: 100%;
   min-height: 74px;
-  margin-bottom: 14px;
+  margin-bottom: 0;
   padding: 8px 12px;
   border: 0;
   border-radius: 10px;
@@ -182,6 +183,9 @@ body:has(.dashboard-heading) {
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
+.dashboard-calculator-tools { display: flex; justify-content: flex-end; gap: 6px; }
+.dashboard-calculator-tool { border: 1px solid #4b4b4f; border-radius: 7px; background: transparent; color: #c9c9cc; padding: 4px 8px; font: inherit; font-size: .68rem; cursor: pointer; }
+.dashboard-calculator-tool:hover,.dashboard-calculator-tool:focus-visible { color: #fff; border-color: #ff9f0a; outline: none; }
 .dashboard-calculator-keys { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; }
 .dashboard-calculator-key {
   min-height: 48px;

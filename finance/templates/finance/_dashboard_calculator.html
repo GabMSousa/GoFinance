@@ -1,7 +1,13 @@
 {% load static %}
 <aside class="dashboard-calculator" data-dashboard-calculator data-darkreader-ignore aria-label="Calculadora rápida">
   <div class="dashboard-calculator-panel" id="dashboard-calculator-panel" data-calculator-panel>
-    <output class="dashboard-calculator-display" data-calculator-display aria-live="polite">0</output>
+    <div class="dashboard-calculator-display-row">
+      <output class="dashboard-calculator-display" data-calculator-display aria-live="polite">0</output>
+      <div class="dashboard-calculator-tools" role="group" aria-label="Área de transferência">
+        <button class="dashboard-calculator-tool" type="button" data-calculator-clipboard="copy">Copiar</button>
+        <button class="dashboard-calculator-tool" type="button" data-calculator-clipboard="paste">Colar</button>
+      </div>
+    </div>
     <div class="dashboard-calculator-keys">
       <button class="dashboard-calculator-key dashboard-calculator-key--function" type="button" data-calculator-key="clear">AC</button>
       <button class="dashboard-calculator-key dashboard-calculator-key--function" type="button" data-calculator-key="sign">+/-</button>
