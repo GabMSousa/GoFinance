@@ -1426,6 +1426,30 @@ class BalanceVrInvestmentTests(BaseFinanceTest):
             Transaction.RevenueType.SALARY,
         )
 
+    def test_bank_csv_with_separate_debit_and_credit_columns(self):
+        content = (
+            'Data;Descri\u00e7\u00e3o;D\u00e9bito;Cr\u00e9dito;Saldo\n'
+            '13/11/2026;Pix enviado;110,35;;0,00\n'
+            '13/11/2026;Sal\u00e1rio;;975,48;975,48\n'
+        )
+        rows = preview_csv(content)
+        self.assertEqual([row['signed_amount'] for row in rows], ['-110.35', '975.48'])
+        self.assertEqual([row['type'] for row in rows], [Transaction.Type.EXPENSE, Transaction.Type.REVENUE])
+
+    def test_card_invoice_pdf_is_imported_as_card_expenses(self):
+        from io import BytesIO
+        from reportlab.pdfgen import canvas
+
+        stream = BytesIO()
+        document = canvas.Canvas(stream)
+        document.drawString(40, 780, '13/11/2026 Mercado Condor 110,35')
+        document.save()
+
+        rows = preview_pdf(stream.getvalue(), card_statement=True)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]['record_type'], 'card')
+        self.assertEqual(rows[0]['invoice_month'], '2026-12-01')
+
     def test_text_pdf_statement_creates_bank_movement_preview(self):
         from io import BytesIO
         from reportlab.pdfgen import canvas

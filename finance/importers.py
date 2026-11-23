@@ -19,7 +19,9 @@ ALIASES = {
     'date': {'date', 'data', 'transactiondate', 'purchasedate', 'datamovimento', 'datadolancamento'},
     'description': {'description', 'descricao', 'descrição', 'title', 'titulo', 'merchant', 'name', 'historico', 'histórico', 'lancamento', 'movimento'},
     'detail': {'detail', 'detalhe', 'complemento', 'memo', 'observacao', 'observação'},
-    'amount': {'amount', 'valor', 'value', 'total', 'transactionamount', 'valorlancamento', 'debit', 'debito', 'credit', 'credito'},
+    'amount': {'amount', 'valor', 'value', 'total', 'transactionamount', 'valorlancamento'},
+    'debit_amount': {'debit', 'debito', 'debitamount', 'valordebito'},
+    'credit_amount': {'credit', 'credito', 'creditamount', 'valorcredito'},
     'balance': {'balance', 'saldo', 'runningbalance', 'saldofinal'},
     'vr_amount': {'vr', 'vramount', 'valerefeicao', 'voucher'},
     'installment': {'installment', 'parcela', 'parcelas'},
@@ -123,7 +125,9 @@ def _csv_rows_with_header(content):
         for index, line in enumerate(lines):
             fields = next(csv.reader([line], delimiter=delimiter), [])
             mapped = _field_map(fields)
-            if {'date', 'description', 'amount'} <= set(mapped):
+            if {'date', 'description'} <= set(mapped) and (
+                'amount' in mapped or 'debit_amount' in mapped or 'credit_amount' in mapped
+            ):
                 candidates.append((index, delimiter))
                 break
     if not candidates:
@@ -139,6 +143,19 @@ def _bank_description(raw, fields):
     if detail and normalize(detail) != normalize(description):
         description = f'{description} - {detail}'
     return description[:180]
+
+
+def _signed_csv_amount(raw, fields):
+    """Read one value or separate credit/debit columns from bank exports."""
+    if fields.get('amount'):
+        return parse_signed_amount(raw.get(fields['amount']))
+    credit = (raw.get(fields.get('credit_amount', '')) or '').strip()
+    debit = (raw.get(fields.get('debit_amount', '')) or '').strip()
+    if credit and parse_amount(credit):
+        return parse_amount(credit)
+    if debit and parse_amount(debit):
+        return -parse_amount(debit)
+    return Decimal('0.00')
 
 
 def _payment_method_for_bank(description):
@@ -189,7 +206,7 @@ def preview_csv(content, invoice_month=None):
             continue
         try:
             purchase_date = parse_date(raw.get(fields['date']))
-            signed_amount = parse_signed_amount(raw.get(fields['amount']))
+            signed_amount = _signed_csv_amount(raw, fields)
             amount = abs(signed_amount)
             if not amount:
                 continue
@@ -244,7 +261,7 @@ def preview_csv(content, invoice_month=None):
     return rows
 
 
-def _preview_bank_lines(lines):
+def _preview_bank_lines(lines, card_statement=False):
     """Convert text lines from a bank statement PDF into transaction rows."""
     money_pattern = re.compile(r'(?P<value>[-(]?\s*(?:R\$\s*)?\d{1,3}(?:(?:\.\d{3})|(?:,\d{3}))*[.,]\d{2}\s*\)?)')
     date_pattern = re.compile(r'(?P<date>\d{2}/\d{2}/(?:\d{4}|\d{2}))')
@@ -275,6 +292,27 @@ def _preview_bank_lines(lines):
         if not signed_amount:
             continue
         amount = abs(signed_amount)
+        if card_statement:
+            current, total = installment_for(description)
+            invoice_month = invoice_month_for_purchase(movement_date)
+            fingerprint = import_hash(movement_date, description, amount, current, total, invoice_month)
+            existing = CreditCardExpense.objects.filter(
+                purchase_date=movement_date,
+                amount=amount,
+                current_installment=current,
+                total_installments=total,
+            )
+            duplicate = any(normalize(item.description) == normalized_description for item in existing)
+            rows.append({
+                'record_type': 'card',
+                'purchase_date': movement_date.isoformat(), 'description': description,
+                'amount': str(amount), 'vr_amount': '0.00',
+                'current_installment': current, 'total_installments': total,
+                'invoice_month': invoice_month.isoformat(), 'category': category_for(description),
+                'duplicate': duplicate, 'duplicate_reason': '',
+                'import_hash': fingerprint, 'occurrence': 1,
+            })
+            continue
         transaction_type = Transaction.Type.REVENUE if signed_amount > 0 else Transaction.Type.EXPENSE
         existing = Transaction.objects.filter(date=movement_date, amount=amount, type=transaction_type)
         duplicate = any(normalize(item.description) == normalized_description for item in existing)
@@ -289,8 +327,8 @@ def _preview_bank_lines(lines):
     return rows
 
 
-def preview_pdf(content):
-    """Extract text-based bank statement PDFs; scanned PDFs need OCR first."""
+def preview_pdf(content, card_statement=False):
+    """Extract text-based bank/card PDFs; scanned PDFs need OCR first."""
     try:
         from pypdf import PdfReader
     except ImportError as exc:
@@ -302,7 +340,7 @@ def preview_pdf(content):
         text = '\n'.join(page.extract_text() or '' for page in reader.pages)
     except Exception as exc:
         raise ValueError(f'Não foi possível ler o PDF do extrato: {exc}') from exc
-    rows = _preview_bank_lines(text.splitlines())
+    rows = _preview_bank_lines(text.splitlines(), card_statement=card_statement)
     if not rows:
         raise ValueError('O PDF não contém texto de movimentações reconhecível. Use um PDF pesquisável ou exporte o extrato em CSV.')
     return rows
@@ -311,7 +349,9 @@ def preview_pdf(content):
 def preview_statement(content, filename=''):
     """Dispatch CSV/PDF import while preserving the existing CSV card flow."""
     if str(filename or '').lower().endswith('.pdf'):
-        return preview_pdf(content)
+        normalized_name = normalize(filename)
+        card_statement = any(term in normalized_name for term in ('fatura', 'cartao', 'creditcard'))
+        return preview_pdf(content, card_statement=card_statement)
     return preview_csv(content)
 
 
