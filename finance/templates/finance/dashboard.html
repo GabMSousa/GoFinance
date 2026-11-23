@@ -3,7 +3,7 @@
 {% block content %}
 <style>
   .dashboard-summary .summary-balance .negative-balance {
-    color: #e85018 !important;
+    color: #5f0e18 !important;
   }
 </style>
 <div class="home-heading dashboard-heading">
@@ -21,7 +21,7 @@
 {% if bill and bill.is_paid %}<div class="alert alert-success py-2">Fatura de {{ month_name }} paga em {{ bill.paid_at|date:'d/m/Y' }} · R$ {{ bill.amount|floatformat:2 }}</div>{% endif %}
 
 <section class="summary-grid home-summary dashboard-summary">
-  <article class="summary-card summary-balance"><div class="summary-card-content"><span class="summary-icon summary-icon-card" aria-hidden="true"></span><div><div class="summary-label">Saldo</div><div class="summary-value {% if summary.final_balance < 0 %}negative-balance{% endif %}">R$ {{ summary.final_balance|floatformat:2 }}</div></div></div></article>
+  <article class="summary-card summary-balance"><div class="summary-card-content"><span class="summary-icon summary-icon-card" aria-hidden="true"></span><div><div class="summary-label">{% if summary.final_balance < 0 %}Saldo negativo{% else %}Saldo{% endif %}</div><div class="summary-value {% if summary.final_balance < 0 %}negative-balance{% endif %}">R$ {{ summary.final_balance|floatformat:2 }}</div></div></div></article>
   <article class="summary-card summary-receipts"><div class="summary-card-content"><span class="summary-icon summary-icon-income" aria-hidden="true"></span><div><div class="summary-label">Receitas</div><div class="summary-value">R$ {{ summary.revenues|floatformat:2 }}</div></div></div></article>
   <article class="summary-card summary-expenses"><div class="summary-card-content"><span class="summary-icon summary-icon-expense" aria-hidden="true"></span><div><div class="summary-label">Despesas</div><div class="summary-value">R$ {{ summary.expenses|floatformat:2 }}</div></div></div></article>
   <article class="summary-card summary-receivable" aria-label="Valor a receber"><div class="summary-card-content"><span class="summary-icon summary-icon-receivable" aria-hidden="true"></span><div><div class="summary-label">A receber</div><div class="summary-value">R$ {{ summary.third_party_pending|floatformat:2 }}</div></div></div></article>
